@@ -77,6 +77,30 @@ Cost, the currency display and sensors can be changed later under **Configure**.
 (your name at the bottom of the sidebar → Profile → **Date format**). It defaults to your profile language's
 format, so English (US) shows month-day-year; choose **Day-Month-Year** there for dd/mm/yyyy.
 
+## Dashboard card
+
+BatteryLedger installs its own dashboard card; there's nothing extra to download or add as a resource. Edit a
+dashboard, add a card and pick **BatteryLedger**, then choose the setup if you have more than one. In YAML:
+
+```yaml
+type: custom:battery-ledger-card
+entry_id: <optional; the first setup is used if left out>
+```
+
+The card has four sections:
+- **Warranty:** two rings show how much of the warranty is used by time elapsed and by throughput. The larger
+  one is the warranty driver. Below are cycles per day and the warranty end date.
+- **Throughput:** remaining rated throughput counts down, with a marker for what's projected to be left when
+  the warranty ends.
+- **Cost:** cost consumed to date, remaining value, and cost per kWh, rated and projected.
+- **Health:** your battery's reported state of health against the warranty curve (Estimated Usable
+  Capacity, what the warranty allows at this age and usage), on a scale from the end-of-warranty capacity
+  to 100%. The hardware capacity check and module figures are shown when available.
+
+Tap any figure to open its sensor. Admins see a cog at the top right of the card. It opens the card
+settings: decimal places for cost per kWh, and which sections to show. The settings are saved for each
+BatteryLedger setup, so the card looks the same on every dashboard and device.
+
 ## Sensors
 
 Entity IDs are `sensor.battery_ledger_<name>`. A second BatteryLedger setup gets `_2` on the end, and so on.

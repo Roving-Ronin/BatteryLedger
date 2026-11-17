@@ -25,7 +25,7 @@ plant counter.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 
 DAYS_PER_YEAR = 365.25
 LOW_CONFIDENCE_DAYS = 30
@@ -147,6 +147,9 @@ class GroupResult:
     source: str = "plant"  # "plant" (shared counter) or "modules"
     modules: dict[str, float] = field(default_factory=dict)  # module ID -> fraction of its limit used
     module_kwh: dict[str, float] = field(default_factory=dict)
+    warranty_years: float = 0.0
+    eol_pct: float = 0.0
+    warranty_end: date | None = None
 
     def as_attributes(self) -> dict:
         return {
@@ -161,6 +164,9 @@ class GroupResult:
             "time_elapsed_pct": _r(_pct(self.time_fraction), 2),
             "warranty_floor_pct": _r(self.floor_pct, 1),
             "warranty_floor_kwh": _r(self.floor_usable_kwh, 2),
+            "warranty_years": self.warranty_years,
+            "warranty_end_date": self.warranty_end.isoformat() if self.warranty_end else None,
+            "end_of_warranty_capacity_pct": self.eol_pct,
             "driver": self.driver,
             "status": self.status,
             "energy_source": self.source,
@@ -309,7 +315,9 @@ def compute(inp: LedgerInput) -> LedgerResult:
             floor_pct=floor_pct, initial_usable_kwh=initial,
             floor_usable_kwh=initial * floor_pct / 100, projected_kwh=projected,
             driver=driver, status=status, source="modules" if by_module else "plant",
-            modules=modules, module_kwh=dict(g.module_kwh) if by_module else {}))
+            modules=modules, module_kwh=dict(g.module_kwh) if by_module else {},
+            warranty_years=w["years"], eol_pct=eol,
+            warranty_end=g.install_date + timedelta(days=round(warranty_days))))
 
     limited = [r for r in results if r.limit_kwh is not None]
     limit_total = sum(r.limit_kwh for r in limited) if limited else None

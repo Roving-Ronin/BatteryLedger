@@ -7,6 +7,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_track_time_interval
@@ -25,6 +26,7 @@ from .const import (
     SENSOR_KEY_RENAMES_1_2,
     STORE_REFRESH_INTERVAL,
 )
+from .card import async_register_card, async_remove_card_settings
 from .runtime import LedgerRuntime
 from .store_client import StoreIndex, async_get_store_index
 
@@ -32,7 +34,15 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.SENSOR]
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
 type BatteryLedgerConfigEntry = ConfigEntry[LedgerRuntime]
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Load the BatteryLedger dashboard card in the frontend."""
+    await async_register_card(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: BatteryLedgerConfigEntry) -> bool:
@@ -132,6 +142,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: BatteryLedgerConfigEntr
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     for issue_id in _issue_ids_for(hass, entry.entry_id):
         ir.async_delete_issue(hass, DOMAIN, issue_id)
+    await async_remove_card_settings(hass, entry.entry_id)
 
 
 def _loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:

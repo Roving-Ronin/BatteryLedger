@@ -1,12 +1,17 @@
 {
   "domain": "battery_ledger",
   "name": "BatteryLedger",
+  "after_dependencies": [
+    "frontend",
+    "http"
+  ],
   "codeowners": [
     "@Roving-Ronin"
   ],
   "config_flow": true,
   "dependencies": [
-    "repairs"
+    "repairs",
+    "websocket_api"
   ],
   "documentation": "https://github.com/Roving-Ronin/BatteryLedger",
   "integration_type": "service",

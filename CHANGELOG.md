@@ -4,7 +4,30 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
-## v0.1.4 (unreleased)
+## v0.1.5 (unreleased)
+
+### TL;DR
+- New BatteryLedger dashboard card, installed with the integration: warranty use, throughput, cost and health
+- The card compares your battery's actual SoH with what the warranty allows today
+- Card settings (cost per kWh decimal places, sections shown) from the cog on the card
+
+### Added
+- BatteryLedger card (`custom:battery-ledger-card`), served and loaded by the integration, so there's
+  nothing extra to install or add as a dashboard resource. Pick it from the card list and choose the
+  setup. Sections:
+  - Warranty: rings for warranty by time elapsed and by throughput used, the warranty driver, cycles per
+    day and the warranty end date.
+  - Throughput: remaining rated throughput counting down, with a marker for what's projected to be left
+    when the warranty ends.
+  - Cost: cost consumed to date, remaining value, and cost per kWh (rated and projected).
+  - Health: the battery's reported SoH against the warranty curve (Estimated Usable Capacity) between the
+    end-of-warranty capacity and 100%, plus the hardware capacity check and module figures where available.
+  Tapping a figure opens its sensor. Admins change the card settings with the cog; they're saved by
+  BatteryLedger for each setup, so every dashboard and device shows the same.
+- Rated Throughput Used's `groups` attribute gives each group's `warranty_years`, `warranty_end_date` and
+  `end_of_warranty_capacity_pct`.
+
+## v0.1.4 (2026-11-17)
 
 ### TL;DR
 - Model is now chosen after the brand, and only lists that brand's models
