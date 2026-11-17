@@ -1,9 +1,13 @@
 {
   "domain": "battery_ledger",
   "name": "BatteryLedger",
-  "codeowners": ["@Roving-Ronin"],
+  "codeowners": [
+    "@Roving-Ronin"
+  ],
   "config_flow": true,
-  "dependencies": ["repairs"],
+  "dependencies": [
+    "repairs"
+  ],
   "documentation": "https://github.com/Roving-Ronin/BatteryLedger",
   "integration_type": "service",
   "iot_class": "calculated",
