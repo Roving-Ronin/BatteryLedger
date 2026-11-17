@@ -1,6 +1,6 @@
 name: Feature request
 description: Suggest an idea for the BatteryLedger integration
-labels: ['type/feature']
+labels: ['enhancement']
 body:
   - type: markdown
     attributes:
