@@ -18,6 +18,8 @@ credit where there is one.
   Inverter or Energy Manager
 - Bundled Store list adds GoodWe batteries, with sensors from the GoodWe integration (ET-family hybrids) or
   Energy Manager
+- Bundled Store list adds BYD Battery-Box Premium and Fronius Reserva, with sensors from redpomodoro's BYD Battery
+  Box or Fronius Modbus integrations, or Energy Manager
 
 ### Changed
 - Card: the settings cog is at the bottom right, on the same row as the hardware capacity check (on its own
@@ -48,6 +50,12 @@ credit where there is one.
 - Huawei Solar (wlcrs) profile v2: uses the EMMA's site-wide battery totals and rated ESS capacity (or a
   SmartLogger's, with its state of health) before a single inverter's Batteries device, so a cascaded stack of up
   to 3 inverters is tracked as one system.
+- Bundled Store list: BYD Battery-Box Premium HVS (2-5 modules) and HVM (3-8 modules), Australia, 60% EOL with
+  throughput tables per tower; Fronius Reserva (2-5 modules, 70%) and Reserva Pro (3-8 modules, 75%), Australia and
+  New Zealand, throughput tables per tower from Fronius's battery warranty (EN_0326, country group 3).
+- Sensor profiles: redpomodoro's BYD Battery Box (battery BMS: lifetime charge and discharge, total capacity, state of
+  health) and Fronius Modbus (GEN24 storage charging and discharging lifetime energy, storage capacity). The core
+  Fronius integration has no battery energy totals.
 - README: the integrations BatteryLedger knows are listed by battery brand.
 
 ### Fixed

@@ -1,11 +1,13 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-17T14:13:16+00:00",
- "count": 30,
+ "generated": "2026-11-17T14:24:11+00:00",
+ "count": 34,
  "brands": [
   "AlphaESS",
+  "BYD",
   "Deye",
+  "Fronius",
   "GoodWe",
   "Huawei",
   "iStore",
@@ -34,6 +36,14 @@
    "SMILE5"
   ],
   [
+   "BYD",
+   "Battery-Box Premium HVM"
+  ],
+  [
+   "BYD",
+   "Battery-Box Premium HVS"
+  ],
+  [
    "Deye",
    "BOS-G"
   ],
@@ -52,6 +62,14 @@
   [
    "Deye",
    "Spring SE"
+  ],
+  [
+   "Fronius",
+   "Reserva"
+  ],
+  [
+   "Fronius",
+   "Reserva Pro"
   ],
   [
    "GoodWe",
@@ -476,6 +494,144 @@
   },
   {
    "schema_version": 1,
+   "id": "byd-hvm-module-2-76-kwh-au",
+   "spec_version": 1,
+   "brand": "BYD",
+   "series": "Battery-Box Premium HVM",
+   "model": "HVM module 2.76 kWh",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 2.76,
+    "usable_kwh": 2.76,
+    "min_units": 3,
+    "max_units": 8
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 60,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "table",
+     "table": [
+      {
+       "units": 3,
+       "kwh": 25620
+      },
+      {
+       "units": 4,
+       "kwh": 34150
+      },
+      {
+       "units": 5,
+       "kwh": 42690
+      },
+      {
+       "units": 6,
+       "kwh": 51230
+      },
+      {
+       "units": 7,
+       "kwh": 59770
+      },
+      {
+       "units": 8,
+       "kwh": 68310
+      }
+     ]
+    },
+    "notes": "60% of usable energy at 10 years or the Minimum Throughput Energy, whichever comes first. Per tower: 3 modules 25.62 MWh, 4 modules 34.15 MWh, 5 modules 42.69 MWh, 6 modules 51.23 MWh, 7 modules 59.77 MWh, 8 modules 68.31 MWh. Throughput is the total output (discharged) energy recorded by the battery's control module."
+   },
+   "sources": [
+    {
+     "url": "https://site.bydbatterybox.com/uploads/downloads/Warranty%20T%26CS%20BYD%20Battery-Box%20Premium%20HV%20Australia-EN%20V1.1%20-%2020241008-670793c4110c4.pdf",
+     "title": "BYD Battery-Box Premium Limited Warranty, Australia, V1.1",
+     "date": "2024-10-08"
+    },
+    {
+     "url": "https://www.bydbatterybox.com/uploads/downloads/Datasheet%20HVS%20%26%20HVM%20V1.1_AU-652ce7e1cd83b.pdf",
+     "title": "BYD Battery-Box Premium HVS / HVM datasheet (AU), V1.1"
+    }
+   ],
+   "notes": "High voltage: HVM 8.3 to HVM 22.1 (3-8 modules of 2.76 kWh, 100% usable) per tower. Towers can run in parallel; set up one BatteryLedger battery group per tower.",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "byd-hvs-module-2-56-kwh-au",
+   "spec_version": 1,
+   "brand": "BYD",
+   "series": "Battery-Box Premium HVS",
+   "model": "HVS module 2.56 kWh",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 2.56,
+    "usable_kwh": 2.56,
+    "min_units": 2,
+    "max_units": 5
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 60,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "table",
+     "table": [
+      {
+       "units": 2,
+       "kwh": 15410
+      },
+      {
+       "units": 3,
+       "kwh": 23120
+      },
+      {
+       "units": 4,
+       "kwh": 30820
+      },
+      {
+       "units": 5,
+       "kwh": 38530
+      }
+     ]
+    },
+    "notes": "60% of usable energy at 10 years or the Minimum Throughput Energy, whichever comes first. Per tower: 2 modules 15.41 MWh, 3 modules 23.12 MWh, 4 modules 30.82 MWh, 5 modules 38.53 MWh. Throughput is the total output (discharged) energy recorded by the battery's control module."
+   },
+   "sources": [
+    {
+     "url": "https://site.bydbatterybox.com/uploads/downloads/Warranty%20T%26CS%20BYD%20Battery-Box%20Premium%20HV%20Australia-EN%20V1.1%20-%2020241008-670793c4110c4.pdf",
+     "title": "BYD Battery-Box Premium Limited Warranty, Australia, V1.1",
+     "date": "2024-10-08"
+    },
+    {
+     "url": "https://www.bydbatterybox.com/uploads/downloads/Datasheet%20HVS%20%26%20HVM%20V1.1_AU-652ce7e1cd83b.pdf",
+     "title": "BYD Battery-Box Premium HVS / HVM datasheet (AU), V1.1"
+    }
+   ],
+   "notes": "High voltage: HVS 5.1 to HVS 12.8 (2-5 modules of 2.56 kWh, 100% usable) per tower. Towers can run in parallel; set up one BatteryLedger battery group per tower. Warranty applies to products installed in Australia from 1 Nov 2024 (V1.1); earlier installs have the same figures under V1.0.",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
    "id": "deye-bos-gm5-1-au",
    "spec_version": 1,
    "brand": "Deye",
@@ -840,6 +996,139 @@
     }
    ],
    "notes": "Low-voltage 51.2 V rack/wall module, 5.12 kWh. Up to 64 in parallel (327 kWh). The warranty table gives 5.12 kWh usable; the global datasheet gives 4.6 kWh at 90% depth of discharge.",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "fronius-reserva-module-3-15-kwh-anz",
+   "spec_version": 1,
+   "brand": "Fronius",
+   "series": "Reserva",
+   "model": "Reserva module 3.15 kWh",
+   "regions": [
+    "AU",
+    "NZ"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 3.28,
+    "usable_kwh": 3.157,
+    "min_units": 2,
+    "max_units": 5
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "unspecified",
+     "scope": "table",
+     "table": [
+      {
+       "units": 2,
+       "kwh": 19570
+      },
+      {
+       "units": 3,
+       "kwh": 29360
+      },
+      {
+       "units": 4,
+       "kwh": 39140
+      },
+      {
+       "units": 5,
+       "kwh": 48930
+      }
+     ]
+    },
+    "notes": "Australia and New Zealand (country group 3): 70% of usable energy (SOH) at 10 years or the energy throughput for the tower size, whichever comes first: Reserva 6.3 19.57 MWh, Reserva 9.5 29.36 MWh, Reserva 12.6 39.14 MWh, Reserva 15.8 48.93 MWh. The warranty doesn't say whether throughput is charged or discharged energy. Applies to purchases from 1 October 2026; the warranty period formally starts six months after delivery from Fronius (BatteryLedger counts from installation)."
+   },
+   "sources": [
+    {
+     "url": "https://www.fronius.com/en/~/downloads/Solar%20Energy/Terms%20of%20Warranties/SE_ToW_Battery_EN.pdf",
+     "title": "Fronius International Limited Warranty Conditions, Battery (EN_0326; country group 3: Australia, New Zealand)"
+    },
+    {
+     "url": "https://www.solarquotes.com.au/wp-content/uploads/2025/11/SE_Product_Documents_Datasheet_Fronius_Reserva_EN-AUS_EN-English.pdf",
+     "title": "Fronius Reserva datasheet (AU)"
+    }
+   ],
+   "notes": "High voltage, for Fronius GEN24 Plus: Reserva 6.3 to 15.8 (2-5 modules, 6.31-15.79 kWh usable, 94.5% depth of discharge) per tower; up to 4 towers in parallel, one BatteryLedger battery group per tower. Primo GEN24 Plus (single-phase) supports Reserva 6.3 and 9.5 only.",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "fronius-reserva-pro-module-3-99-kwh-anz",
+   "spec_version": 1,
+   "brand": "Fronius",
+   "series": "Reserva Pro",
+   "model": "Reserva Pro module 3.99 kWh",
+   "regions": [
+    "AU",
+    "NZ"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 3.99,
+    "usable_kwh": 3.988,
+    "min_units": 3,
+    "max_units": 8
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 75,
+    "throughput": {
+     "basis": "unspecified",
+     "scope": "table",
+     "table": [
+      {
+       "units": 3,
+       "kwh": 44520
+      },
+      {
+       "units": 4,
+       "kwh": 59360
+      },
+      {
+       "units": 5,
+       "kwh": 74200
+      },
+      {
+       "units": 6,
+       "kwh": 89040
+      },
+      {
+       "units": 7,
+       "kwh": 103880
+      },
+      {
+       "units": 8,
+       "kwh": 118720
+      }
+     ]
+    },
+    "notes": "Australia and New Zealand (country group 3): 75% of usable energy (SOH) at 10 years or the energy throughput for the tower size, whichever comes first: Reserva Pro 12.0 44.52 MWh, Reserva Pro 16.0 59.36 MWh, Reserva Pro 20.0 74.2 MWh, Reserva Pro 24.0 89.04 MWh, Reserva Pro 28.0 103.88 MWh, Reserva Pro 32.0 118.72 MWh. The warranty doesn't say whether throughput is charged or discharged energy. Applies to purchases from 1 October 2026; the warranty period formally starts six months after delivery from Fronius (BatteryLedger counts from installation)."
+   },
+   "sources": [
+    {
+     "url": "https://www.fronius.com/en/~/downloads/Solar%20Energy/Terms%20of%20Warranties/SE_ToW_Battery_EN.pdf",
+     "title": "Fronius International Limited Warranty Conditions, Battery (EN_0326; country group 3: Australia, New Zealand)"
+    }
+   ],
+   "notes": "Reserva Pro 12.0 to 32.0: 11.96-31.91 kWh usable per tower, about 3.99 kWh per module (3-8 modules). Module count and phase are inferred from the warranty's tower sizes; check against the datasheet.",
    "submitted_by": "Roving-Ronin",
    "verified": false,
    "updated": "2026-11-18"
@@ -1696,8 +1985,62 @@
   },
   {
    "schema_version": 1,
+   "id": "byd-battery-box-redpomodoro",
+   "profile_version": 1,
+   "name": "BYD Battery Box (redpomodoro)",
+   "integration": {
+    "platform": "byd_battery_box",
+    "url": "https://github.com/redpomodoro/byd_battery_box"
+   },
+   "brands": [
+    "BYD"
+   ],
+   "roles": {
+    "discharged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "bydb_discharge_lfte",
+      "default_entity_ids": [
+       "sensor.battery_management_unit_discharge_total_energy"
+      ]
+     }
+    ],
+    "charged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "bydb_charge_lfte",
+      "default_entity_ids": [
+       "sensor.battery_management_unit_charge_total_energy"
+      ]
+     }
+    ],
+    "rated_capacity": [
+     {
+      "level": "plant",
+      "unique_id": "bydb_capacity",
+      "default_entity_ids": [
+       "sensor.battery_management_unit_total_capacity"
+      ]
+     }
+    ],
+    "soh": [
+     {
+      "level": "plant",
+      "unique_id": "bydb_soh",
+      "default_entity_ids": [
+       "sensor.battery_management_unit_state_of_health"
+      ]
+     }
+    ]
+   },
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
    "id": "energy-manager",
-   "profile_version": 5,
+   "profile_version": 6,
    "name": "Energy Manager",
    "integration": {
     "platform": "mqtt",
@@ -1706,7 +2049,9 @@
    "brands": [
     "Sigenergy",
     "AlphaESS",
+    "BYD",
     "Deye",
+    "Fronius",
     "GoodWe",
     "Huawei",
     "iStore",
@@ -1792,6 +2137,52 @@
       "unique_id": "{mac}-sensor-total_battery_charge",
       "default_entity_ids": [
        "sensor.deye_inverter_<mac_suffix>_total_battery_charge"
+      ]
+     }
+    ]
+   },
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "fronius-modbus-redpomodoro",
+   "profile_version": 1,
+   "name": "Fronius Modbus (redpomodoro)",
+   "integration": {
+    "platform": "fronius_modbus",
+    "url": "https://github.com/redpomodoro/fronius_modbus"
+   },
+   "brands": [
+    "BYD",
+    "Fronius"
+   ],
+   "roles": {
+    "discharged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "fm_mppt4_lfte",
+      "default_entity_ids": [
+       "sensor.fronius_<inverter_model>_storage_discharging_lifetime_energy"
+      ]
+     }
+    ],
+    "charged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "fm_mppt3_lfte",
+      "default_entity_ids": [
+       "sensor.fronius_<inverter_model>_storage_charging_lifetime_energy"
+      ]
+     }
+    ],
+    "rated_capacity": [
+     {
+      "level": "plant",
+      "unique_id": "fm_WHRtg",
+      "default_entity_ids": [
+       "sensor.<battery_model>_capacity"
       ]
      }
     ]

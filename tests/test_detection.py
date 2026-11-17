@@ -378,3 +378,35 @@ def test_detect_huawei_emma_stack():
     assert system.roles["charged_energy"] == ("plant", "sensor.emma_total_charged_energy")
     assert system.roles["rated_capacity"] == ("plant", "sensor.emma_rated_ess_capacity")
     assert not system.ambiguous
+
+
+def test_detect_fronius_modbus_and_byd_battery_box():
+    ents = [RegistryEntity("sensor.fronius_symo_gen24_10_0_plus_storage_charging_lifetime_energy", "fronius_modbus", "fm_mppt3_lfte"),
+            RegistryEntity("sensor.fronius_symo_gen24_10_0_plus_storage_discharging_lifetime_energy", "fronius_modbus", "fm_mppt4_lfte"),
+            RegistryEntity("sensor.fronius_symo_gen24_10_0_plus_mppt1_lifetime_energy", "fronius_modbus", "fm_mppt1_lfte"),
+            RegistryEntity("sensor.byd_battery_box_premium_hv_capacity", "fronius_modbus", "fm_WHRtg")]
+    [system] = detect(PROFILES["fronius-modbus-redpomodoro"], ents)
+    assert system.roles["charged_energy"][1].endswith("_storage_charging_lifetime_energy")
+    assert system.roles["discharged_energy"][1].endswith("_storage_discharging_lifetime_energy")
+    assert system.roles["rated_capacity"][1] == "sensor.byd_battery_box_premium_hv_capacity"
+
+    ents = [RegistryEntity(f"sensor.battery_management_unit_{n}", "byd_battery_box", f"bydb_{k}")
+            for k, n in (("charge_lfte", "charge_total_energy"), ("discharge_lfte", "discharge_total_energy"),
+                         ("soh", "state_of_health"), ("capacity", "total_capacity"))]
+    ents.append(RegistryEntity("sensor.battery_management_system_1_discharge_total_energy", "byd_battery_box", "bydb_bms1_discharge_lfte"))
+    [system] = detect(PROFILES["byd-battery-box-redpomodoro"], ents)
+    assert system.roles["discharged_energy"][1] == "sensor.battery_management_unit_discharge_total_energy"  # the whole battery, not tower 1
+    assert system.roles["soh"][1] == "sensor.battery_management_unit_state_of_health"
+
+
+async def test_byd_integration_choices(hass: HomeAssistant):
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+    r = await flow.async_configure(r["flow_id"], {"brand": "BYD"})
+    r = await flow.async_configure(r["flow_id"], {"series": "BYD|Battery-Box Premium HVS"})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["byd-hvs-module-2-56-kwh-au"]})
+    r = await flow.async_configure(r["flow_id"], {"units": 4, "install_date": "2023-05-01"})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
+    assert ids == ["byd-battery-box-redpomodoro", "fronius-modbus-redpomodoro", "energy-manager", "manual"]

@@ -61,8 +61,13 @@ Or add it manually:
    - **Sigenergy:** [TypQxQ's Sigenergy Local Modbus](https://github.com/TypQxQ/Sigenergy-Local-Modbus),
      [sigenergy2mqtt](https://github.com/seud0nym/sigenergy2mqtt)
    - **AlphaESS:** [senalse's AlphaESS Modbus TCP](https://github.com/senalse/ha-alphaess-modbus)
+   - **BYD:** [redpomodoro's BYD Battery Box](https://github.com/redpomodoro/byd_battery_box) (reads the battery's
+     BMS, including state of health), or [redpomodoro's Fronius Modbus](https://github.com/redpomodoro/fronius_modbus)
+     with a Fronius GEN24
    - **Deye:** [davidrapan's Solarman](https://github.com/davidrapan/ha-solarman),
      [Lewa-Reka's ESPHome Deye Inverter](https://github.com/Lewa-Reka/esphome-deye-inverter)
+   - **Fronius (GEN24 with Reserva or BYD):** [redpomodoro's Fronius Modbus](https://github.com/redpomodoro/fronius_modbus).
+     The core Fronius integration has no battery energy totals.
    - **GoodWe (ET, EH, BT and BH hybrids):** [GoodWe](https://www.home-assistant.io/integrations/goodwe/) (core, or
      [mletenay's custom version](https://github.com/mletenay/home-assistant-goodwe-inverter)). GoodWe's ES-family
      inverters don't report lifetime battery energy, so use Energy Manager or choose the sensors yourself.
