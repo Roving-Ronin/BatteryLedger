@@ -1,7 +1,7 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-17T07:25:44+00:00",
+ "generated": "2026-11-17T08:25:57+00:00",
  "count": 10,
  "brands": [
   "Huawei",
@@ -38,12 +38,11 @@
  "specs": [
   {
    "schema_version": 1,
-   "id": "huawei-luna2000-7-e1-6-9-kwh-s1-au",
+   "id": "huawei-luna2000-7-s1-au",
    "spec_version": 1,
    "brand": "Huawei",
    "series": "LUNA2000",
-   "model": "LUNA2000-7-E1 6.9 kWh",
-   "variant": "S1",
+   "model": "LUNA2000-7-S1",
    "regions": [
     "AU"
    ],
@@ -57,7 +56,7 @@
     "nominal_kwh": 6.9,
     "usable_kwh": 6.9,
     "min_units": 1,
-    "max_units": 12
+    "max_units": 9
    },
    "warranty": {
     "years": 15,
@@ -81,19 +80,18 @@
      "date": "2024-11-01"
     }
    ],
-   "notes": "LUNA2000-7/14/21-S1: one LUNA2000-10KW-C1 power module with 1-3 LUNA2000-7-E1 modules of 6.9 kWh, 100% usable; up to 4 groups per inverter (82.8 kWh), depending on the inverter. Sold in Australia as the iStore IS-BATT-7000. The 5 kWh S1 module (LUNA2000-5-E1) is warranted for Europe only.",
+   "notes": "LUNA2000-7/14/21-S1: one LUNA2000-10KW-C1 power module with 1-3 LUNA2000-7-E1 modules of 6.9 kWh, 100% usable; up to 3 modules per inverter and normally up to 3 inverters in a plant. Sold in Australia as the iStore IS-BATT-7000. The 5 kWh S1 module (LUNA2000-5-E1) is warranted for Europe only.",
    "submitted_by": "Roving-Ronin",
    "verified": false,
    "updated": "2026-11-17"
   },
   {
    "schema_version": 1,
-   "id": "huawei-luna2000-5-e0-5-kwh-s0-au",
+   "id": "huawei-luna2000-5-s0-au",
    "spec_version": 1,
    "brand": "Huawei",
    "series": "LUNA2000",
-   "model": "LUNA2000-5-E0 5 kWh",
-   "variant": "S0",
+   "model": "LUNA2000-5-S0",
    "regions": [
     "AU"
    ],
@@ -155,7 +153,7 @@
     "nominal_kwh": 6.9,
     "usable_kwh": 6.9,
     "min_units": 1,
-    "max_units": 12
+    "max_units": 9
    },
    "warranty": {
     "years": 15,
@@ -184,7 +182,7 @@
      "date": "2026-08-01"
     }
    ],
-   "notes": "iStore's LUNA2000-S1: one IS-BATT-7000-BMS power module with 1-3 IS-BATT-7000-ES modules of 6.9 kWh, 100% usable; up to 4 groups per inverter (82.8 kWh), depending on the inverter. Module figures from Huawei's S1 datasheet.",
+   "notes": "iStore's LUNA2000-S1: one IS-BATT-7000-BMS power module with 1-3 IS-BATT-7000-ES modules of 6.9 kWh, 100% usable; up to 3 modules per inverter and normally up to 3 inverters in a plant. Module figures from Huawei's S1 datasheet.",
    "submitted_by": "Roving-Ronin",
    "verified": false,
    "updated": "2026-11-17"

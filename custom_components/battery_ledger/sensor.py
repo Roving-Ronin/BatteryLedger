@@ -91,7 +91,7 @@ YAML_SENSORS: tuple[LedgerSensorDescription, ...] = (
                       "estimated_remaining_value": _r(r.remaining_value, 2)}),
     _energy("initial_usable_capacity", "mdi:battery-heart-variant", lambda r: _r(r.initial_usable_kwh, 2),
             precision=2, device_class=None),
-    _pct("estimated_usable_capacity", "mdi:battery-analytics", lambda r: _r(r.floor_pct, 1),
+    _pct("estimated_usable_capacity", "mdi:battery-heart-outline", lambda r: _r(r.floor_pct, 1),
          lambda r: {"remaining_usable_kwh": _r(r.floor_usable_kwh, 2),
                     "degradation_driver": YAML_DRIVER_TEXT[r.driver],
                     "warranty_status": YAML_STATUS_TEXT[r.status]}, precision=1),

@@ -10,6 +10,8 @@ credit where there is one.
 - New BatteryLedger dashboard card, installed with the integration: warranty use, throughput, cost and health
 - The card compares your battery's actual SoH with what the warranty allows today
 - Card settings (cost per kWh decimal places, sections shown) from the cog on the card
+- Estimated Usable Capacity shows an icon again
+- Bundled Store list: Huawei LUNA2000-7-S1 and LUNA2000-5-S0 names; S1 batteries up to 9 modules
 
 ### Added
 - BatteryLedger card (`custom:battery-ledger-card`), served and loaded by the integration, so there's
@@ -26,6 +28,14 @@ credit where there is one.
   BatteryLedger for each setup, so every dashboard and device shows the same.
 - Rated Throughput Used's `groups` attribute gives each group's `warranty_years`, `warranty_end_date` and
   `end_of_warranty_capacity_pct`.
+
+### Changed
+- Bundled Store list: the Huawei specs are named LUNA2000-7-S1 and LUNA2000-5-S0 (new spec IDs; existing
+  setups keep their copied spec), and the LUNA2000-7-S1 and iStore IS-BATT-7000-ES allow 1-9 modules.
+
+### Fixed
+- Estimated Usable Capacity had no icon: `mdi:battery-analytics` (carried over from the YAML package) isn't a
+  Material Design icon. It's now `mdi:battery-heart-outline`.
 
 ## v0.1.4 (2026-11-17)
 
