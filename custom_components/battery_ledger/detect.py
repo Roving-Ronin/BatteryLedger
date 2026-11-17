@@ -20,9 +20,10 @@ PLACEHOLDERS = {
     "inverter": r"\d+",
     "station": r"[A-Za-z0-9]+",
     "serial": r"[A-Za-z0-9]+",
+    "mac": r"[0-9A-Fa-f]{2}(?::?[0-9A-Fa-f]{2}){5}",  # ESPHome: AA:BB:CC:DD:EE:FF or aabbccddeeff
 }
 # Placeholders that identify one system (plant); the others vary within it.
-SYSTEM_KEYS = ("entry", "prefix", "plant")
+SYSTEM_KEYS = ("entry", "prefix", "plant", "mac")
 
 SYSTEM_ROLES = ("discharged_energy", "charged_energy", "rated_capacity", "soh", "install_date")
 MODULE_ROLES = ("module_discharged_energy", "module_charged_energy", "module_rated_capacity",

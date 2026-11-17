@@ -57,12 +57,19 @@ Or add it manually:
    model or later install* for modules of the same model added later with a different warranty start date.
 3. **Inverter integration:** BatteryLedger looks for your inverter integration's sensors using the Store's
    *sensor profiles* (matched by entity registry unique ID, so renamed entities still work) and lists the
-   integrations it knows for your battery brand: currently TypQxQ's Sigenergy Local Modbus and sigenergy2mqtt
-   for Sigenergy, mkaiser's Sungrow SHx Modbus package and Wingman3434's Sungrow SHx Inverter for Sungrow,
-   wlcrs's Huawei Solar for Huawei and iStore,
-   senalse's AlphaESS Modbus TCP for AlphaESS, and
-   [Energy Manager](https://github.com/ha-energymanager/ha-energymanager) for all of these brands. If
-   Energy Manager is installed, its battery install date also pre-fills the warranty start date.
+   integrations it knows for your battery brand:
+   - **Sigenergy:** [TypQxQ's Sigenergy Local Modbus](https://github.com/TypQxQ/Sigenergy-Local-Modbus),
+     [sigenergy2mqtt](https://github.com/seud0nym/sigenergy2mqtt)
+   - **AlphaESS:** [senalse's AlphaESS Modbus TCP](https://github.com/senalse/ha-alphaess-modbus)
+   - **Deye:** [davidrapan's Solarman](https://github.com/davidrapan/ha-solarman),
+     [Lewa-Reka's ESPHome Deye Inverter](https://github.com/Lewa-Reka/esphome-deye-inverter)
+   - **Huawei and iStore:** [wlcrs's Huawei Solar](https://github.com/wlcrs/huawei_solar)
+   - **Sungrow:** [mkaiser's Sungrow SHx Modbus package](https://github.com/mkaiser/Sungrow-SHx-Inverter-Modbus-Home-Assistant),
+     [Wingman3434's Sungrow SHx Inverter](https://github.com/Wingman3434/sungrow-shx-inverter-hacs)
+   - **All of these brands:** [Energy Manager](https://github.com/ha-energymanager/ha-energymanager). If it's
+     installed, its battery install date also pre-fills the warranty start date.
+
+   You can also choose the sensors yourself.
 4. **Battery modules** (when available, e.g. sigenergy2mqtt with the Sigen Cloud API enabled): per-module
    discharge counters are assigned to your battery groups by each module's rated capacity, and each module is
    tracked against its own warranty limit.

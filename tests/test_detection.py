@@ -300,3 +300,37 @@ async def test_alphaess_integration_choices(hass: HomeAssistant):
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
     ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
     assert ids == ["alphaess-modbus-senalse", "energy-manager", "manual"]
+
+
+def test_detect_deye_solarman_and_esphome():
+    entry = "01jdeyeentry0000000000000"  # solarman slugifies the config entry ID (lower case)
+    ents = [RegistryEntity(f"sensor.inverter_{k}", "solarman", f"{entry}_{k}_sensor")
+            for k in ("total_battery_discharge", "total_battery_charge", "daily_battery_charge", "battery_soh")]
+    [system] = detect(PROFILES["deye-solarman-davidrapan"], ents)
+    assert system.roles["discharged_energy"][1] == "sensor.inverter_total_battery_discharge"
+    assert system.roles["charged_energy"][1] == "sensor.inverter_total_battery_charge"
+    assert "soh" not in system.roles  # solarman's Battery SOH is its own estimate, not the BMS figure
+
+    mac = "A4:CF:12:3B:9E:01"  # Home Assistant keeps the colons in ESPHome unique IDs
+    ents = [RegistryEntity(f"sensor.deye_inverter_3b9e01_{k}", "esphome", f"{mac}-sensor-{k}")
+            for k in ("total_battery_discharge", "total_battery_charge", "daily_battery_discharge")]
+    [system] = detect(PROFILES["deye-esphome-lewa-reka"], ents)
+    assert system.roles["discharged_energy"][1] == "sensor.deye_inverter_3b9e01_total_battery_discharge"
+    assert system.roles["charged_energy"][1] == "sensor.deye_inverter_3b9e01_total_battery_charge"
+    # Two ESPHome inverters are two systems
+    other = [RegistryEntity(f"sensor.deye_inverter_77aa10_{k}", "esphome", f"a4cf1277aa10-sensor-{k}")
+             for k in ("total_battery_discharge", "total_battery_charge")]
+    assert len(detect(PROFILES["deye-esphome-lewa-reka"], ents + other)) == 2
+
+
+async def test_deye_integration_choices(hass: HomeAssistant):
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+    r = await flow.async_configure(r["flow_id"], {"brand": "Deye"})
+    r = await flow.async_configure(r["flow_id"], {"series": "Deye|RW"})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["deye-rw-m6-1-b-au"]})
+    r = await flow.async_configure(r["flow_id"], {"units": 2, "install_date": "2025-09-01"})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
+    assert ids == ["deye-esphome-lewa-reka", "deye-solarman-davidrapan", "energy-manager", "manual"]

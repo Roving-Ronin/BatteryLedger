@@ -41,7 +41,7 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
 ### Sensors and privacy
 - **Match sensors by entity registry `unique_id`, never `entity_id`.** Users rename entities.
 - Profile templates use placeholders (`{entry}`, `{device}`, `{prefix}`, `{plant}`, `{inverter}`,
-  `{station}`, `{serial}`). **Nothing install-specific ever goes to the Store**: no serial numbers,
+  `{station}`, `{serial}`, `{mac}`). **Nothing install-specific ever goes to the Store**: no serial numbers,
   Sigen station IDs, config entry IDs, install dates, costs or energy totals. Anything submitted from
   Home Assistant is previewed to the user first.
 - Module serials stay local. Attributes that contain them are listed in `_unrecorded_attributes`.

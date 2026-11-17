@@ -14,6 +14,8 @@ credit where there is one.
 - Bundled Store list adds the Sigenergy SigenStor Neo BAT 6.0 and BAT 8.0
 - Bundled Store list adds AlphaESS batteries, with sensors from senalse's AlphaESS Modbus TCP integration or
   Energy Manager
+- Bundled Store list adds Deye batteries, with sensors from davidrapan's Solarman, Lewa-Reka's ESPHome Deye
+  Inverter or Energy Manager
 
 ### Changed
 - Card: the settings cog is at the bottom right, on the same row as the hardware capacity check (on its own
@@ -29,6 +31,14 @@ credit where there is one.
   SMILE-BAT-10.1P, SMILE5-BAT). Energy Manager is offered for AlphaESS setups.
 - Sensor profile for senalse's AlphaESS Modbus TCP integration: lifetime battery charge and discharge,
   battery capacity (disabled by default in that integration; enable it for the hardware capacity check) and SoH.
+- Bundled Store list: Deye (Australia), with the Spring SE (SE-G5.1 Pro-B), Spring AI (AI-W5.1-B), RW (RW-M6.1-B,
+  RW-F10.2), BOS-G (BOS-GM5.1, 3-12 modules) and BOS-G Pro (BOS-G-Pack5.1, 5-17 modules). The BOS-G warranties
+  give throughput per system size, which BatteryLedger looks up by module count. Energy Manager is offered for Deye.
+- Sensor profiles for Deye: davidrapan's Solarman and Lewa-Reka's ESPHome Deye Inverter (lifetime battery charge
+  and discharge). Solarman's Battery SOH and Battery Capacity are its own estimates, so they aren't used.
+- Sensor profiles can use a `{mac}` placeholder for ESPHome devices, whose unique IDs start with the device's MAC
+  address. Each ESPHome inverter is found as its own system.
+- README: the integrations BatteryLedger knows are listed by battery brand.
 
 ### Fixed
 - Estimated Usable Capacity had no icon: `mdi:battery-analytics` (carried over from the YAML package) isn't a

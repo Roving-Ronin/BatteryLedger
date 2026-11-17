@@ -1,10 +1,11 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-17T13:43:05+00:00",
- "count": 20,
+ "generated": "2026-11-17T13:58:33+00:00",
+ "count": 26,
  "brands": [
   "AlphaESS",
+  "Deye",
   "Huawei",
   "iStore",
   "Sigenergy",
@@ -30,6 +31,26 @@
   [
    "AlphaESS",
    "SMILE5"
+  ],
+  [
+   "Deye",
+   "BOS-G"
+  ],
+  [
+   "Deye",
+   "BOS-G Pro"
+  ],
+  [
+   "Deye",
+   "RW"
+  ],
+  [
+   "Deye",
+   "Spring AI"
+  ],
+  [
+   "Deye",
+   "Spring SE"
   ],
   [
    "Huawei",
@@ -432,6 +453,376 @@
     }
    ],
    "notes": "SMILE5: 10.1 kWh modules, 9.7 kWh usable (96% depth of discharge, per the AU datasheet), 1-6 in parallel. An older datasheet gives 9.1 kWh (90%).",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "deye-bos-gm5-1-au",
+   "spec_version": 1,
+   "brand": "Deye",
+   "series": "BOS-G",
+   "model": "BOS-GM5.1",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 5.12,
+    "usable_kwh": 4.61,
+    "min_units": 3,
+    "max_units": 12
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "table",
+     "table": [
+      {
+       "units": 3,
+       "kwh": 49050
+      },
+      {
+       "units": 4,
+       "kwh": 65400
+      },
+      {
+       "units": 5,
+       "kwh": 81700
+      },
+      {
+       "units": 6,
+       "kwh": 98100
+      },
+      {
+       "units": 7,
+       "kwh": 114400
+      },
+      {
+       "units": 8,
+       "kwh": 130700
+      },
+      {
+       "units": 9,
+       "kwh": 147100
+      },
+      {
+       "units": 10,
+       "kwh": 163400
+      },
+      {
+       "units": 11,
+       "kwh": 179800
+      },
+      {
+       "units": 12,
+       "kwh": 196150
+      }
+     ]
+    },
+    "notes": "70% of system energy at 10 years or the Minimum Throughput Energy, whichever comes first. Minimum Throughput Energy per system size, BOS-G15 (3 modules) to BOS-G60 (12 modules). Throughput is the battery's total output (discharged) energy recorded by its control module, from the warranty start date (the earlier of installation or six months after production)."
+   },
+   "sources": [
+    {
+     "url": "https://au.deyeinverter.com/deyeinverter/2026/01/14/WarrantyBOS-G.pdf",
+     "title": "Deye BOS-G limited warranty (Australia)"
+    },
+    {
+     "url": "https://au.deyeinverter.com/deyeinverter/2026/01/14/DeyeBOS-GSeries_Brochure20251119-AU_V1.0.pdf",
+     "title": "Deye BOS-G brochure (AU), 2025-11-19"
+    }
+   ],
+   "notes": "High-voltage rack system: 3-12 BOS-GM5.1 modules of 5.12 kWh in series (BOS-G15 to BOS-G60) with an HVB750V control box. Usable 4.61 kWh per module at 90% depth of discharge (61.44 kWh system: 55.29 kWh usable).",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "deye-bos-g-pack5-1-au",
+   "spec_version": 1,
+   "brand": "Deye",
+   "series": "BOS-G Pro",
+   "model": "BOS-G-Pack5.1",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 5.12,
+    "usable_kwh": 5.12,
+    "min_units": 5,
+    "max_units": 17
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "table",
+     "table": [
+      {
+       "units": 5,
+       "kwh": 84000
+      },
+      {
+       "units": 6,
+       "kwh": 100000
+      },
+      {
+       "units": 7,
+       "kwh": 116000
+      },
+      {
+       "units": 8,
+       "kwh": 132000
+      },
+      {
+       "units": 9,
+       "kwh": 148000
+      },
+      {
+       "units": 10,
+       "kwh": 164000
+      },
+      {
+       "units": 11,
+       "kwh": 180000
+      },
+      {
+       "units": 12,
+       "kwh": 196000
+      },
+      {
+       "units": 13,
+       "kwh": 212000
+      },
+      {
+       "units": 14,
+       "kwh": 228000
+      },
+      {
+       "units": 15,
+       "kwh": 244000
+      },
+      {
+       "units": 16,
+       "kwh": 260000
+      },
+      {
+       "units": 17,
+       "kwh": 276000
+      }
+     ]
+    },
+    "notes": "70% of usable energy at 10 years or the Minimum Throughput Energy, whichever comes first. Minimum Throughput Energy per system size, BOS-G25-Pro (5 modules, 84 MWh) to BOS-G85-Pro (17 modules, 276 MWh). Throughput is the battery's total output (discharged) energy recorded by its control module, from the warranty start date (the earlier of installation or six months after production)."
+   },
+   "sources": [
+    {
+     "url": "https://au.deyeinverter.com/deyeinverter/2026/01/14/Warrantydocument_BOS-G-Pro002.pdf",
+     "title": "Deye BOS-G Pro limited warranty (Australia)"
+    },
+    {
+     "url": "https://deye.com/wp-content/uploads/2026/07/deye-bos-g-pro-series_brochure-_au_20260414v1.0.pdf",
+     "title": "Deye BOS-G Pro brochure (AU), 2026-04-14"
+    }
+   ],
+   "notes": "High-voltage rack system: 5-17 BOS-G-Pack5.1 modules of 5.12 kWh in series (BOS-G25-Pro to BOS-G85-Pro). The AU brochure gives system usable energy equal to system energy.",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "deye-rw-f10-2-au",
+   "spec_version": 1,
+   "brand": "Deye",
+   "series": "RW",
+   "model": "RW-F10.2",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 10.24,
+    "usable_kwh": 10.24,
+    "min_units": 1,
+    "max_units": 32
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "per_unit",
+     "kwh": 32000
+    },
+    "notes": "70% of usable energy at 10 years or the Minimum Throughput Energy, whichever comes first. 32 MWh per 10.24 kWh module. Throughput is the battery's total output (discharged) energy recorded by its control module, from the warranty start date (the earlier of installation or six months after production)."
+   },
+   "sources": [
+    {
+     "url": "https://solarproof.com.au/warranty_documents/battery_warranty_Warranty-V1.1-RW-F10.2-AU.pdf",
+     "title": "Deye RW-F10.2 limited warranty V1.1 (Australia)"
+    }
+   ],
+   "notes": "Low-voltage module, 10.24 kWh. The warranty table gives 10.24 kWh usable; datasheets give 9.2 kWh at 90% depth of discharge. Maximum in parallel (32) is from the North American RW-F10.2-B; not confirmed for Australia.",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "deye-rw-m6-1-b-au",
+   "spec_version": 1,
+   "brand": "Deye",
+   "series": "RW",
+   "model": "RW-M6.1-B",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 6.14,
+    "usable_kwh": 6.14,
+    "min_units": 1,
+    "max_units": 32
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "per_unit",
+     "kwh": 20000
+    },
+    "notes": "70% of system energy at 10 years or the Minimum Throughput Energy, whichever comes first. 20 MWh per 6.14 kWh module. Throughput is the battery's total output (discharged) energy recorded by its control module, from the warranty start date (the earlier of installation or six months after production)."
+   },
+   "sources": [
+    {
+     "url": "https://au.deyeinverter.com/deyeinverter/2026/01/14/WarrantyRW-M6.1-B.pdf",
+     "title": "Deye RW-M6.1-B limited warranty (Australia)"
+    },
+    {
+     "url": "https://deye.com/wp-content/uploads/2025/11/deye-rw-m6.1-b-series_brochure20251119au.pdf",
+     "title": "Deye RW-M6.1-B brochure (AU), 2025-11-19"
+    }
+   ],
+   "notes": "Low-voltage wall/floor module, 6.14 kWh, up to 32 in parallel (196 kWh). The AU brochure gives 6.14 kWh usable (other regions: 5.53 kWh at 90% depth of discharge).",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "deye-ai-w5-1-b-au",
+   "spec_version": 1,
+   "brand": "Deye",
+   "series": "Spring AI",
+   "model": "AI-W5.1-B",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 5.12,
+    "usable_kwh": 5.12,
+    "min_units": 1,
+    "max_units": 36
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "per_unit",
+     "kwh": 16000
+    },
+    "notes": "70% of system energy at 10 years or the Minimum Throughput Energy, whichever comes first. 16 MWh per 5.12 kWh module. Throughput is the battery's total output (discharged) energy recorded by its control module, from the warranty start date (the earlier of installation or six months after production)."
+   },
+   "sources": [
+    {
+     "url": "https://au.deyeinverter.com/deyeinverter/2026/01/14/WarrantyAI-W5.1-B.pdf",
+     "title": "Deye AI-W5.1-B limited warranty (Australia)"
+    },
+    {
+     "url": "https://deye.com/wp-content/uploads/2025/11/deye-ai-w5.1-b-series_brochure-20251112v1.0_au-2.pdf",
+     "title": "Deye AI-W5.1-B brochure (AU), 2025-11-12"
+    }
+   ],
+   "notes": "Low-voltage stacked module, 5.12 kWh, 1-6 per stack, up to 6 stacks in parallel. The AU brochure gives usable energy at 100% depth of discharge (other regions: 90%).",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "deye-se-g5-1-pro-b-au",
+   "spec_version": 1,
+   "brand": "Deye",
+   "series": "Spring SE",
+   "model": "SE-G5.1 Pro-B",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 5.12,
+    "usable_kwh": 5.12,
+    "min_units": 1,
+    "max_units": 64
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "per_unit",
+     "kwh": 16000
+    },
+    "notes": "70% of usable energy at 10 years or the Minimum Throughput Energy, whichever comes first. 16 MWh per 5.12 kWh module. Throughput is the battery's total output (discharged) energy recorded by its control module, from the warranty start date (the earlier of installation or six months after production)."
+   },
+   "sources": [
+    {
+     "url": "https://nkon.nl/amfile/file/download/file/32/product/5663",
+     "title": "Deye ESS battery limited warranty, SE-G5.1Pro-B"
+    },
+    {
+     "url": "https://au.deyeinverter.com/deyeinverter/2026/01/16/DeyeSE-G5.1Pro-BSeries_Brochure20251119AUV1.0.pdf",
+     "title": "Deye SE-G5.1 Pro-B brochure (AU), 2025-11-19"
+    }
+   ],
+   "notes": "Low-voltage 51.2 V rack/wall module, 5.12 kWh. Up to 64 in parallel (327 kWh). The warranty table gives 5.12 kWh usable; the global datasheet gives 4.6 kWh at 90% depth of discharge.",
    "submitted_by": "Roving-Ronin",
    "verified": false,
    "updated": "2026-11-18"
@@ -1087,7 +1478,7 @@
   {
    "schema_version": 1,
    "id": "energy-manager",
-   "profile_version": 3,
+   "profile_version": 4,
    "name": "Energy Manager",
    "integration": {
     "platform": "mqtt",
@@ -1096,6 +1487,7 @@
    "brands": [
     "Sigenergy",
     "AlphaESS",
+    "Deye",
     "Huawei",
     "iStore",
     "Sungrow"
@@ -1144,6 +1536,42 @@
       "unique_id": "battery_install_date",
       "default_entity_ids": [
        "input_datetime.battery_install_date"
+      ]
+     }
+    ]
+   },
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "deye-esphome-lewa-reka",
+   "profile_version": 1,
+   "name": "ESPHome Deye Inverter (Lewa-Reka)",
+   "integration": {
+    "platform": "esphome",
+    "url": "https://github.com/Lewa-Reka/esphome-deye-inverter"
+   },
+   "brands": [
+    "Deye"
+   ],
+   "roles": {
+    "discharged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "{mac}-sensor-total_battery_discharge",
+      "default_entity_ids": [
+       "sensor.deye_inverter_<mac_suffix>_total_battery_discharge"
+      ]
+     }
+    ],
+    "charged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "{mac}-sensor-total_battery_charge",
+      "default_entity_ids": [
+       "sensor.deye_inverter_<mac_suffix>_total_battery_charge"
       ]
      }
     ]
@@ -1383,6 +1811,42 @@
    "submitted_by": "Roving-Ronin",
    "verified": false,
    "updated": "2026-11-17"
+  },
+  {
+   "schema_version": 1,
+   "id": "deye-solarman-davidrapan",
+   "profile_version": 1,
+   "name": "Solarman (davidrapan) for Deye",
+   "integration": {
+    "platform": "solarman",
+    "url": "https://github.com/davidrapan/ha-solarman"
+   },
+   "brands": [
+    "Deye"
+   ],
+   "roles": {
+    "discharged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "{entry}_total_battery_discharge_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_total_battery_discharge"
+      ]
+     }
+    ],
+    "charged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "{entry}_total_battery_charge_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_total_battery_charge"
+      ]
+     }
+    ]
+   },
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
   },
   {
    "schema_version": 1,
