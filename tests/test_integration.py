@@ -27,7 +27,7 @@ async def _setup_via_flow(hass: HomeAssistant, install_date: str) -> config_entr
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert result["type"] is FlowResultType.MENU
-    assert result["description_placeholders"]["count"] == "10"
+    assert result["description_placeholders"]["count"] == "12"
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "store_search"})
     assert result["step_id"] == "store_search"
@@ -35,6 +35,9 @@ async def _setup_via_flow(hass: HomeAssistant, install_date: str) -> config_entr
     # Three-phase + search text narrows to the BAT 8.0
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"search": "bat 8", "brand": "Sigenergy", "region": "AU", "phase": "3"})
+    # "bat 8" matches the SigenStor BAT 8.0 and the SigenStor Neo BAT 8.0, so Model is asked first
+    assert result["step_id"] == "store_model"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"series": "Sigenergy|SigenStor"})
     assert result["step_id"] == "store_select"
     assert result["description_placeholders"]["matches"] == "1"
 
@@ -181,6 +184,7 @@ async def test_mixed_models_in_one_pass(hass: HomeAssistant):
     r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
     r = await flow.async_configure(r["flow_id"], {"brand": "Sigenergy", "region": "AU"})
+    r = await flow.async_configure(r["flow_id"], {"series": "Sigenergy|SigenStor"})
     assert r["description_placeholders"]["matches"] == "4"
     r = await flow.async_configure(r["flow_id"], {"spec_ids": []})
     assert r["errors"] == {"base": "none_selected"}
@@ -262,14 +266,17 @@ async def test_model_step_follows_brand(hass: HomeAssistant):
     assert step == "store_model" and labels == ["SBH", "SBR"]
     r = await flow.async_configure(r["flow_id"], {"series": "Sungrow|SBR"})
     assert r["step_id"] == "store_select" and r["description_placeholders"]["matches"] == "1"
-    # Sigenergy has one model, so the step is skipped
+    # Sigenergy: SigenStor and SigenStor Neo
     step, labels, _ = await models_for({"brand": "Sigenergy"})
+    assert step == "store_model" and labels == ["SigenStor", "SigenStor Neo"]
+    # Huawei has one model, so the step is skipped
+    step, labels, _ = await models_for({"brand": "Huawei"})
     assert step == "store_select"
     # No brand: every model, with its brand
     step, labels, r = await models_for({})
-    assert labels == ["LUNA2000 (Huawei)", "iStore Battery (iStore)", "SigenStor (Sigenergy)", "SBH (Sungrow)", "SBR (Sungrow)"]
+    assert labels == ["LUNA2000 (Huawei)", "iStore Battery (iStore)", "SigenStor (Sigenergy)", "SigenStor Neo (Sigenergy)", "SBH (Sungrow)", "SBR (Sungrow)"]
     r = await flow.async_configure(r["flow_id"], {})  # left empty = all models
-    assert r["description_placeholders"]["matches"] == "10"
+    assert r["description_placeholders"]["matches"] == "12"
     # Three-phase only excludes nothing for SBH, but a search narrows models too
     step, labels, _ = await models_for({"search": "sbh"})
     assert step == "store_select"

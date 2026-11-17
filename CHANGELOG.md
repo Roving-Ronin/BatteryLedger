@@ -11,6 +11,7 @@ credit where there is one.
 - Card labels: "Battery cycles per day (Average)" and "Projected SoH (Today)"
 - Estimated Usable Capacity shows an icon again
 - Bundled Store list: Huawei LUNA2000-7-S1 and LUNA2000-5-S0 names; S1 batteries up to 9 modules
+- Bundled Store list adds the Sigenergy SigenStor Neo BAT 6.0 and BAT 8.0
 
 ### Changed
 - Card: the settings cog is at the bottom right, on the same row as the hardware capacity check (on its own
@@ -19,6 +20,8 @@ credit where there is one.
   "Warranty Allows (today)" is "Projected SoH (Today)".
 - Bundled Store list: the Huawei specs are named LUNA2000-7-S1 and LUNA2000-5-S0 (new spec IDs; existing
   setups keep their copied spec), and the LUNA2000-7-S1 and iStore IS-BATT-7000-ES allow 1-9 modules.
+- Bundled Store list: Sigenergy has a second model, SigenStor Neo, with the Neo BAT 6.0 (6.02 kWh total)
+  and Neo BAT 8.0 (7.52 kWh total), 1-6 modules. Sigenergy setups now ask for the Model after the brand.
 
 ### Fixed
 - Estimated Usable Capacity had no icon: `mdi:battery-analytics` (carried over from the YAML package) isn't a

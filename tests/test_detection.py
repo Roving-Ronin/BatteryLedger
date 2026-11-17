@@ -115,6 +115,7 @@ async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
     r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
     r = await flow.async_configure(r["flow_id"], {"search": "bat 8", "brand": "Sigenergy", "region": "AU"})
+    r = await flow.async_configure(r["flow_id"], {"series": "Sigenergy|SigenStor"})
     r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sigenergy-sigenstor-bat-8-0-anz"]})
     install = (dt_util.now().date() - timedelta(days=365)).isoformat()
     r = await flow.async_configure(r["flow_id"], {"units": 2, "install_date": install})
