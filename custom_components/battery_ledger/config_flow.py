@@ -104,6 +104,11 @@ def _spec_summary(spec: dict) -> dict[str, str]:
     }
 
 
+def _models_in(specs: list[dict]) -> list[tuple[str, str]]:
+    """(brand, model line) pairs present in these specs, in Store order. Specs without a line are skipped."""
+    return list(dict.fromkeys((s["brand"], s["series"]) for s in specs if s.get("series")))
+
+
 def _allowed_units(spec: dict) -> str:
     tp, cap = spec["warranty"]["throughput"], spec["capacity"]
     if tp["scope"] == "table":
@@ -215,14 +220,17 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             self._filters = {
                 "search": user_input.get("search", "").strip(),
                 "brand": user_input.get("brand") or ANY,
-                "series": user_input.get("series") or ANY,
+                "series": ANY,
                 "region": user_input.get("region") or ANY,
                 "phase": user_input.get("phase") or ANY,
             }
             self._matches = index.search(self._filters["search"], self._filters["brand"],
-                                         self._filters["region"], self._filters["phase"],
-                                         self._filters["series"])
+                                         self._filters["region"], self._filters["phase"])
             if self._matches:
+                # Model is its own step so its list only holds models of the chosen brand (and other
+                # filters): a form can't refresh one dropdown when another changes.
+                if len(_models_in(self._matches)) > 1:
+                    return await self.async_step_store_model()
                 return await self.async_step_store_select()
             errors["base"] = "no_matches"
 
@@ -235,8 +243,6 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         schema = vol.Schema({
             vol.Optional("search"): _text,
             vol.Optional("brand"): dropdown([sel.SelectOptionDict(value=b, label=b) for b in index.brands()]),
-            vol.Optional("series"): dropdown([sel.SelectOptionDict(value=f"{b}|{sr}", label=f"{sr} ({b})")
-                                              for b, sr in index.series()]),
             vol.Optional("region"): dropdown([sel.SelectOptionDict(value=r, label=r) for r in index.regions()]),
             vol.Optional("phase"): sel.SelectSelector(
                 sel.SelectSelectorConfig(options=["1", "3"], translation_key="phase_only",
@@ -247,6 +253,24 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="store_search", data_schema=schema, errors=errors,
             description_placeholders={"count": str(len(index.specs)), "store_url": STORE_SITE_URL},
+        )
+
+    async def async_step_store_model(self, user_input: dict | None = None) -> ConfigFlowResult:
+        models = _models_in(self._matches)
+        if user_input is not None:
+            chosen = user_input.get("series")
+            if chosen:
+                self._filters["series"] = chosen
+                self._matches = [s for s in self._matches if f"{s['brand']}|{s.get('series', '')}" == chosen]
+            return await self.async_step_store_select()
+        one_brand = len({b for b, _ in models}) == 1
+        options = [sel.SelectOptionDict(value=f"{b}|{sr}", label=sr if one_brand else f"{sr} ({b})")
+                   for b, sr in models]
+        return self.async_show_form(
+            step_id="store_model",
+            data_schema=vol.Schema({vol.Optional("series"): sel.SelectSelector(
+                sel.SelectSelectorConfig(options=options, mode=sel.SelectSelectorMode.LIST))}),
+            description_placeholders={"matches": str(len(self._matches)), "models": str(len(models))},
         )
 
     async def async_step_store_select(self, user_input: dict | None = None) -> ConfigFlowResult:

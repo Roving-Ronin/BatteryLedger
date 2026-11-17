@@ -34,7 +34,7 @@ async def _setup_via_flow(hass: HomeAssistant, install_date: str) -> config_entr
 
     # Three-phase + search text narrows to the BAT 8.0
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"search": "bat 8", "brand": "Sigenergy", "series": "Sigenergy|SigenStor", "region": "AU", "phase": "3"})
+        result["flow_id"], {"search": "bat 8", "brand": "Sigenergy", "region": "AU", "phase": "3"})
     assert result["step_id"] == "store_select"
     assert result["description_placeholders"]["matches"] == "1"
 
@@ -180,11 +180,7 @@ async def test_mixed_models_in_one_pass(hass: HomeAssistant):
     flow = hass.config_entries.flow
     r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
-    series_key = next(k for k in r["data_schema"].schema if str(k) == "series")
-    names = [o["label"] for o in r["data_schema"].schema[series_key].config["options"]]
-    assert "SigenStor (Sigenergy)" in names
-    r = await flow.async_configure(r["flow_id"], {"brand": "Sigenergy", "series": "Sigenergy|SigenStor",
-                                                  "region": "AU"})
+    r = await flow.async_configure(r["flow_id"], {"brand": "Sigenergy", "region": "AU"})
     assert r["description_placeholders"]["matches"] == "4"
     r = await flow.async_configure(r["flow_id"], {"spec_ids": []})
     assert r["errors"] == {"base": "none_selected"}
@@ -226,7 +222,7 @@ async def test_currency_symbol_and_default_name(hass: HomeAssistant):
     flow = hass.config_entries.flow
     r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
-    r = await flow.async_configure(r["flow_id"], {"search": "bat 5"})
+    r = await flow.async_configure(r["flow_id"], {"search": "bat 5", "brand": "Sigenergy"})
     r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sigenergy-sigenstor-bat-5-0-anz"]})
     r = await flow.async_configure(r["flow_id"], {"units": 1, "install_date": "2025-01-01"})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
@@ -246,3 +242,34 @@ async def test_currency_symbol_and_default_name(hass: HomeAssistant):
     assert consumed["unit_of_measurement"] == "EUR" and consumed["device_class"] == "monetary"
     # Friendly names never include the brand
     assert consumed["friendly_name"] == "Battery Cost Consumed To Date"
+
+
+async def test_model_step_follows_brand(hass: HomeAssistant):
+    """The Model list only offers models among the batteries matching the other filters."""
+    flow = hass.config_entries.flow
+
+    async def models_for(filters):
+        r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+        r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+        r = await flow.async_configure(r["flow_id"], filters)
+        if r["step_id"] != "store_model":
+            return r["step_id"], None, r
+        key = next(k for k in r["data_schema"].schema if str(k) == "series")
+        return r["step_id"], [o["label"] for o in r["data_schema"].schema[key].config["options"]], r
+
+    # Sungrow: only its own models, labelled without the brand
+    step, labels, r = await models_for({"brand": "Sungrow"})
+    assert step == "store_model" and labels == ["SBH", "SBR"]
+    r = await flow.async_configure(r["flow_id"], {"series": "Sungrow|SBR"})
+    assert r["step_id"] == "store_select" and r["description_placeholders"]["matches"] == "2"
+    # Sigenergy has one model, so the step is skipped
+    step, labels, _ = await models_for({"brand": "Sigenergy"})
+    assert step == "store_select"
+    # No brand: every model, with its brand
+    step, labels, r = await models_for({})
+    assert labels == ["SigenStor (Sigenergy)", "SBH (Sungrow)", "SBR (Sungrow)"]
+    r = await flow.async_configure(r["flow_id"], {})  # left empty = all models
+    assert r["description_placeholders"]["matches"] == "8"
+    # Three-phase only excludes nothing for SBH, but a search narrows models too
+    step, labels, _ = await models_for({"search": "sbh"})
+    assert step == "store_select"

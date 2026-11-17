@@ -49,8 +49,8 @@ Or add it manually:
 
 ## Setup
 
-1. **Find your battery:** search the Store by text, brand, model (e.g. Sigenergy SigenStor vs Neo), region and
-   phase (single / three), or enter the details from your datasheet manually. **Tick every model installed**, e.g.
+1. **Find your battery:** search the Store by text, brand, region and phase (single / three), then pick the
+   model (e.g. Sigenergy SigenStor vs Neo, Sungrow SBR vs SBH) from those matching, or enter the details from your datasheet manually. **Tick every model installed**, e.g.
    both BAT 8.0 and BAT 10.0 if you have a mix. The Store list is downloaded once a day (no account needed) and a copy
    ships with each release for offline use.
 2. **Battery groups:** for each model, the number of modules/units and the warranty start date. Use *Add another

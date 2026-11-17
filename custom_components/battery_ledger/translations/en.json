@@ -16,13 +16,11 @@
         "data": {
           "search": "Search (brand or model)",
           "brand": "Brand",
-          "series": "Model",
           "region": "Region",
           "phase": "Phase"
         },
         "data_description": {
-          "region": "Warranty terms often differ by country, so pick the one where the battery is installed.",
-          "series": "Some brands have more than one model using different battery modules, e.g. Sigenergy SigenStor and Neo."
+          "region": "Warranty terms often differ by country, so pick the one where the battery is installed."
         }
       },
       "store_select": {
@@ -122,6 +120,16 @@
       "store_refresh_failed": {
         "title": "Couldn't update the Store list",
         "description": "The Store couldn't be reached, so BatteryLedger keeps using the list it already has ({count} batteries, dated {updated}).\n\nDetail: `{error}`\n\nSubmit to continue."
+      },
+      "store_model": {
+        "title": "Choose the model",
+        "description": "{matches} batteries match, across {models} models. Choose your model, or leave it empty to see them all.",
+        "data": {
+          "series": "Model"
+        },
+        "data_description": {
+          "series": "Brands can have more than one model using different battery modules, e.g. Sigenergy SigenStor and Neo, or Sungrow SBR and SBH."
+        }
       }
     },
     "error": {

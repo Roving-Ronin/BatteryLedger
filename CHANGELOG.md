@@ -12,6 +12,12 @@ credit where there is one.
 - Currency comes from Home Assistant's regional settings; choose $ or AUD style
 - Setup name defaults to "<Brand> Battery", e.g. Sigenergy Battery
 - New Cycles Per Day sensor, replacing the YAML package's battery_cycles_per_day
+- Model is now chosen after the brand, and only lists that brand's models
+
+### Fixed
+- Store search offered every brand's models in the Model filter even with a brand chosen (e.g. Sungrow SBR
+  and SBH under Sigenergy). Model is now its own step after the search, listing only the models among the
+  matching batteries, and is skipped when there's just one.
 
 ### Changed
 - The nine sensors carried over from the original YAML package are now identical to it, so templates and
