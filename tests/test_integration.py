@@ -27,7 +27,7 @@ async def _setup_via_flow(hass: HomeAssistant, install_date: str) -> config_entr
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert result["type"] is FlowResultType.MENU
-    assert result["description_placeholders"]["count"] == "12"
+    assert result["description_placeholders"]["count"] == "10"
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "store_search"})
     assert result["step_id"] == "store_search"
@@ -261,7 +261,7 @@ async def test_model_step_follows_brand(hass: HomeAssistant):
     step, labels, r = await models_for({"brand": "Sungrow"})
     assert step == "store_model" and labels == ["SBH", "SBR"]
     r = await flow.async_configure(r["flow_id"], {"series": "Sungrow|SBR"})
-    assert r["step_id"] == "store_select" and r["description_placeholders"]["matches"] == "2"
+    assert r["step_id"] == "store_select" and r["description_placeholders"]["matches"] == "1"
     # Sigenergy has one model, so the step is skipped
     step, labels, _ = await models_for({"brand": "Sigenergy"})
     assert step == "store_select"
@@ -269,7 +269,7 @@ async def test_model_step_follows_brand(hass: HomeAssistant):
     step, labels, r = await models_for({})
     assert labels == ["LUNA2000 (Huawei)", "iStore Battery (iStore)", "SigenStor (Sigenergy)", "SBH (Sungrow)", "SBR (Sungrow)"]
     r = await flow.async_configure(r["flow_id"], {})  # left empty = all models
-    assert r["description_placeholders"]["matches"] == "12"
+    assert r["description_placeholders"]["matches"] == "10"
     # Three-phase only excludes nothing for SBH, but a search narrows models too
     step, labels, _ = await models_for({"search": "sbh"})
     assert step == "store_select"

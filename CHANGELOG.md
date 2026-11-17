@@ -11,7 +11,7 @@ credit where there is one.
 - Energy Manager supported for any battery brand, including its battery install date
 - Sungrow setups can pick up sensors from mkaiser's Modbus package or Wingman3434's integration
 - Huawei and iStore setups can pick up sensors from wlcrs's Huawei Solar integration
-- Bundled Store list adds Huawei LUNA2000 and iStore batteries
+- Bundled Store list adds Huawei LUNA2000 and iStore batteries, and keeps only Sungrow's current warranty
 
 ### Fixed
 - Store search offered every brand's models in the Model filter even with a brand chosen (e.g. Sungrow SBR
@@ -32,8 +32,10 @@ credit where there is one.
 
 ### Changed
 - The bundled copy of the Store list includes the sensor profiles' default entity IDs, and adds the Huawei
-  LUNA2000-5-E0 (S0), the iStore IS-BATT-5000-ES (warranties of January and October 2024) and the iStore
-  IS-BATT-7000-ES (Huawei LUNA2000-S1, 15 years) for Australia.
+  LUNA2000-5-E0 (S0) and LUNA2000-7-E1 (S1) and the iStore IS-BATT-5000-ES and IS-BATT-7000-ES for Australia.
+- Sungrow SBH and SBR: only the current warranty (V8.0) is listed, as "SBH Battery Module 5.0 kWh" and
+  "SBR Battery Module 3.2 kWh". The V7.1 specs are removed. Existing setups keep their copied spec; it no
+  longer receives Store revisions because the spec IDs changed.
 
 ## v0.1.3 (2026-11-17)
 

@@ -193,7 +193,7 @@ async def test_energy_manager_offered_for_any_brand_and_prefills_date(hass: Home
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
     r = await flow.async_configure(r["flow_id"], {"brand": "Sungrow"})
     r = await flow.async_configure(r["flow_id"], {"series": "Sungrow|SBR"})
-    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sungrow-sbr-battery-module-3-2-kwh-warranty-v8-0-au"]})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sungrow-sbr-battery-module-3-2-kwh-au"]})
     assert r["step_id"] == "group"
     date_key = next(k for k in r["data_schema"].schema if str(k) == "install_date")
     assert date_key.description["suggested_value"] == "2024-11-02"  # from Energy Manager's helper
@@ -242,7 +242,7 @@ async def test_sungrow_integration_choices(hass: HomeAssistant):
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
     r = await flow.async_configure(r["flow_id"], {"brand": "Sungrow"})
     r = await flow.async_configure(r["flow_id"], {"series": "Sungrow|SBH"})
-    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sungrow-sbh-battery-module-5-0-kwh-warranty-v8-0-au"]})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sungrow-sbh-battery-module-5-0-kwh-au"]})
     r = await flow.async_configure(r["flow_id"], {"units": 4, "install_date": "2025-01-01"})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
     ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
@@ -266,7 +266,7 @@ async def test_istore_offers_huawei_solar(hass: HomeAssistant):
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
     r = await flow.async_configure(r["flow_id"], {"brand": "iStore"})
     assert r["step_id"] == "store_select"  # one model line, so the Model step is skipped
-    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["istore-is-batt-5000-es-5-kwh-warranty-oct-2024-au"]})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["istore-is-batt-5000-es-au"]})
     r = await flow.async_configure(r["flow_id"], {"units": 3, "install_date": "2025-01-01"})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
     ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
