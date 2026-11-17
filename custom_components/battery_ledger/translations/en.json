@@ -191,75 +191,116 @@
   },
   "entity": {
     "sensor": {
-      "throughput_limit": {
-        "name": "Warranted throughput"
+      "total_rated_throughput": {
+        "name": "Total rated throughput",
+        "state_attributes": {
+          "total_pack_count": {
+            "name": "Total pack count"
+          }
+        }
       },
-      "throughput_used": {
-        "name": "Throughput used"
+      "remaining_rated_throughput": {
+        "name": "Remaining rated throughput"
       },
-      "throughput_remaining": {
-        "name": "Throughput remaining"
+      "rated_throughput_used": {
+        "name": "Rated throughput used"
       },
-      "throughput_used_pct": {
-        "name": "Warranty throughput used"
-      },
-      "time_elapsed_pct": {
-        "name": "Warranty time elapsed"
-      },
-      "projected_throughput": {
-        "name": "Projected warranty throughput"
+      "projected_warranted_throughput": {
+        "name": "Projected warranted throughput"
       },
       "cost_per_kwh_rated": {
-        "name": "Cost per kWh (warranted)"
+        "name": "Cost per kWh (rated)"
       },
       "cost_per_kwh_projected": {
-        "name": "Cost per kWh (projected)"
+        "name": "Cost per kWh (10yr projected)"
       },
-      "cost_consumed": {
-        "name": "Cost consumed"
+      "cost_consumed_to_date": {
+        "name": "Cost consumed to date",
+        "state_attributes": {
+          "percent_of_rated_life_used": {
+            "name": "Rated life used"
+          },
+          "estimated_remaining_value": {
+            "name": "Estimated remaining value"
+          }
+        }
       },
-      "remaining_value": {
-        "name": "Remaining value"
+      "estimated_remaining_value": {
+        "name": "Estimated remaining value"
+      },
+      "rated_life_used": {
+        "name": "Rated life used"
+      },
+      "warranty_time_elapsed": {
+        "name": "Warranty time elapsed"
       },
       "initial_usable_capacity": {
         "name": "Initial usable capacity"
       },
-      "warranty_floor_capacity": {
-        "name": "Warranty floor capacity"
+      "estimated_usable_capacity": {
+        "name": "Estimated usable capacity",
+        "state_attributes": {
+          "remaining_usable_kwh": {
+            "name": "Remaining usable kWh"
+          },
+          "degradation_driver": {
+            "name": "Degradation driver",
+            "state": {
+              "age": "Age (time elapsed)",
+              "throughput": "Throughput (cycling)"
+            }
+          },
+          "warranty_status": {
+            "name": "Warranty status",
+            "state": {
+              "on_track": "On track / normal",
+              "ahead_of_time": "Degrading faster than time curve",
+              "expired": "Warranty ended"
+            }
+          }
+        }
       },
-      "warranty_floor_pct": {
-        "name": "Warranty floor health"
+      "remaining_usable_capacity": {
+        "name": "Remaining usable capacity"
       },
       "degradation_driver": {
-        "name": "Warranty driver",
+        "name": "Degradation driver",
         "state": {
-          "age": "Age",
-          "throughput": "Throughput"
+          "age": "Age (time elapsed)",
+          "throughput": "Throughput (cycling)"
         }
       },
       "warranty_status": {
         "name": "Warranty status",
         "state": {
-          "on_track": "On track",
-          "ahead_of_time": "Using throughput faster than time",
+          "on_track": "On track / normal",
+          "ahead_of_time": "Degrading faster than time curve",
           "expired": "Warranty ended"
         }
       },
-      "hardware_validation": {
-        "name": "Hardware check",
+      "hardware_capacity_validation": {
+        "name": "Hardware capacity validation",
         "state": {
-          "match": "Matches configuration",
-          "mismatch": "Doesn't match configuration"
+          "match": "Match verified",
+          "mismatch": "Mismatch detected"
+        },
+        "state_attributes": {
+          "configured_rated_kwh": {
+            "name": "Configured rated kWh"
+          },
+          "reported_hardware_kwh": {
+            "name": "Reported hardware kWh"
+          }
         }
       },
-      "worst_module_throughput_used": {
+      "most_used_module_throughput": {
         "name": "Most-used module throughput"
       },
       "module_soc_spread": {
         "name": "Module SoC spread"
       },
-      "health_margin": {
-        "name": "Health above warranty floor"
+      "soh_above_warranty_floor": {
+        "name": "SoH above warranty floor"
       }
     }
   },

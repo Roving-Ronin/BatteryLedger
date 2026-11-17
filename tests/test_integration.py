@@ -73,30 +73,36 @@ async def test_flow_and_sensors(hass: HomeAssistant):
     assert entry.title == "Sigen battery"
 
     def val(object_id):
-        return hass.states.get(f"sensor.sigen_battery_{object_id}")
+        return hass.states.get(f"sensor.battery_ledger_{object_id}")
 
-    assert float(val("warranted_throughput").state) == 142620
-    assert float(val("throughput_remaining").state) == 127735
-    assert float(val("warranty_throughput_used").state) == pytest.approx(10.44, abs=0.01)
-    assert float(val("cost_per_kwh_warranted").state) == pytest.approx(0.1827, abs=0.0001)
-    assert val("cost_per_kwh_warranted").attributes["unit_of_measurement"] == "AUD/kWh"
-    assert float(val("cost_consumed").state) == pytest.approx(2720, abs=1)
-    assert val("warranty_driver").state == "age"
+    assert float(val("total_rated_throughput").state) == 142620
+    assert float(val("remaining_rated_throughput").state) == 127735
+    assert float(val("rated_life_used").state) == pytest.approx(10.44, abs=0.01)
+    assert float(val("cost_per_kwh_rated").state) == pytest.approx(0.1827, abs=0.0001)
+    assert val("cost_per_kwh_rated").attributes["unit_of_measurement"] == "AUD/kWh"
+    assert float(val("cost_consumed_to_date").state) == pytest.approx(2720, abs=1)
+    assert val("degradation_driver").state == "age"
     assert val("warranty_status").state == "on_track"
-    assert val("hardware_check").state == "match"
+    assert val("hardware_capacity_validation").state == "match"
+    assert val("hardware_capacity_validation").attributes["reported_hardware_kwh"] == 48.36
+    assert val("total_rated_throughput").attributes["total_pack_count"] == 6
+    cost = val("cost_consumed_to_date").attributes
+    assert cost["percent_of_rated_life_used"] == pytest.approx(10.44, abs=0.01)
+    usable = val("estimated_usable_capacity").attributes
+    assert usable["degradation_driver"] == "age" and usable["warranty_status"] == "on_track"
     assert float(val("initial_usable_capacity").state) == pytest.approx(46.8)
 
     # Energy counter moves -> recalculated after the debounce
     hass.states.async_set(CHARGED, "20000", {"unit_of_measurement": "kWh"})
     entry.runtime_data.recalculate()
     await hass.async_block_till_done()
-    assert float(val("throughput_used").state) == pytest.approx(20000)
+    assert float(val("rated_throughput_used").state) == pytest.approx(20000)
 
     # Unavailable source -> sensors unavailable rather than wrong
     hass.states.async_set(CHARGED, "unavailable")
     entry.runtime_data.recalculate()
     await hass.async_block_till_done()
-    assert val("throughput_used").state == "unavailable"
+    assert val("rated_throughput_used").state == "unavailable"
 
 
 async def test_store_revision_raises_fixable_repair(hass: HomeAssistant):
@@ -149,9 +155,9 @@ async def test_manual_entry_with_table(hass: HomeAssistant):
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     # 100 MWh converted to kWh; no discharged sensor so it falls back to charged
-    assert float(hass.states.get("sensor.acme_throughput_used").state) == pytest.approx(100000)
-    assert hass.states.get("sensor.acme_warranty_status").state == "expired"
-    assert hass.states.get("sensor.acme_cost_consumed").state == "unavailable"
+    assert float(hass.states.get("sensor.battery_ledger_rated_throughput_used").state) == pytest.approx(100000)
+    assert hass.states.get("sensor.battery_ledger_warranty_status").state == "expired"
+    assert hass.states.get("sensor.battery_ledger_cost_consumed_to_date").state == "unavailable"
 
 
 async def test_mixed_models_in_one_pass(hass: HomeAssistant):
@@ -186,7 +192,7 @@ async def test_mixed_models_in_one_pass(hass: HomeAssistant):
     groups = r["result"].data["groups"]
     assert [(g["spec"]["model"], g["units"]) for g in groups] == [("SigenStor BAT 10.0", 2), ("SigenStor BAT 8.0", 4)]
     await hass.async_block_till_done()
-    assert float(hass.states.get("sensor.mixed_warranted_throughput").state) == 4 * 23770 + 2 * 26680
+    assert float(hass.states.get("sensor.battery_ledger_total_rated_throughput").state) == 4 * 23770 + 2 * 26680
 
 
 async def test_store_refresh_result_steps(hass: HomeAssistant):

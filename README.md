@@ -69,23 +69,34 @@ Cost, currency and sensors can be changed later under **Configure**.
 
 ## Sensors
 
-| Sensor | What it shows |
-|---|---|
-| Warranted throughput | Total warranted energy throughput for the configured units |
-| Throughput used / remaining | Energy counted against the warranty so far, and what's left |
-| Warranty throughput used | Throughput used as % of the limit |
-| Warranty time elapsed | Time since warranty start as % of the warranty period |
-| Projected warranty throughput | Throughput by end of warranty at the average rate so far (capped at the limit) |
-| Cost per kWh (warranted / projected) | Battery cost ÷ warranted or projected throughput |
-| Cost consumed / Remaining value | Cost apportioned to throughput used, and the remainder |
-| Initial usable capacity | Usable capacity at beginning of life |
-| Warranty floor capacity / health | Minimum capacity the warranty guarantees today (see below) |
-| Warranty driver | Whether age or throughput is using up the warranty faster |
-| Warranty status | On track, using throughput faster than time, or ended |
-| Hardware check | Whether the inverter's reported capacity matches the configured units (if a sensor is set) |
-| Health above warranty floor | Reported state of health minus the warranty floor, in percentage points (if a SoH sensor is set) |
-| Most-used module throughput | Highest per-module share of its warranty throughput, with every module in the attributes (module tracking) |
-| Module SoC spread | Highest minus lowest module state of charge right now (module tracking) |
+Entity IDs are `sensor.battery_ledger_<name>`. A second BatteryLedger setup gets `_2` on the end, and so on.
+
+| Entity ID (`sensor.battery_ledger_…`) | What it shows | Attributes |
+|---|---|---|
+| `total_rated_throughput` | Total warranted energy throughput for the configured units | `total_pack_count` |
+| `remaining_rated_throughput` | Warranted throughput still left | |
+| `rated_throughput_used` | Energy counted against the warranty so far | `groups`, `notes` |
+| `rated_life_used` | Throughput used as % of the warranted total | |
+| `warranty_time_elapsed` | Time since warranty start as % of the warranty period | |
+| `projected_warranted_throughput` | Throughput by the end of the warranty at the average rate so far (capped at the limit) | `average_daily_kwh`, `low_confidence` |
+| `cost_per_kwh_rated` | Battery cost ÷ warranted throughput | |
+| `cost_per_kwh_projected` | Battery cost ÷ projected throughput | |
+| `cost_consumed_to_date` | Cost apportioned to throughput used | `percent_of_rated_life_used`, `estimated_remaining_value` |
+| `estimated_remaining_value` | Battery cost minus cost consumed | `remaining_value_by_warranty_life` |
+| `initial_usable_capacity` | Usable capacity at beginning of life | |
+| `estimated_usable_capacity` | Warranty floor health %: the minimum capacity the warranty guarantees today (see below) | `remaining_usable_kwh`, `degradation_driver`, `warranty_status`, `groups`, `notes` |
+| `remaining_usable_capacity` | The same warranty floor in kWh | |
+| `degradation_driver` | Whether age or throughput is using up the warranty faster | |
+| `warranty_status` | On track, degrading faster than the time curve, or warranty ended | |
+| `hardware_capacity_validation` | Whether the inverter's reported capacity matches the configured units (if a rated capacity sensor is set) | `configured_rated_kwh`, `reported_hardware_kwh` |
+| `soh_above_warranty_floor` | Reported state of health minus the warranty floor, in percentage points (if a SoH sensor is set) | `reported_soh_pct`, `warranty_floor_pct` |
+| `most_used_module_throughput` | Highest per-module share of its warranted throughput (module tracking) | `worst_module`, `modules`, `module_total_vs_plant_pct` |
+| `module_soc_spread` | Highest minus lowest module state of charge right now (module tracking) | `module_soc` |
+
+Coming from the original YAML package: the names match it with `sigen_battery_` replaced by `battery_ledger_`.
+Remove the YAML package before setting up BatteryLedger. `degradation_driver` and `warranty_status` now report
+codes (`age` / `throughput`, `on_track` / `ahead_of_time` / `expired`), which Home Assistant shows translated;
+templates that compared the old text need the codes instead.
 
 ## What the numbers mean (and don't)
 

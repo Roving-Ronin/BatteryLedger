@@ -144,12 +144,12 @@ async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
     await hass.async_block_till_done()
 
     def st(obj):
-        return hass.states.get(f"sensor.sigen_{obj}")
+        return hass.states.get(f"sensor.battery_ledger_{obj}")
 
-    assert float(st("throughput_used").state) == pytest.approx(1480)
+    assert float(st("rated_throughput_used").state) == pytest.approx(1480)
     assert float(st("most_used_module_throughput").state) == pytest.approx(780 / 23770 * 100, abs=0.01)
     assert st("most_used_module_throughput").attributes["worst_module"] == SERIALS[1]
     assert float(st("module_soc_spread").state) == pytest.approx(3)
-    margin = float(st("health_above_warranty_floor").state)
-    assert margin == pytest.approx(99 - float(st("warranty_floor_health").state), abs=0.1)
-    assert st("hardware_check").state == "match"
+    margin = float(st("soh_above_warranty_floor").state)
+    assert margin == pytest.approx(99 - float(st("estimated_usable_capacity").state), abs=0.1)
+    assert st("hardware_capacity_validation").state == "match"

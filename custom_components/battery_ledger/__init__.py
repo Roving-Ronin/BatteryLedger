@@ -7,6 +7,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_track_time_interval
 
@@ -16,7 +17,9 @@ from .const import (
     CONFIG_ENTRY_MINOR_VERSION,
     CONFIG_ENTRY_VERSION,
     DOMAIN,
+    ENTITY_ID_PREFIX,
     MANUAL_ID_PREFIX,
+    SENSOR_KEY_RENAMES_1_2,
     STORE_REFRESH_INTERVAL,
 )
 from .runtime import LedgerRuntime
@@ -60,15 +63,45 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = {**entry.data}
     version, minor = entry.version, entry.minor_version
 
-    # Future steps go here, oldest first, e.g.:
-    # if version == 1 and minor < 2:
-    #     data = _migrate_1_1_to_1_2(data)
-    #     minor = 2
+    if version == 1 and minor < 2:
+        await _migrate_entities_1_2(hass, entry)
+        minor = 2
+
+    # Future steps go here, oldest first.
 
     if (version, minor) != (entry.version, entry.minor_version):
         hass.config_entries.async_update_entry(entry, data=data, version=version, minor_version=minor)
         _LOGGER.info("Migrated BatteryLedger entry '%s' to version %s.%s", entry.title, version, minor)
     return True
+
+
+async def _migrate_entities_1_2(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """0.1.1 -> 0.1.2: sensor keys and entity IDs back to the original YAML package's names.
+
+    Unique IDs always move to the new key (so history stays with the entity). The entity ID
+    moves to sensor.battery_ledger_<key> only if the user hadn't renamed it and the new ID is free.
+    """
+    registry = er.async_get(hass)
+    prefix = f"{entry.entry_id}_"
+
+    @callback
+    def _update(entity: er.RegistryEntry) -> dict | None:
+        if entity.domain != "sensor" or not entity.unique_id.startswith(prefix):
+            return None
+        old_key = entity.unique_id[len(prefix):]
+        if old_key not in SENSOR_KEY_RENAMES_1_2:
+            return None
+        new_key, old_suffix = SENSOR_KEY_RENAMES_1_2[old_key]
+        changes: dict = {}
+        if new_key != old_key:
+            changes["new_unique_id"] = f"{prefix}{new_key}"
+        new_entity_id = f"sensor.{ENTITY_ID_PREFIX}_{new_key}"
+        if (entity.entity_id.endswith(f"_{old_suffix}") and entity.entity_id != new_entity_id
+                and registry.async_get(new_entity_id) is None):
+            changes["new_entity_id"] = new_entity_id
+        return changes or None
+
+    await er.async_migrate_entries(hass, entry.entry_id, _update)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: BatteryLedgerConfigEntry) -> bool:

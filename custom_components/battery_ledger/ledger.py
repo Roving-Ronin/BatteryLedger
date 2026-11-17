@@ -199,6 +199,8 @@ class LedgerResult:
     module_soc: dict[str, float] = field(default_factory=dict)
     reported_soh_pct: float | None = None
     health_margin: float | None = None
+    reported_capacity_kwh: float | None = None
+    total_units: int = 0
 
 
 def _pct(frac):
@@ -375,4 +377,5 @@ def compute(inp: LedgerInput) -> LedgerResult:
         worst_module_pct=worst_module_pct, worst_module_id=worst_module_id,
         module_details=module_details, module_vs_plant_pct=module_vs_plant,
         soc_spread=soc_spread, module_soc=dict(inp.module_soc),
-        reported_soh_pct=inp.reported_soh_pct, health_margin=margin)
+        reported_soh_pct=inp.reported_soh_pct, health_margin=margin,
+        reported_capacity_kwh=inp.reported_capacity_kwh, total_units=sum(g.units for g in inp.groups))

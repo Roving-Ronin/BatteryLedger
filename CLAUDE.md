@@ -46,6 +46,11 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
   Home Assistant is previewed to the user first.
 - Module serials stay local. Attributes that contain them are listed in `_unrecorded_attributes`.
 
+### Entities
+- Entity IDs are `sensor.battery_ledger_<key>` (`ENTITY_ID_PREFIX`), keys and attribute names taken from
+  the original YAML package. **Renaming a key or entity ID breaks users' dashboards**: avoid it; if it's
+  unavoidable, add a migration step that moves the registry entry (see `_migrate_entities_1_2`).
+
 ### Specs
 - A chosen spec is **copied into the config entry** (pinned). Store revisions reach an existing setup
   only through the Repairs flow, which shows the changed fields. Never update an entry's spec silently.
