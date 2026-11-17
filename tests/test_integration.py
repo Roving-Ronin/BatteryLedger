@@ -27,7 +27,7 @@ async def _setup_via_flow(hass: HomeAssistant, install_date: str) -> config_entr
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert result["type"] is FlowResultType.MENU
-    assert result["description_placeholders"]["count"] == "4"
+    assert result["description_placeholders"]["count"] == "8"
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "store_search"})
     assert result["step_id"] == "store_search"
