@@ -1,3 +1,5 @@
+<p align="center"><img src="images/banner.png" alt="BatteryLedger: ESS Health &amp; Asset Tracking by Roving-Ronin" width="582"></p>
+
 # BatteryLedger
 
 Home Assistant custom integration to track Energy Storage System (ESS) battery health, throughput warranty,
@@ -75,6 +77,10 @@ Cost, currency and sensors can be changed later under **Configure**.
 - **Projections** are unreliable in the first month (`low_confidence` attribute).
 - **Spec updates:** your chosen spec is copied into your setup. If the Store later revises it, a Repairs notice
   shows what changed and lets you accept it, so figures never change silently.
+
+## Requirements
+
+Home Assistant 2026.3 or newer shows BatteryLedger's own icon. Older versions work but show a placeholder icon.
 
 ## Development
 
