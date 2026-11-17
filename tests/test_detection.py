@@ -272,3 +272,31 @@ async def test_istore_offers_huawei_solar(hass: HomeAssistant):
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
     ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
     assert ids == ["huawei-solar-wlcrs", "energy-manager", "manual"]
+
+
+def test_detect_alphaess_modbus():
+    entry = "01JALPHAENTRY"
+    ents = [RegistryEntity(f"sensor.alphaess_inverter_{name}", "alphaess_modbus", f"{entry}_{key}")
+            for key, name in (("total_energy_discharge_battery", "total_energy_discharge_battery"),
+                              ("total_energy_charge_battery", "total_energy_charge_battery"),
+                              ("total_energy_charge_battery_from_grid", "total_energy_charge_battery_from_grid"),
+                              ("battery_capacity_kwh", "battery_capacity"),
+                              ("soh_battery", "battery_state_of_health"))]
+    [system] = detect(PROFILES["alphaess-modbus-senalse"], ents)
+    assert system.roles["discharged_energy"][1] == "sensor.alphaess_inverter_total_energy_discharge_battery"
+    assert system.roles["charged_energy"][1] == "sensor.alphaess_inverter_total_energy_charge_battery"  # not "...from_grid"
+    assert system.roles["rated_capacity"][1] == "sensor.alphaess_inverter_battery_capacity"
+    assert system.roles["soh"][1] == "sensor.alphaess_inverter_battery_state_of_health"
+
+
+async def test_alphaess_integration_choices(hass: HomeAssistant):
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+    r = await flow.async_configure(r["flow_id"], {"brand": "AlphaESS"})
+    r = await flow.async_configure(r["flow_id"], {"series": "AlphaESS|SMILE-M5"})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["alphaess-smile-m-bat-13-9p-au"]})
+    r = await flow.async_configure(r["flow_id"], {"units": 1, "install_date": "2025-09-01"})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
+    assert ids == ["alphaess-modbus-senalse", "energy-manager", "manual"]

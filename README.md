@@ -59,7 +59,8 @@ Or add it manually:
    *sensor profiles* (matched by entity registry unique ID, so renamed entities still work) and lists the
    integrations it knows for your battery brand: currently TypQxQ's Sigenergy Local Modbus and sigenergy2mqtt
    for Sigenergy, mkaiser's Sungrow SHx Modbus package and Wingman3434's Sungrow SHx Inverter for Sungrow,
-   wlcrs's Huawei Solar for Huawei and iStore, and
+   wlcrs's Huawei Solar for Huawei and iStore,
+   senalse's AlphaESS Modbus TCP for AlphaESS, and
    [Energy Manager](https://github.com/ha-energymanager/ha-energymanager) for all of these brands. If
    Energy Manager is installed, its battery install date also pre-fills the warranty start date.
 4. **Battery modules** (when available, e.g. sigenergy2mqtt with the Sigen Cloud API enabled): per-module

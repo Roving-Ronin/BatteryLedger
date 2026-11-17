@@ -12,6 +12,8 @@ credit where there is one.
 - Estimated Usable Capacity shows an icon again
 - Bundled Store list: Huawei LUNA2000-7-S1 and LUNA2000-5-S0 names; S1 batteries up to 9 modules
 - Bundled Store list adds the Sigenergy SigenStor Neo BAT 6.0 and BAT 8.0
+- Bundled Store list adds AlphaESS batteries, with sensors from senalse's AlphaESS Modbus TCP integration or
+  Energy Manager
 
 ### Changed
 - Card: the settings cog is at the bottom right, on the same row as the hardware capacity check (on its own
@@ -22,6 +24,11 @@ credit where there is one.
   setups keep their copied spec), and the LUNA2000-7-S1 and iStore IS-BATT-7000-ES allow 1-9 modules.
 - Bundled Store list: Sigenergy has a second model, SigenStor Neo, with the Neo BAT 6.0 (6.02 kWh total)
   and Neo BAT 8.0 (7.52 kWh total), 1-6 modules. Sigenergy setups now ask for the Model after the brand.
+- Bundled Store list: AlphaESS (Australia), with the SMILE-M5 (SMILE-M-BAT-13.9P, SMILE-M-BAT-5P), SMILE-G3
+  (SMILE-G3-BAT-10.1P, SMILE-G3-BAT-4.0S), SMILE-T10-HV (SMILE-BAT-8.2PH) and SMILE5 (SMILE-BAT-13.3P,
+  SMILE-BAT-10.1P, SMILE5-BAT). Energy Manager is offered for AlphaESS setups.
+- Sensor profile for senalse's AlphaESS Modbus TCP integration: lifetime battery charge and discharge,
+  battery capacity (disabled by default in that integration; enable it for the hardware capacity check) and SoH.
 
 ### Fixed
 - Estimated Usable Capacity had no icon: `mdi:battery-analytics` (carried over from the YAML package) isn't a
