@@ -24,7 +24,7 @@ PLACEHOLDERS = {
 # Placeholders that identify one system (plant); the others vary within it.
 SYSTEM_KEYS = ("entry", "prefix", "plant")
 
-SYSTEM_ROLES = ("discharged_energy", "charged_energy", "rated_capacity", "soh")
+SYSTEM_ROLES = ("discharged_energy", "charged_energy", "rated_capacity", "soh", "install_date")
 MODULE_ROLES = ("module_discharged_energy", "module_charged_energy", "module_rated_capacity",
                 "module_soc", "module_soh")
 
@@ -76,8 +76,8 @@ def _system_key(groups: dict[str, str]) -> str:
 
 def detect(profile: dict, entities: Iterable[RegistryEntity]) -> list[DetectedSystem]:
     """All systems of this profile's integration found among the entities."""
-    platform = profile["integration"]["platform"]
-    candidates = [e for e in entities if e.platform == platform and e.unique_id]
+    default_platform = profile["integration"]["platform"]
+    entities = [e for e in entities if e.unique_id]
     systems: dict[str, DetectedSystem] = {}
     matches: dict[tuple[str, str], list[tuple[int, str, str]]] = {}  # (key, role) -> [(rule idx, level, entity)]
 
@@ -87,7 +87,9 @@ def detect(profile: dict, entities: Iterable[RegistryEntity]) -> list[DetectedSy
     for role, rules in profile["roles"].items():
         for idx, rule in enumerate(rules):
             pattern = compile_template(rule["unique_id"])
-            for ent in candidates:
+            # A rule can name its own platform, e.g. input_datetime for an install-date helper.
+            platform = rule.get("platform", default_platform)
+            for ent in (e for e in entities if e.platform == platform):
                 m = pattern.match(ent.unique_id)
                 if not m:
                     continue

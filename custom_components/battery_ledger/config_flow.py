@@ -430,8 +430,32 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         })
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
+        elif install := await self._detected_install_date(spec["brand"]):
+            schema = self.add_suggested_values_to_schema(schema, {CONF_INSTALL_DATE: install})
         return self.async_show_form(step_id="group", data_schema=schema, errors=errors,
                                     description_placeholders=placeholders)
+
+    async def _detected_install_date(self, brand: str) -> str | None:
+        """Install date from an integration that keeps one (e.g. Energy Manager's battery_install_date)."""
+        index = await async_get_store_index(self.hass)
+        profiles = [p for p in index.profiles_for_brands({brand}) if "install_date" in p.get("roles", {})]
+        if not profiles:
+            return None
+        registry = er.async_get(self.hass)
+        entities = [RegistryEntity(e.entity_id, e.platform, e.unique_id)
+                    for e in registry.entities.values() if not e.disabled]
+        for profile in profiles:
+            for system in detect(profile, entities):
+                if "install_date" not in system.roles:
+                    continue
+                state = self.hass.states.get(system.roles["install_date"][1])
+                try:
+                    found = date.fromisoformat(state.state[:10]) if state else None
+                except ValueError:
+                    continue
+                if found and found <= dt_util.now().date():
+                    return found.isoformat()
+        return None
 
     async def async_step_add_more(self, user_input: dict | None = None) -> ConfigFlowResult:
         summary = "\n".join(

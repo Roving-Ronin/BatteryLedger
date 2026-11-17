@@ -1,9 +1,11 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-17T06:34:28+00:00",
- "count": 8,
+ "generated": "2026-11-17T07:13:26+00:00",
+ "count": 12,
  "brands": [
+  "Huawei",
+  "iStore",
   "Sigenergy",
   "Sungrow"
  ],
@@ -12,6 +14,14 @@
   "NZ"
  ],
  "series": [
+  [
+   "Huawei",
+   "LUNA2000"
+  ],
+  [
+   "iStore",
+   "iStore Battery"
+  ],
   [
    "Sigenergy",
    "SigenStor"
@@ -26,6 +36,214 @@
   ]
  ],
  "specs": [
+  {
+   "schema_version": 1,
+   "id": "huawei-luna2000-5-e0-5-kwh-s0-au",
+   "spec_version": 1,
+   "brand": "Huawei",
+   "series": "LUNA2000",
+   "model": "LUNA2000-5-E0 5 kWh",
+   "variant": "S0",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 5.0,
+    "usable_kwh": 5.0,
+    "min_units": 1,
+    "max_units": 9
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 60,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "per_unit",
+     "kwh": 16450
+    },
+    "notes": "Australia: 60% of usable energy at 10 years or 16.45 MWh life cycle discharge per 5 kWh battery pack, whichever comes first. Counted from installation (the policy's start of 180 days after shipment is ignored). The power module (LUNA2000-5KW-C0) has its own time-only 10-year warranty. Requires a FusionSolar connection."
+   },
+   "sources": [
+    {
+     "url": "https://solar.huawei.com/admin/asset/v1/pro/view/d373d9834172413b85d346e1f691915d.pdf",
+     "title": "Huawei Residential Smart PV Warranty Policy (Global), Issue 04",
+     "date": "2025-11-30"
+    },
+    {
+     "url": "https://solarproof.com.au/datasheets/battery_datasheet_ES-HUW-LUNA-5kWh-E0.pdf",
+     "title": "Huawei LUNA2000-5/10/15-S0 datasheet (AU)"
+    }
+   ],
+   "notes": "LUNA2000-5/10/15-S0: one LUNA2000-5KW-C0 power module with 1-3 LUNA2000-5-E0 battery modules of 5 kWh, 100% usable; up to 3 modules per inverter and normally up to 3 inverters in a plant. No longer sold in Australia (since Feb 2024); iStore modules are compatible.",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-17"
+  },
+  {
+   "schema_version": 1,
+   "id": "istore-is-batt-7000-es-6-9-kwh-au",
+   "spec_version": 1,
+   "brand": "iStore",
+   "series": "iStore Battery",
+   "model": "IS-BATT-7000-ES 6.9 kWh",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 6.9,
+    "usable_kwh": 6.9,
+    "min_units": 1,
+    "max_units": 12
+   },
+   "warranty": {
+    "years": 15,
+    "eol_capacity_pct": 60,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "per_unit",
+     "kwh": 28840
+    },
+    "notes": "60% of capacity at 15 years or 28.84 MWh life cycle discharge per 7 kWh battery pack, whichever comes first. The power module (IS-BATT-7000-BMS) has its own time-only warranty. Requires a connection to the iStore monitoring platform and installation within 31 days of purchase."
+   },
+   "sources": [
+    {
+     "url": "https://istore.net.au/wp-content/uploads/2025/12/pv-products-warranty-4DEC-25.pdf",
+     "title": "iStore PV Products Warranty and Service Conditions (Dec 2025)",
+     "date": "2025-12-04"
+    },
+    {
+     "url": "https://solar.huawei.com/admin/asset/v1/pro/view/8da96b44831242eea1ddc3f4bf94a518.pdf",
+     "title": "Huawei LUNA2000-7/14/21-S1 datasheet, 01-202411",
+     "date": "2024-11-01"
+    },
+    {
+     "url": "https://istore.net.au/wp-content/uploads/2026/09/is-battery-tech-s1-tech-Aug2026.V2.1.pdf",
+     "title": "iStore S1 battery technical specification V2.1",
+     "date": "2026-08-01"
+    }
+   ],
+   "notes": "iStore's LUNA2000-S1: one IS-BATT-7000-BMS power module with 1-3 IS-BATT-7000-ES modules of 6.9 kWh, 100% usable; up to 4 groups per inverter (82.8 kWh), depending on the inverter. Module figures from Huawei's S1 datasheet.",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-17"
+  },
+  {
+   "schema_version": 1,
+   "id": "istore-is-batt-5000-es-5-kwh-warranty-jan-2024-au",
+   "spec_version": 1,
+   "brand": "iStore",
+   "series": "iStore Battery",
+   "model": "IS-BATT-5000-ES 5 kWh",
+   "variant": "Warranty Jan 2024",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 5.0,
+    "usable_kwh": 5.0,
+    "min_units": 1,
+    "max_units": 9
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 60,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "per_unit",
+     "kwh": 16450
+    },
+    "notes": "60% of capacity at 10 years or 16.45 MWh life cycle discharge per 5 kWh battery pack (IS-BATT-5000-ES), whichever comes first. The power module (IS-BATT-5000-BMS) has its own time-only warranty. Requires a connection to the iStore monitoring platform and installation within a month of purchase."
+   },
+   "sources": [
+    {
+     "url": "https://static.getpylon.com/warranties/inverters/iStoreWarranty_PV-01012024-AU.pdf",
+     "title": "iStore Solar Warranty and Service Conditions (AU, 1 Jan 2024)",
+     "date": "2024-01-01"
+    },
+    {
+     "url": "https://istore.net.au/wp-content/uploads/2025/08/is-battery-tech-AUG25.pdf",
+     "title": "iStore Battery technical specification",
+     "date": "2025-08-01"
+    }
+   ],
+   "notes": "IS-BATT-5000/10000/15000-S0: one IS-BATT-5000-BMS power module with 1-3 IS-BATT-5000-ES modules of 5 kWh, 100% usable; up to 3 modules per inverter and normally up to 3 inverters in a plant. Built by Huawei (LUNA2000-compatible).",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-17"
+  },
+  {
+   "schema_version": 1,
+   "id": "istore-is-batt-5000-es-5-kwh-warranty-oct-2024-au",
+   "spec_version": 1,
+   "brand": "iStore",
+   "series": "iStore Battery",
+   "model": "IS-BATT-5000-ES 5 kWh",
+   "variant": "Warranty Oct 2024",
+   "regions": [
+    "AU"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 5.0,
+    "usable_kwh": 5.0,
+    "min_units": 1,
+    "max_units": 9
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "per_unit",
+     "kwh": 18250
+    },
+    "notes": "70% of capacity at 10 years or 18.25 MWh life cycle discharge per 5 kWh battery pack (IS-BATT-5000-ES), whichever comes first. The power module (IS-BATT-5000-BMS) has its own time-only warranty. Requires a connection to the iStore monitoring platform and installation within a month of purchase. Unchanged in the December 2025 terms."
+   },
+   "sources": [
+    {
+     "url": "https://www.solarquotes.com.au/wp-content/uploads/2021/02/istore-pv-products-warranty-oct24.pdf",
+     "title": "iStore PV Products Warranty and Service Conditions (Oct 2024)",
+     "date": "2024-10-01"
+    },
+    {
+     "url": "https://istore.net.au/wp-content/uploads/2025/12/pv-products-warranty-4DEC-25.pdf",
+     "title": "iStore PV Products Warranty and Service Conditions (Dec 2025)",
+     "date": "2025-12-04"
+    },
+    {
+     "url": "https://istore.net.au/wp-content/uploads/2025/08/is-battery-tech-AUG25.pdf",
+     "title": "iStore Battery technical specification",
+     "date": "2025-08-01"
+    }
+   ],
+   "notes": "IS-BATT-5000/10000/15000-S0: one IS-BATT-5000-BMS power module with 1-3 IS-BATT-5000-ES modules of 5 kWh, 100% usable; up to 3 modules per inverter and normally up to 3 inverters in a plant. Built by Huawei (LUNA2000-compatible).",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-17"
+  },
   {
    "schema_version": 1,
    "id": "sigenergy-sigenstor-bat-10-0-anz",
@@ -416,6 +634,116 @@
  "profiles": [
   {
    "schema_version": 1,
+   "id": "energy-manager",
+   "profile_version": 1,
+   "name": "Energy Manager",
+   "integration": {
+    "platform": "mqtt",
+    "url": "https://github.com/ha-energymanager/ha-energymanager"
+   },
+   "brands": [
+    "*"
+   ],
+   "roles": {
+    "discharged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "inverter_total_battery_discharge_mqtt",
+      "default_entity_ids": [
+       "sensor.inverter_total_battery_discharge"
+      ]
+     }
+    ],
+    "charged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "inverter_total_battery_charge_mqtt",
+      "default_entity_ids": [
+       "sensor.inverter_total_battery_charge"
+      ]
+     }
+    ],
+    "rated_capacity": [
+     {
+      "level": "plant",
+      "unique_id": "inverter_battery_capacity_mqtt",
+      "default_entity_ids": [
+       "sensor.inverter_battery_capacity"
+      ]
+     }
+    ],
+    "soh": [
+     {
+      "level": "plant",
+      "unique_id": "inverter_battery_soh_mqtt",
+      "default_entity_ids": [
+       "sensor.inverter_battery_soh"
+      ]
+     }
+    ],
+    "install_date": [
+     {
+      "level": "plant",
+      "platform": "input_datetime",
+      "unique_id": "battery_install_date",
+      "default_entity_ids": [
+       "input_datetime.battery_install_date"
+      ]
+     }
+    ]
+   },
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-17"
+  },
+  {
+   "schema_version": 1,
+   "id": "huawei-solar-wlcrs",
+   "profile_version": 1,
+   "name": "Huawei Solar (wlcrs)",
+   "integration": {
+    "platform": "huawei_solar",
+    "url": "https://github.com/wlcrs/huawei_solar"
+   },
+   "brands": [
+    "Huawei",
+    "iStore"
+   ],
+   "roles": {
+    "discharged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "{serial}_storage_total_discharge",
+      "default_entity_ids": [
+       "sensor.batteries_total_discharge"
+      ]
+     }
+    ],
+    "charged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "{serial}_storage_total_charge",
+      "default_entity_ids": [
+       "sensor.batteries_total_charge"
+      ]
+     }
+    ],
+    "rated_capacity": [
+     {
+      "level": "plant",
+      "unique_id": "{serial}_storage_rated_capacity",
+      "default_entity_ids": [
+       "sensor.batteries_rated_capacity"
+      ]
+     }
+    ]
+   },
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-17"
+  },
+  {
+   "schema_version": 1,
    "id": "sigen-local-modbus",
    "profile_version": 2,
    "name": "Sigenergy ESS (TypQxQ Local Modbus)",
@@ -592,6 +920,114 @@
       "unique_id": "{prefix}_{plant}_{station}_4_{serial}_battery_soc",
       "default_entity_ids": [
        "sensor.sigen_0_cloud_4_<serial>_battery_soc"
+      ]
+     }
+    ]
+   },
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-17"
+  },
+  {
+   "schema_version": 1,
+   "id": "sungrow-shx-inverter-wingman3434",
+   "profile_version": 1,
+   "name": "Sungrow SHx Inverter (Wingman3434)",
+   "integration": {
+    "platform": "sungrow_shx_inverter",
+    "url": "https://github.com/Wingman3434/sungrow-shx-inverter-hacs"
+   },
+   "brands": [
+    "Sungrow"
+   ],
+   "roles": {
+    "discharged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "{serial}_total_battery_discharge",
+      "default_entity_ids": [
+       "sensor.sungrow_shx_inverter_<model>_total_battery_discharge"
+      ]
+     }
+    ],
+    "charged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "{serial}_total_battery_charge",
+      "default_entity_ids": [
+       "sensor.sungrow_shx_inverter_<model>_total_battery_charge"
+      ]
+     }
+    ],
+    "rated_capacity": [
+     {
+      "level": "plant",
+      "unique_id": "{serial}_battery_capacity_high_precision",
+      "default_entity_ids": [
+       "sensor.sungrow_shx_inverter_<model>_battery_capacity_high_precision"
+      ]
+     }
+    ],
+    "soh": [
+     {
+      "level": "plant",
+      "unique_id": "{serial}_battery_state_of_health",
+      "default_entity_ids": [
+       "sensor.sungrow_shx_inverter_<model>_battery_state_of_health"
+      ]
+     }
+    ]
+   },
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-17"
+  },
+  {
+   "schema_version": 1,
+   "id": "sungrow-shx-modbus-mkaiser",
+   "profile_version": 1,
+   "name": "Sungrow SHx Modbus (mkaiser YAML package)",
+   "integration": {
+    "platform": "modbus",
+    "url": "https://github.com/mkaiser/Sungrow-SHx-Inverter-Modbus-Home-Assistant"
+   },
+   "brands": [
+    "Sungrow"
+   ],
+   "roles": {
+    "discharged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "sg_total_battery_discharge",
+      "default_entity_ids": [
+       "sensor.total_battery_discharge"
+      ]
+     }
+    ],
+    "charged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "sg_total_battery_charge",
+      "default_entity_ids": [
+       "sensor.total_battery_charge"
+      ]
+     }
+    ],
+    "rated_capacity": [
+     {
+      "level": "plant",
+      "unique_id": "uid_battery_capacity_high_precision",
+      "default_entity_ids": [
+       "sensor.battery_capacity_high_precision"
+      ]
+     }
+    ],
+    "soh": [
+     {
+      "level": "plant",
+      "unique_id": "sg_battery_state_of_health",
+      "default_entity_ids": [
+       "sensor.battery_state_of_health"
       ]
      }
     ]

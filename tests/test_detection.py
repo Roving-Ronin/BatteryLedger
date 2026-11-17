@@ -124,6 +124,9 @@ async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
     values = [o["value"] for o in options]
     assert "sigenergy2mqtt|prefix=sigen|plant=0" in values
     assert "sigen-local-modbus|none" in values  # listed, but not installed
+    # Sigenergy: its own integrations plus Energy Manager (any brand), in Store order
+    profile_ids = [v.split("|")[0] for v in values if v != "manual"]
+    assert profile_ids == ["energy-manager", "sigen-local-modbus", "sigenergy2mqtt"]
 
     r = await flow.async_configure(r["flow_id"], {"integration": "sigen-local-modbus|none"})
     assert r["errors"] == {"integration": "not_detected"}
@@ -153,3 +156,118 @@ async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
     margin = float(st("soh_above_warranty_floor").state)
     assert margin == pytest.approx(99 - float(st("estimated_usable_capacity").state), abs=0.1)
     assert st("hardware_capacity_validation").state == "Match Verified"
+
+
+def em_entities():
+    return [
+        RegistryEntity("sensor.inverter_total_battery_discharge", "mqtt", "inverter_total_battery_discharge_mqtt"),
+        RegistryEntity("sensor.inverter_total_battery_charge", "mqtt", "inverter_total_battery_charge_mqtt"),
+        RegistryEntity("sensor.inverter_battery_capacity", "mqtt", "inverter_battery_capacity_mqtt"),
+        RegistryEntity("sensor.inverter_battery_soh", "mqtt", "inverter_battery_soh_mqtt"),
+        RegistryEntity("input_datetime.battery_install_date", "input_datetime", "battery_install_date"),
+    ]
+
+
+def test_detect_energy_manager_fixed_ids_and_helper_platform():
+    [system] = detect(PROFILES["energy-manager"], em_entities() + mqtt_entities())
+    assert system.roles["discharged_energy"] == ("plant", "sensor.inverter_total_battery_discharge")
+    assert system.roles["soh"][1] == "sensor.inverter_battery_soh"
+    assert system.roles["install_date"][1] == "input_datetime.battery_install_date"
+    assert system.key == "default" and not system.modules
+
+
+async def test_energy_manager_offered_for_any_brand_and_prefills_date(hass: HomeAssistant):
+    registry = er.async_get(hass)
+    mqtt_owner = MockConfigEntry(domain="mqtt")
+    mqtt_owner.add_to_hass(hass)
+    for ent in em_entities():
+        domain, object_id = ent.entity_id.split(".", 1)
+        registry.async_get_or_create(domain, ent.platform, ent.unique_id, suggested_object_id=object_id,
+                                     config_entry=mqtt_owner if ent.platform == "mqtt" else None)
+    hass.states.async_set("input_datetime.battery_install_date", "2024-11-02")
+    hass.states.async_set("sensor.inverter_total_battery_discharge", "500", {"unit_of_measurement": "kWh"})
+    hass.states.async_set("sensor.inverter_battery_capacity", "12.8", {"unit_of_measurement": "kWh"})
+
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+    r = await flow.async_configure(r["flow_id"], {"brand": "Sungrow"})
+    r = await flow.async_configure(r["flow_id"], {"series": "Sungrow|SBR"})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sungrow-sbr-battery-module-3-2-kwh-warranty-v8-0-au"]})
+    assert r["step_id"] == "group"
+    date_key = next(k for k in r["data_schema"].schema if str(k) == "install_date")
+    assert date_key.description["suggested_value"] == "2024-11-02"  # from Energy Manager's helper
+    r = await flow.async_configure(r["flow_id"], {"units": 4, "install_date": "2024-11-02"})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    values = [o["value"] for o in r["data_schema"].schema["integration"].config["options"]]
+    assert "energy-manager|default" in values  # offered for Sungrow, a brand with no own profile
+    r = await flow.async_configure(r["flow_id"], {"integration": "energy-manager|default"})
+    assert r["step_id"] == "system"
+    suggested = {str(k): k.description["suggested_value"] for k in r["data_schema"].schema
+                 if k.description and "suggested_value" in k.description}
+    assert suggested == {"charged_energy_entity": "sensor.inverter_total_battery_charge",
+                         "discharged_energy_entity": "sensor.inverter_total_battery_discharge",
+                         "reported_capacity_entity": "sensor.inverter_battery_capacity",
+                         "soh_entity": "sensor.inverter_battery_soh"}
+    r = await flow.async_configure(r["flow_id"], {"name": "Sungrow Battery", **suggested})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    # 4 x 8,960 kWh (V8.0), discharged basis from Energy Manager's discharge sensor
+    assert float(hass.states.get("sensor.battery_ledger_total_rated_throughput").state) == 4 * 8960
+    assert float(hass.states.get("sensor.battery_ledger_rated_throughput_used").state) == pytest.approx(500)
+
+
+def test_detect_sungrow_integrations():
+    mk = [RegistryEntity("sensor.total_battery_discharge", "modbus", "sg_total_battery_discharge"),
+          RegistryEntity("sensor.total_battery_charge", "modbus", "sg_total_battery_charge"),
+          RegistryEntity("sensor.battery_capacity_high_precision", "modbus", "uid_battery_capacity_high_precision"),
+          RegistryEntity("sensor.battery_state_of_health", "modbus", "sg_battery_state_of_health"),
+          RegistryEntity("sensor.total_battery_charge_from_pv", "modbus", "sg_total_battery_charge_from_pv")]
+    [system] = detect(PROFILES["sungrow-shx-modbus-mkaiser"], mk)
+    assert system.roles["discharged_energy"][1] == "sensor.total_battery_discharge"
+    assert system.roles["charged_energy"][1] == "sensor.total_battery_charge"  # not "...from_pv"
+
+    sn = "A2331234567"
+    wm = [RegistryEntity(f"sensor.sungrow_shx_inverter_sh10rt_{k}", "sungrow_shx_inverter", f"{sn}_{k}")
+          for k in ("total_battery_discharge", "total_battery_charge", "battery_capacity_high_precision",
+                    "battery_state_of_health", "total_battery_charge_from_pv")]
+    [system] = detect(PROFILES["sungrow-shx-inverter-wingman3434"], wm)
+    assert system.roles["soh"][1] == "sensor.sungrow_shx_inverter_sh10rt_battery_state_of_health"
+    assert system.roles["charged_energy"][1] == "sensor.sungrow_shx_inverter_sh10rt_total_battery_charge"
+
+
+async def test_sungrow_integration_choices(hass: HomeAssistant):
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+    r = await flow.async_configure(r["flow_id"], {"brand": "Sungrow"})
+    r = await flow.async_configure(r["flow_id"], {"series": "Sungrow|SBH"})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sungrow-sbh-battery-module-5-0-kwh-warranty-v8-0-au"]})
+    r = await flow.async_configure(r["flow_id"], {"units": 4, "install_date": "2025-01-01"})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
+    assert ids == ["energy-manager", "sungrow-shx-inverter-wingman3434", "sungrow-shx-modbus-mkaiser", "manual"]
+
+
+def test_detect_huawei_solar():
+    sn = "HV2280123456"
+    ents = [RegistryEntity(f"sensor.batteries_{k}", "huawei_solar", f"{sn}_storage_{k}")
+            for k in ("total_discharge", "total_charge", "rated_capacity", "state_of_capacity")]
+    ents.append(RegistryEntity("sensor.battery_1_total_discharge", "huawei_solar", f"{sn}_storage_unit_1_total_discharge"))
+    [system] = detect(PROFILES["huawei-solar-wlcrs"], ents)
+    assert system.roles["discharged_energy"][1] == "sensor.batteries_total_discharge"
+    assert system.roles["charged_energy"][1] == "sensor.batteries_total_charge"
+    assert system.roles["rated_capacity"][1] == "sensor.batteries_rated_capacity"
+
+
+async def test_istore_offers_huawei_solar(hass: HomeAssistant):
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+    r = await flow.async_configure(r["flow_id"], {"brand": "iStore"})
+    assert r["step_id"] == "store_select"  # one model line, so the Model step is skipped
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["istore-is-batt-5000-es-5-kwh-warranty-oct-2024-au"]})
+    r = await flow.async_configure(r["flow_id"], {"units": 3, "install_date": "2025-01-01"})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
+    assert ids == ["energy-manager", "huawei-solar-wlcrs", "manual"]

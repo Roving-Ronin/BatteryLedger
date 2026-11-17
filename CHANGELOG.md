@@ -4,7 +4,38 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
-## v0.1.3 (unreleased)
+## v0.1.4 (unreleased)
+
+### TL;DR
+- Model is now chosen after the brand, and only lists that brand's models
+- Energy Manager supported for any battery brand, including its battery install date
+- Sungrow setups can pick up sensors from mkaiser's Modbus package or Wingman3434's integration
+- Huawei and iStore setups can pick up sensors from wlcrs's Huawei Solar integration
+- Bundled Store list adds Huawei LUNA2000 and iStore batteries
+
+### Fixed
+- Store search offered every brand's models in the Model filter even with a brand chosen (e.g. Sungrow SBR
+  and SBH under Sigenergy). Model is now its own step after the search, listing only the models among the
+  matching batteries, and is skipped when there's just one.
+
+### Added
+- Energy Manager sensor profile: offered whatever the battery brand, since Energy Manager translates each
+  vendor's integration into the same sensors. Setup fills in its lifetime discharged and charged energy,
+  battery capacity and SoH sensors, and pre-fills the warranty start date from its
+  `input_datetime.battery_install_date`.
+- Sensor profiles can apply to any brand (`"*"`), use fixed unique IDs, and include an install-date entity
+  from another platform (e.g. a helper). Any integration that keeps an install date pre-fills it the same way.
+- Sungrow sensor profiles for mkaiser's Sungrow SHx Modbus YAML package and Wingman3434's Sungrow SHx Inverter
+  integration: lifetime battery discharge and charge, battery capacity and SoH.
+- Huawei Solar (wlcrs) sensor profile for Huawei and iStore batteries: lifetime battery discharge and charge,
+  and rated capacity.
+
+### Changed
+- The bundled copy of the Store list includes the sensor profiles' default entity IDs, and adds the Huawei
+  LUNA2000-5-E0 (S0), the iStore IS-BATT-5000-ES (warranties of January and October 2024) and the iStore
+  IS-BATT-7000-ES (Huawei LUNA2000-S1, 15 years) for Australia.
+
+## v0.1.3 (2026-11-17)
 
 ### TL;DR
 - The original YAML package's sensors now match it exactly: values, attributes and names
@@ -12,12 +43,7 @@ credit where there is one.
 - Currency comes from Home Assistant's regional settings; choose $ or AUD style
 - Setup name defaults to "<Brand> Battery", e.g. Sigenergy Battery
 - New Cycles Per Day sensor, replacing the YAML package's battery_cycles_per_day
-- Model is now chosen after the brand, and only lists that brand's models
-
-### Fixed
-- Store search offered every brand's models in the Model filter even with a brand chosen (e.g. Sungrow SBR
-  and SBH under Sigenergy). Model is now its own step after the search, listing only the models among the
-  matching batteries, and is skipped when there's just one.
+- Bundled Store list adds Sungrow SBR and SBH, and marks the Sigenergy specs verified
 
 ### Changed
 - The nine sensors carried over from the original YAML package are now identical to it, so templates and

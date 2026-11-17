@@ -57,7 +57,11 @@ Or add it manually:
    model or later install* for modules of the same model added later with a different warranty start date.
 3. **Inverter integration:** BatteryLedger looks for your inverter integration's sensors using the Store's
    *sensor profiles* (matched by entity registry unique ID, so renamed entities still work) and lists the
-   integrations it knows for your battery brand. Currently: TypQxQ's Sigenergy Local Modbus and sigenergy2mqtt.
+   integrations it knows for your battery brand: currently TypQxQ's Sigenergy Local Modbus and sigenergy2mqtt
+   for Sigenergy, mkaiser's Sungrow SHx Modbus package and Wingman3434's Sungrow SHx Inverter for Sungrow,
+   wlcrs's Huawei Solar for Huawei and iStore, and
+   [Energy Manager](https://github.com/ha-energymanager/ha-energymanager) for any brand. If
+   Energy Manager is installed, its battery install date also pre-fills the warranty start date.
 4. **Battery modules** (when available, e.g. sigenergy2mqtt with the Sigen Cloud API enabled): per-module
    discharge counters are assigned to your battery groups by each module's rated capacity, and each module is
    tracked against its own warranty limit.

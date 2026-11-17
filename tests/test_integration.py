@@ -27,7 +27,7 @@ async def _setup_via_flow(hass: HomeAssistant, install_date: str) -> config_entr
 
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     assert result["type"] is FlowResultType.MENU
-    assert result["description_placeholders"]["count"] == "8"
+    assert result["description_placeholders"]["count"] == "12"
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "store_search"})
     assert result["step_id"] == "store_search"
@@ -267,9 +267,9 @@ async def test_model_step_follows_brand(hass: HomeAssistant):
     assert step == "store_select"
     # No brand: every model, with its brand
     step, labels, r = await models_for({})
-    assert labels == ["SigenStor (Sigenergy)", "SBH (Sungrow)", "SBR (Sungrow)"]
+    assert labels == ["LUNA2000 (Huawei)", "iStore Battery (iStore)", "SigenStor (Sigenergy)", "SBH (Sungrow)", "SBR (Sungrow)"]
     r = await flow.async_configure(r["flow_id"], {})  # left empty = all models
-    assert r["description_placeholders"]["matches"] == "8"
+    assert r["description_placeholders"]["matches"] == "12"
     # Three-phase only excludes nothing for SBH, but a search narrows models too
     step, labels, _ = await models_for({"search": "sbh"})
     assert step == "store_select"
