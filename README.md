@@ -96,6 +96,8 @@ format, so English (US) shows month-day-year; choose **Day-Month-Year** there fo
 
 ## Dashboard card
 
+<p align="center"><img src="images/card.png" alt="BatteryLedger card for a SigenStor BAT 8.0 × 6 battery" width="451"></p>
+
 BatteryLedger installs its own dashboard card; there's nothing extra to download or add as a resource. Edit a
 dashboard, add a card and pick **BatteryLedger**, then choose the setup if you have more than one. In YAML:
 
@@ -121,6 +123,11 @@ BatteryLedger setup, so the card looks the same on every dashboard and device.
 ## Sensors
 
 Entity IDs are `sensor.battery_ledger_<name>`. A second BatteryLedger setup gets `_2` on the end, and so on.
+
+At startup the sensors stay unavailable until every source sensor you chose has reported, so a battery
+integration that's still connecting (Modbus, MQTT, cloud) isn't mistaken for a sensor that isn't set up. If one
+hasn't reported 5 minutes after Home Assistant starts, BatteryLedger calculates without it (with the usual note).
+If a source drops out later, its last reading is used until it's back.
 
 | Entity ID (`sensor.battery_ledger_…`) | What it shows | Attributes |
 |---|---|---|

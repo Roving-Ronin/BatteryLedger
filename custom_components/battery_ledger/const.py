@@ -20,6 +20,9 @@ SUPPORTED_INDEX_FORMAT = 1
 STORE_REFRESH_INTERVAL = timedelta(hours=24)
 RECALC_INTERVAL = timedelta(hours=1)
 RECALC_DEBOUNCE_SECONDS = 60
+# After Home Assistant starts, how long to wait for every configured source sensor to report
+# before calculating with whatever is available.
+STARTUP_WAIT = timedelta(minutes=5)
 
 # Config entry data keys
 CONF_GROUPS = "groups"

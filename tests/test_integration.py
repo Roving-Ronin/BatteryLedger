@@ -9,8 +9,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
-from custom_components.battery_ledger.const import DOMAIN
+from custom_components.battery_ledger.const import DOMAIN, STARTUP_WAIT
 from custom_components.battery_ledger.store_client import async_get_store_index
 
 CHARGED = "sensor.sigen_plant_total_charged_energy_of_the_ess"
@@ -114,11 +115,11 @@ async def test_flow_and_sensors(hass: HomeAssistant):
     await hass.async_block_till_done()
     assert float(val("rated_throughput_used").state) == pytest.approx(20000)
 
-    # Unavailable source -> sensors unavailable rather than wrong
+    # Source drops out mid-run -> its last valid reading is kept, values don't jump
     hass.states.async_set(CHARGED, "unavailable")
     entry.runtime_data.recalculate()
     await hass.async_block_till_done()
-    assert val("rated_throughput_used").state == "unavailable"
+    assert float(val("rated_throughput_used").state) == pytest.approx(20000)
 
 
 async def test_store_revision_raises_fixable_repair(hass: HomeAssistant):
@@ -280,3 +281,76 @@ async def test_model_step_follows_brand(hass: HomeAssistant):
     # Three-phase only excludes nothing for SBH, but a search narrows models too
     step, labels, _ = await models_for({"search": "sbh"})
     assert step == "store_select"
+
+
+DISCHARGED = "sensor.sigen_plant_total_discharged_energy_of_the_ess"
+
+
+async def _startup_entry(hass: HomeAssistant):
+    """A BAT 8.0 x 6 entry (discharged-energy warranty) with charged, discharged and rated sensors."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.battery_ledger.const import CONFIG_ENTRY_MINOR_VERSION, CONFIG_ENTRY_VERSION
+    index = await async_get_store_index(hass)
+    spec = index.get("sigenergy-sigenstor-bat-8-0-anz")
+    install = (dt_util.now().date() - timedelta(days=365)).isoformat()
+    entry = MockConfigEntry(domain=DOMAIN, title="Sigen", version=CONFIG_ENTRY_VERSION,
+                            minor_version=CONFIG_ENTRY_MINOR_VERSION, data={
+        "name": "Sigen", "groups": [{"spec": spec, "units": 6, "install_date": install}],
+        "charged_energy_entity": CHARGED, "discharged_energy_entity": DISCHARGED,
+        "reported_capacity_entity": RATED})
+    entry.add_to_hass(hass)
+    return entry
+
+
+async def test_waits_for_every_source_at_startup(hass: HomeAssistant):
+    """A source still connecting isn't treated as not configured: no charged-energy fallback blip."""
+    hass.states.async_set(CHARGED, "12000", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(DISCHARGED, "unavailable")
+    hass.states.async_set(RATED, "48.36", {"unit_of_measurement": "kWh"})
+    entry = await _startup_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    used = "sensor.battery_ledger_rated_throughput_used"
+    assert not entry.runtime_data.ready
+    assert hass.states.get(used).state == "unavailable"
+
+    hass.states.async_set(DISCHARGED, "11000", {"unit_of_measurement": "kWh"})
+    await hass.async_block_till_done()
+    assert entry.runtime_data.ready
+    assert float(hass.states.get(used).state) == pytest.approx(11000)  # discharged, as the warranty states
+    assert "notes" not in hass.states.get(used).attributes or not hass.states.get(used).attributes["notes"]
+
+
+async def test_startup_wait_times_out(hass: HomeAssistant):
+    """A source that never reports doesn't hold the ledger back for good: fallback after the wait."""
+    hass.states.async_set(CHARGED, "12000", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(RATED, "48.36", {"unit_of_measurement": "kWh"})
+    entry = await _startup_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    used = "sensor.battery_ledger_rated_throughput_used"
+    assert hass.states.get(used).state == "unavailable"
+
+    async_fire_time_changed(hass, dt_util.utcnow() + STARTUP_WAIT + timedelta(seconds=1))
+    await hass.async_block_till_done()
+    state = hass.states.get(used)
+    assert float(state.state) == pytest.approx(12000)  # charged fallback, with its note
+    assert "discharged_sensor_missing_using_charged" in state.attributes["notes"]
+
+
+async def test_source_dropout_keeps_basis(hass: HomeAssistant):
+    """Discharged counter drops out mid-run: keep its last reading, don't switch to charged."""
+    hass.states.async_set(CHARGED, "12000", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(DISCHARGED, "11", {"unit_of_measurement": "MWh"})
+    hass.states.async_set(RATED, "48.36", {"unit_of_measurement": "kWh"})
+    entry = await _startup_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    used = "sensor.battery_ledger_rated_throughput_used"
+    assert float(hass.states.get(used).state) == pytest.approx(11000)
+
+    hass.states.async_set(DISCHARGED, "unavailable")  # unit attribute gone too
+    entry.runtime_data.recalculate()
+    await hass.async_block_till_done()
+    assert float(hass.states.get(used).state) == pytest.approx(11000)
+    assert "discharged_sensor_missing_using_charged" not in (hass.states.get(used).attributes.get("notes") or [])

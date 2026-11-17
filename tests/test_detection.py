@@ -10,9 +10,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
-from custom_components.battery_ledger.const import DOMAIN
+from custom_components.battery_ledger.const import DOMAIN, STARTUP_WAIT
 from custom_components.battery_ledger.detect import RegistryEntity, assign_modules, detect
 
 SNAPSHOT = Path(__file__).resolve().parent.parent / "custom_components" / "battery_ledger" / "data" / "index_snapshot.json"
@@ -20,6 +20,12 @@ PROFILES = {p["id"]: p for p in json.loads(SNAPSHOT.read_text())["profiles"]}
 TYP_ENTRY = "01JCX4ZQ8T5V2M3N4P5Q6R7S8T"
 STATION = "203840556"
 SERIALS = ["110b13641026", "110b13641048"]
+
+
+async def _past_startup_wait(hass):
+    """Move past BatteryLedger's startup wait for source sensors."""
+    async_fire_time_changed(hass, dt_util.utcnow() + STARTUP_WAIT + timedelta(seconds=1))
+    await hass.async_block_till_done()
 
 
 
@@ -146,6 +152,7 @@ async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
     r = await flow.async_configure(r["flow_id"], {"name": "Sigen", "cost": 9000, **suggested})
     assert r["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
+    await _past_startup_wait(hass)  # some configured sensors never report here
 
     def st(obj):
         return hass.states.get(f"sensor.battery_ledger_{obj}")
@@ -213,6 +220,7 @@ async def test_energy_manager_offered_for_any_brand_and_prefills_date(hass: Home
     r = await flow.async_configure(r["flow_id"], {"name": "Sungrow Battery", **suggested})
     assert r["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
+    await _past_startup_wait(hass)  # some configured sensors never report here
     # 4 x 8,960 kWh (V8.0), discharged basis from Energy Manager's discharge sensor
     assert float(hass.states.get("sensor.battery_ledger_total_rated_throughput").state) == 4 * 8960
     assert float(hass.states.get("sensor.battery_ledger_rated_throughput_used").state) == pytest.approx(500)

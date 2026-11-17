@@ -7,6 +7,8 @@ credit where there is one.
 ## v0.1.6 (unreleased)
 
 ### TL;DR
+- BatteryLedger waits for your battery integration's sensors at startup, and rides out dropouts, instead of
+  briefly showing figures from the wrong energy counter
 - Cost Consumed To Date (and Remaining Value) now follow the warranty driver, so an age-driven battery uses up
   its cost by time elapsed rather than by throughput
 - The card's settings cog moves to the bottom right, next to the hardware capacity line
@@ -24,6 +26,12 @@ credit where there is one.
   Box or Fronius Modbus integrations, or Energy Manager
 
 ### Changed
+- At startup, a battery integration that hadn't connected yet looked like a sensor that wasn't set up: with
+  the discharged counter still unavailable, the warranty briefly used charged energy (and per-module tracking
+  fell back to plant totals), leaving a blip in history. BatteryLedger now waits until every chosen source
+  sensor has reported, up to 5 minutes after Home Assistant starts, with its sensors unavailable meanwhile.
+  A source that drops out later keeps its last reading, so the basis no longer flips
+- README: card screenshot
 - Cost Consumed To Date followed throughput used even when age drove the warranty, so it understated the cost
   used up (13.4% of the warranty gone, 10.2% of the cost). It now takes each battery group's warranty life used
   (the larger of time elapsed and throughput used), weighted by usable capacity, and Remaining Value
