@@ -7,6 +7,8 @@ credit where there is one.
 ## v0.1.6 (unreleased)
 
 ### TL;DR
+- Cost Consumed To Date (and Remaining Value) now follow the warranty driver, so an age-driven battery uses up
+  its cost by time elapsed rather than by throughput
 - The card's settings cog moves to the bottom right, next to the hardware capacity line
 - Card labels: "Battery cycles per day (Average)" and "Projected SoH (Today)"
 - Estimated Usable Capacity shows an icon again
@@ -22,6 +24,11 @@ credit where there is one.
   Box or Fronius Modbus integrations, or Energy Manager
 
 ### Changed
+- Cost Consumed To Date followed throughput used even when age drove the warranty, so it understated the cost
+  used up (13.4% of the warranty gone, 10.2% of the cost). It now takes each battery group's warranty life used
+  (the larger of time elapsed and throughput used), weighted by usable capacity, and Remaining Value
+  (`estimated_remaining_value`) follows. `percent_of_rated_life_used` is still the throughput share, and the
+  cost per kWh sensors are unchanged
 - Card: the settings cog is at the bottom right, on the same row as the hardware capacity check (on its own
   when the Health section is hidden), so the header only carries the warranty status.
 - Card: "Cycles Per Day" is labelled "Battery cycles per day (Average)", without the C/day unit, and

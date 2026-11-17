@@ -132,7 +132,7 @@ Entity IDs are `sensor.battery_ledger_<name>`. A second BatteryLedger setup gets
 | `projected_warranted_throughput` | Throughput by the end of the warranty at the average rate so far (capped at the limit) | `average_daily_kwh`, `low_confidence` |
 | `cost_per_kwh_rated` | Battery cost ÷ warranted throughput | |
 | `cost_per_kwh_projected` | Battery cost ÷ projected throughput | |
-| `cost_consumed_to_date` | Cost apportioned to throughput used | `percent_of_rated_life_used`, `estimated_remaining_value` |
+| `cost_consumed_to_date` | Cost apportioned to warranty life used, following the warranty driver (time elapsed or throughput used, whichever is further along). `percent_of_rated_life_used` stays the throughput share | `percent_of_rated_life_used`, `estimated_remaining_value` |
 | `initial_usable_capacity` | Usable capacity at beginning of life | |
 | `estimated_usable_capacity` | Warranty floor health %: the minimum capacity the warranty guarantees today (see below) | `remaining_usable_kwh`, `degradation_driver`, `warranty_status`, `groups`, `notes` |
 | `hardware_capacity_validation` | Whether the inverter's reported capacity matches the configured units (if a rated capacity sensor is set) | `configured_rated_kwh`, `reported_hardware_kwh` |

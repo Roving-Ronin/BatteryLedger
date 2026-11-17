@@ -88,7 +88,7 @@ async def test_flow_and_sensors(hass: HomeAssistant):
     assert val("cost_per_kwh_rated").attributes["unit_of_measurement"] == "$/kWh"
     assert val("cost_consumed_to_date").attributes["unit_of_measurement"] == "$"
     assert "device_class" not in val("cost_consumed_to_date").attributes
-    assert float(val("cost_consumed_to_date").state) == pytest.approx(2720, abs=1)
+    assert float(val("cost_consumed_to_date").state) == pytest.approx(3474.93, abs=1)  # follows the driver (age)
     assert val("hardware_capacity_validation").state == "Match Verified"
     assert val("hardware_capacity_validation").attributes["reported_hardware_kwh"] == 48.36
     assert val("total_rated_throughput").attributes["total_pack_count"] == 6

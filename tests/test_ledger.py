@@ -31,7 +31,9 @@ def test_matches_existing_template_figures():
     assert res.remaining_kwh == pytest.approx(127735)
     assert res.used_pct == pytest.approx(10.44, abs=0.01)
     assert res.cost_per_kwh_rated == pytest.approx(0.1827, abs=0.0001)
-    assert res.cost_consumed == pytest.approx(2719.5, abs=1)
+    # Cost follows the warranty driver (age here): 487 days of a 10-year warranty
+    assert res.cost_consumed == pytest.approx(26062 * 487 / 3652.5, abs=0.01)
+    assert res.remaining_value == pytest.approx(26062 - res.cost_consumed)
     assert res.initial_usable_kwh == pytest.approx(46.8)
     # Age-driven: 487 days of a 10-year warranty, 30% capacity allowance
     assert res.driver == ledger.DRIVER_AGE
@@ -50,6 +52,8 @@ def test_projected_capped_at_warranty():
     assert res.projected_kwh == pytest.approx(res.limit_kwh)
     assert res.status == ledger.STATUS_AHEAD and res.driver == ledger.DRIVER_THROUGHPUT
     assert res.cost_per_kwh_projected == pytest.approx(res.cost_per_kwh_rated)
+    # Throughput-driven: cost follows the throughput share
+    assert res.cost_consumed == pytest.approx(10000 * res.groups[0].throughput_fraction)
 
 
 def test_expired_by_throughput():
@@ -59,7 +63,7 @@ def test_expired_by_throughput():
     assert res.status == ledger.STATUS_EXPIRED
     assert res.floor_pct == pytest.approx(70)
     assert res.remaining_kwh == 0
-    assert res.remaining_value == pytest.approx(0)
+    assert res.remaining_value == pytest.approx(0) and res.cost_consumed == pytest.approx(5000)
 
 
 def test_bat6_figures():

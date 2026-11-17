@@ -193,7 +193,6 @@ class LedgerResult:
     cost_per_kwh_projected: float | None
     cost_consumed: float | None
     remaining_value: float | None
-    remaining_value_by_life: float | None
     expected_reported_kwh: float | None
     hardware: str | None
     notes: list[str] = field(default_factory=list)
@@ -343,10 +342,11 @@ def compute(inp: LedgerInput) -> LedgerResult:
     cost = inp.cost if inp.cost and inp.cost > 0 else None
     cpk_rated = cost / limit_total if cost and limit_total else None
     cpk_proj = cost / projected_total if cost and projected_total else None
-    consumed = min(cpk_rated * used_limited, cost) if cpk_rated else None
-    remaining_value = cost - consumed if consumed is not None else None
+    # Cost is used up at the rate of the warranty driver: each group's life fraction (the larger of
+    # time elapsed and throughput used), weighted by usable capacity and capped at the whole cost.
     life_weighted = sum(min(r.life_fraction, 1.0) * r.initial_usable_kwh for r in results) / initial_total
-    remaining_by_life = cost * (1 - life_weighted) if cost else None
+    consumed = cost * life_weighted if cost else None
+    remaining_value = cost - consumed if consumed is not None else None
 
     expected_reported = None
     hardware = None
@@ -386,7 +386,7 @@ def compute(inp: LedgerInput) -> LedgerResult:
         initial_usable_kwh=initial_total, floor_usable_kwh=floor_total, floor_pct=floor_pct,
         time_elapsed_pct=time_pct, driver=worst.driver, status=status,
         cost_per_kwh_rated=cpk_rated, cost_per_kwh_projected=cpk_proj, cost_consumed=consumed,
-        remaining_value=remaining_value, remaining_value_by_life=remaining_by_life,
+        remaining_value=remaining_value,
         expected_reported_kwh=expected_reported, hardware=hardware, notes=notes,
         worst_module_pct=worst_module_pct, worst_module_id=worst_module_id,
         module_details=module_details, module_vs_plant_pct=module_vs_plant,
