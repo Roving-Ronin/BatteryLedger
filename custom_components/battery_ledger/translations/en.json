@@ -1,0 +1,271 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Find your battery",
+        "description": "Look up your battery in the [BatteryLedger Store]({store_url}) ({count} batteries, list updated {updated}), or enter its details yourself.\n\n{status}",
+        "menu_options": {
+          "store_search": "Search the BatteryLedger Store",
+          "store_refresh": "Refresh the Store list",
+          "manual": "Enter details manually"
+        }
+      },
+      "store_search": {
+        "title": "Search the BatteryLedger Store",
+        "description": "Filter the {count} batteries in the Store. Leave the search box empty to list everything that matches the filters.",
+        "data": {
+          "search": "Search (brand or model)",
+          "brand": "Brand",
+          "region": "Region",
+          "phase": "Phase"
+        },
+        "data_description": {
+          "region": "Warranty terms often differ by country, so pick the one where the battery is installed."
+        }
+      },
+      "store_select": {
+        "title": "Choose your battery",
+        "description": "{matches} matching batteries.",
+        "data": {
+          "spec_id": "Battery"
+        }
+      },
+      "store_confirm": {
+        "title": "{name}",
+        "description": "**Regions:** {regions}\n**Phases:** {phases}\n**Chemistry:** {chemistry}\n**Usable capacity:** {usable}\n**Warranty:** {warranty}\n**Throughput limit:** {throughput} (counted as {basis})\n**Checked by a maintainer:** {verified}\n**Sources:** {sources}\n\nSpec `{spec_id}`, version {version}. Submit to use this battery."
+      },
+      "manual": {
+        "title": "Enter battery details",
+        "description": "Use the figures from your manufacturer's datasheet and warranty for your country. Enter throughput in kWh (23.77 MWh = 23770 kWh).",
+        "data": {
+          "brand": "Brand",
+          "model": "Model",
+          "variant": "Variant",
+          "regions": "Regions",
+          "chemistry": "Chemistry",
+          "phases": "Supported phases",
+          "unit_type": "Product type",
+          "usable_kwh": "Usable capacity per unit (kWh)",
+          "nominal_kwh": "Nominal capacity per unit (kWh)",
+          "reported_kwh": "Capacity reported by the inverter per unit (kWh)",
+          "max_units": "Maximum units per system",
+          "warranty_years": "Warranty period (years)",
+          "eol_capacity_pct": "Warranted end-of-life capacity (%)",
+          "throughput_basis": "Throughput counted as",
+          "throughput_scope": "Throughput limit applies",
+          "throughput_kwh": "Throughput limit (kWh)",
+          "throughput_table": "Throughput table"
+        },
+        "data_description": {
+          "regions": "Comma-separated country codes, e.g. AU, NZ.",
+          "throughput_table": "Only for 'Table by unit count': one row per line as units=kWh, e.g. 3=60000."
+        }
+      },
+      "group": {
+        "title": "{name}",
+        "description": "How many units are installed, and when was the warranty start date (usually the install or commissioning date)? {error}",
+        "data": {
+          "units": "Number of units",
+          "install_date": "Warranty start date"
+        }
+      },
+      "add_more": {
+        "title": "Battery groups",
+        "description": "Added so far:\n{groups}\n\nIf you have more than one battery type on the same system (for example BAT 8.0 and BAT 10.0 modules, or modules added later), add each as its own group.",
+        "menu_options": {
+          "sensors": "Continue",
+          "store_search": "Add another battery type from the Store",
+          "manual": "Add another battery type manually"
+        }
+      },
+      "system": {
+        "title": "System and costs",
+        "description": "Choose the lifetime energy sensors from your inverter. At least one of charged or discharged energy is needed.\n\n{detected}",
+        "data": {
+          "name": "Name",
+          "cost": "Battery cost",
+          "currency": "Currency",
+          "charged_energy_entity": "Lifetime charged energy sensor",
+          "discharged_energy_entity": "Lifetime discharged energy sensor",
+          "reported_capacity_entity": "Rated capacity sensor (optional)",
+          "soh_entity": "Battery state of health sensor (optional)"
+        },
+        "data_description": {
+          "cost": "What you paid for the batteries, for cost per kWh and remaining value. Leave empty to skip the cost sensors.",
+          "reported_capacity_entity": "The battery capacity your inverter reports, used to check the configured units match the hardware.",
+          "soh_entity": "The health % your inverter reports, compared against the warranty floor."
+        }
+      },
+      "sensors": {
+        "title": "Inverter integration",
+        "description": "Which integration provides your battery's sensors? BatteryLedger has {count} sensor profiles for {brands} in the [Store]({store_url}) and has looked for their sensors in this Home Assistant. Choosing one fills in the sensors on the next step, where you can still change them.",
+        "data": {
+          "integration": "Integration"
+        }
+      },
+      "modules": {
+        "title": "Battery modules",
+        "description": "Found lifetime discharge sensors for {count} individual battery modules:\n{modules}{problems}\n\nWith per-module tracking each module is measured against its own warranty limit, and the most-used module sets the warranty status. These sensors come from the unofficial Sigen Cloud API and can lag or stop; the plant sensor is still used as a fallback.",
+        "data": {
+          "use_modules": "Track battery modules individually"
+        }
+      }
+    },
+    "error": {
+      "no_matches": "No batteries match those filters.",
+      "no_energy_entity": "Choose at least one of the charged or discharged energy sensors.",
+      "bad_regions": "Use two-letter country codes separated by commas, or GLOBAL.",
+      "no_phases": "Choose at least one phase.",
+      "throughput_required": "Enter the throughput limit in kWh.",
+      "bad_table": "Enter one row per line as units=kWh, e.g. 3=60000.",
+      "invalid_spec": "Some figures don't add up (check usable vs nominal capacity, warranty years and end-of-life %).",
+      "bad_units": "That unit count isn't valid for this battery.",
+      "future_date": "The warranty start date can't be in the future.",
+      "not_detected": "This integration's sensors weren't found in Home Assistant. Choose another, or choose sensors yourself."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "BatteryLedger settings",
+        "data": {
+          "cost": "Battery cost",
+          "currency": "Currency",
+          "charged_energy_entity": "Lifetime charged energy sensor",
+          "discharged_energy_entity": "Lifetime discharged energy sensor",
+          "reported_capacity_entity": "Rated capacity sensor (optional)",
+          "soh_entity": "Battery state of health sensor (optional)"
+        }
+      }
+    },
+    "error": {
+      "no_energy_entity": "Choose at least one of the charged or discharged energy sensors."
+    }
+  },
+  "selector": {
+    "phase": {
+      "options": {
+        "any": "Any phase",
+        "1": "Single phase",
+        "3": "Three phase"
+      }
+    },
+    "phase_only": {
+      "options": {
+        "1": "Single phase",
+        "3": "Three phase"
+      }
+    },
+    "unit_type": {
+      "options": {
+        "module": "Stackable module",
+        "system": "All-in-one system"
+      }
+    },
+    "throughput_basis": {
+      "options": {
+        "unspecified": "Not stated in warranty",
+        "charged": "Charged energy",
+        "discharged": "Discharged energy"
+      }
+    },
+    "throughput_scope": {
+      "options": {
+        "per_unit": "Per unit",
+        "per_system": "Per system (regardless of unit count)",
+        "table": "Table by unit count",
+        "none": "No throughput limit"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "throughput_limit": {
+        "name": "Warranted throughput"
+      },
+      "throughput_used": {
+        "name": "Throughput used"
+      },
+      "throughput_remaining": {
+        "name": "Throughput remaining"
+      },
+      "throughput_used_pct": {
+        "name": "Warranty throughput used"
+      },
+      "time_elapsed_pct": {
+        "name": "Warranty time elapsed"
+      },
+      "projected_throughput": {
+        "name": "Projected warranty throughput"
+      },
+      "cost_per_kwh_rated": {
+        "name": "Cost per kWh (warranted)"
+      },
+      "cost_per_kwh_projected": {
+        "name": "Cost per kWh (projected)"
+      },
+      "cost_consumed": {
+        "name": "Cost consumed"
+      },
+      "remaining_value": {
+        "name": "Remaining value"
+      },
+      "initial_usable_capacity": {
+        "name": "Initial usable capacity"
+      },
+      "warranty_floor_capacity": {
+        "name": "Warranty floor capacity"
+      },
+      "warranty_floor_pct": {
+        "name": "Warranty floor health"
+      },
+      "degradation_driver": {
+        "name": "Warranty driver",
+        "state": {
+          "age": "Age",
+          "throughput": "Throughput"
+        }
+      },
+      "warranty_status": {
+        "name": "Warranty status",
+        "state": {
+          "on_track": "On track",
+          "ahead_of_time": "Using throughput faster than time",
+          "expired": "Warranty ended"
+        }
+      },
+      "hardware_validation": {
+        "name": "Hardware check",
+        "state": {
+          "match": "Matches configuration",
+          "mismatch": "Doesn't match configuration"
+        }
+      },
+      "worst_module_throughput_used": {
+        "name": "Most-used module throughput"
+      },
+      "module_soc_spread": {
+        "name": "Module SoC spread"
+      },
+      "health_margin": {
+        "name": "Health above warranty floor"
+      }
+    }
+  },
+  "issues": {
+    "spec_updated": {
+      "title": "Updated spec for {model}",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Updated spec for {model}",
+            "description": "The BatteryLedger Store has revised this battery's spec (version {old} → {new}):\n\n{changes}\n\nSubmit to use the new figures. Your sensors will recalculate."
+          }
+        },
+        "abort": {
+          "spec_gone": "This spec is no longer in use or no longer in the Store."
+        }
+      }
+    }
+  }
+}
