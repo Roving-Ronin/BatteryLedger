@@ -53,6 +53,8 @@ credit where there is one.
 - Bundled Store list: BYD Battery-Box Premium HVS (2-5 modules) and HVM (3-8 modules), Australia, 60% EOL with
   throughput tables per tower; Fronius Reserva (2-5 modules, 70%) and Reserva Pro (3-8 modules, 75%), Australia and
   New Zealand, throughput tables per tower from Fronius's battery warranty (EN_0326, country group 3).
+- Bundled Store list: the Reserva Pro module is 3.98 kWh usable (about 4.0 kWh nominal), 3-8 per battery, and
+  works with single-phase Primo GEN24 Plus (12.0-20.0) as well as three-phase inverters.
 - Sensor profiles: redpomodoro's BYD Battery Box (battery BMS: lifetime charge and discharge, total capacity, state of
   health) and Fronius Modbus (GEN24 storage charging and discharging lifetime energy, storage capacity). The core
   Fronius integration has no battery energy totals.
