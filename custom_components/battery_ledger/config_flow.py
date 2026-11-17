@@ -1,9 +1,9 @@
 """Config and options flows for BatteryLedger.
 
 Setup flow:
-    user (menu) ─┬─ store_search → store_select → store_confirm ─┐
-                 ├─ store_refresh → back to the menu              ├─ group → add_more (menu) ─┬─ (add another)
-                 └─ manual ───────────────────────────────────────┘                          └─ sensors
+    user (menu) ─┬─ store_search → store_select (one or more models) ─┐
+                 ├─ store_refresh → back to the menu                   ├─ group (once per model) → add_more (menu)
+                 └─ manual ────────────────────────────────────────────┘        add_more: add another / sensors
     sensors (pick integration / detected system) → [modules] → system → entry
 """
 
@@ -29,6 +29,8 @@ from .const import (
     CONF_COST,
     CONF_CURRENCY,
     CONF_DISCHARGED_ENTITY,
+    CONFIG_ENTRY_MINOR_VERSION,
+    CONFIG_ENTRY_VERSION,
     CONF_GROUPS,
     CONF_INSTALL_DATE,
     CONF_MODULES,
@@ -50,7 +52,7 @@ from .const import (
 )
 from .detect import DetectedSystem, RegistryEntity, assign_modules, detect
 from .ledger import SpecError, validate_spec, validate_units
-from .store_client import SOURCE_BUNDLED, StoreIndexError, async_get_store_index, spec_label
+from .store_client import StoreIndexError, async_get_store_index, spec_label
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,33 +69,42 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
 
+DASH = "–"
+
+
+def _num(x: float) -> str:
+    return f"{x:,.2f}".rstrip("0").rstrip(".")
+
+
 def _spec_summary(spec: dict) -> dict[str, str]:
-    """Description placeholders describing a spec."""
+    """Description placeholders for a spec: data only, all wording is in strings.json."""
     cap, w = spec["capacity"], spec["warranty"]
     tp = w["throughput"]
-    if tp["scope"] == "none":
-        tp_text = "no throughput limit"
-    elif tp["scope"] == "table":
-        tp_text = ", ".join(f"{r['units']} units: {r['kwh'] / 1000:,.2f} MWh" for r in tp["table"])
-    else:
-        tp_text = f"{tp['kwh'] / 1000:,.2f} MWh {'per unit' if tp['scope'] == 'per_unit' else 'per system'}"
-    basis = {"charged": "charged energy", "discharged": "discharged energy",
-             "unspecified": "not stated by the warranty"}[tp["basis"]]
-    sources = ", ".join(f"[{s.get('title') or 'source'}]({s['url']})" for s in spec.get("sources", [])) or "none"
+    mwh = lambda kwh: f"{_num(kwh / 1000)} MWh"  # noqa: E731
     return {
-        "name": f"{spec['brand']} {spec['model']}" + (f" {spec['variant']}" if spec.get("variant") else ""),
+        "name": " ".join(x for x in (spec["brand"], spec["model"], spec.get("variant")) if x),
         "spec_id": spec["id"],
-        "version": str(spec.get("spec_version", "-")),
+        "version": str(spec.get("spec_version", DASH)),
         "regions": ", ".join(spec["regions"]),
-        "phases": " and ".join("single phase" if p == "1" else "three phase" for p in spec["phases"]),
-        "chemistry": spec.get("chemistry", "-"),
-        "usable": f"{cap['usable_kwh']:g} kWh per {'module' if cap['unit'] == 'module' else 'system'}",
-        "warranty": f"{w['years']:g} years to {w['eol_capacity_pct']:g}%",
-        "throughput": tp_text,
-        "basis": basis,
-        "verified": "Yes" if spec.get("verified") else "No - figures not yet checked by a maintainer",
-        "sources": sources,
+        "phases": ", ".join(f"{p}φ" for p in spec["phases"]),
+        "chemistry": spec.get("chemistry", DASH),
+        "usable": _num(cap["usable_kwh"]),
+        "years": _num(w["years"]),
+        "eol": _num(w["eol_capacity_pct"]),
+        "tp_unit": mwh(tp["kwh"]) if tp["scope"] == "per_unit" else DASH,
+        "tp_system": mwh(tp["kwh"]) if tp["scope"] == "per_system" else DASH,
+        "tp_table": ", ".join(f"{r['units']}× {mwh(r['kwh'])}" for r in tp["table"]) if tp["scope"] == "table" else DASH,
+        "basis": tp["basis"],
+        "verified": "✓" if spec.get("verified") else "✗",
+        "sources": ", ".join(f"[{src.get('title') or src['url']}]({src['url']})" for src in spec.get("sources", [])) or DASH,
     }
+
+
+def _allowed_units(spec: dict) -> str:
+    tp, cap = spec["warranty"]["throughput"], spec["capacity"]
+    if tp["scope"] == "table":
+        return ", ".join(str(r["units"]) for r in tp["table"])
+    return f"{cap.get('min_units', 1)}–{cap.get('max_units', 100)}"
 
 
 def _energy_entity_selector() -> sel.EntitySelector:
@@ -130,14 +141,15 @@ def _check_system(user_input: dict) -> dict[str, str]:
 
 
 class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
-    VERSION = 1
+    VERSION = CONFIG_ENTRY_VERSION
+    MINOR_VERSION = CONFIG_ENTRY_MINOR_VERSION
 
     def __init__(self) -> None:
         self._groups: list[dict] = []
         self._pending_spec: dict | None = None
-        self._filters: dict[str, str] = {"search": "", "brand": ANY, "region": ANY, "phase": ANY}
+        self._queue: list[dict] = []
+        self._filters: dict[str, str] = {"search": "", "brand": ANY, "series": ANY, "region": ANY, "phase": ANY}
         self._matches: list[dict] = []
-        self._status = ""
         self._detected: dict[str, DetectedSystem] = {}
         self._system: DetectedSystem | None = None
         self._modules: list[dict] = []
@@ -152,15 +164,12 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
         index = await async_get_store_index(self.hass)
         await index.async_refresh_if_stale()
-        when = index.fetched_at.astimezone(dt_util.get_default_time_zone()).strftime("%Y-%m-%d %H:%M") \
-            if index.fetched_at else "never (using the copy bundled with BatteryLedger)"
         return self.async_show_menu(
             step_id="user",
             menu_options=["store_search", "store_refresh", "manual"],
             description_placeholders={
                 "count": str(len(index.specs)),
-                "updated": when,
-                "status": self._status,
+                "updated": (index.generated or DASH)[:10],
                 "store_url": STORE_SITE_URL,
             },
         )
@@ -169,10 +178,19 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         index = await async_get_store_index(self.hass)
         try:
             count = await index.async_refresh()
-            self._status = f"✅ Store list updated: {count} batteries available."
         except StoreIndexError as err:
-            note = " Using the copy bundled with BatteryLedger." if index.source == SOURCE_BUNDLED else ""
-            self._status = f"⚠️ Couldn't update the Store list ({err}).{note}"
+            return self.async_show_form(
+                step_id="store_refresh_failed", data_schema=vol.Schema({}),
+                description_placeholders={"error": str(err), "count": str(len(index.specs)),
+                                          "updated": (index.generated or DASH)[:10]})
+        return self.async_show_form(
+            step_id="store_refresh_ok", data_schema=vol.Schema({}),
+            description_placeholders={"count": str(count), "updated": (index.generated or DASH)[:10]})
+
+    async def async_step_store_refresh_ok(self, user_input: dict | None = None) -> ConfigFlowResult:
+        return await self.async_step_user()
+
+    async def async_step_store_refresh_failed(self, user_input: dict | None = None) -> ConfigFlowResult:
         return await self.async_step_user()
 
     # --- Store search ----------------------------------------------------------
@@ -183,12 +201,14 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._filters = {
                 "search": user_input.get("search", "").strip(),
-                "brand": user_input["brand"],
-                "region": user_input["region"],
-                "phase": user_input["phase"],
+                "brand": user_input.get("brand") or ANY,
+                "series": user_input.get("series") or ANY,
+                "region": user_input.get("region") or ANY,
+                "phase": user_input.get("phase") or ANY,
             }
             self._matches = index.search(self._filters["search"], self._filters["brand"],
-                                         self._filters["region"], self._filters["phase"])
+                                         self._filters["region"], self._filters["phase"],
+                                         self._filters["series"])
             if self._matches:
                 return await self.async_step_store_select()
             errors["base"] = "no_matches"
@@ -196,47 +216,45 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         f = self._filters
         if f["region"] == ANY and not user_input and self.hass.config.country in index.regions():
             f["region"] = self.hass.config.country
-        brand_opts = [sel.SelectOptionDict(value=ANY, label="Any brand")] + [
-            sel.SelectOptionDict(value=b, label=b) for b in index.brands()]
-        region_opts = [sel.SelectOptionDict(value=ANY, label="Any region")] + [
-            sel.SelectOptionDict(value=r, label=r) for r in index.regions()]
+        # Optional dropdowns: left empty means "any", so no English "Any ..." option labels.
+        dropdown = lambda opts: sel.SelectSelector(  # noqa: E731
+            sel.SelectSelectorConfig(options=opts, mode=sel.SelectSelectorMode.DROPDOWN))
         schema = vol.Schema({
-            vol.Optional("search", default=f["search"]): _text,
-            vol.Required("brand", default=f["brand"]): sel.SelectSelector(
-                sel.SelectSelectorConfig(options=brand_opts, mode=sel.SelectSelectorMode.DROPDOWN)),
-            vol.Required("region", default=f["region"]): sel.SelectSelector(
-                sel.SelectSelectorConfig(options=region_opts, mode=sel.SelectSelectorMode.DROPDOWN)),
-            vol.Required("phase", default=f["phase"]): sel.SelectSelector(
-                sel.SelectSelectorConfig(options=[ANY, "1", "3"], translation_key="phase",
+            vol.Optional("search"): _text,
+            vol.Optional("brand"): dropdown([sel.SelectOptionDict(value=b, label=b) for b in index.brands()]),
+            vol.Optional("series"): dropdown([sel.SelectOptionDict(value=f"{b}|{sr}", label=f"{sr} ({b})")
+                                              for b, sr in index.series()]),
+            vol.Optional("region"): dropdown([sel.SelectOptionDict(value=r, label=r) for r in index.regions()]),
+            vol.Optional("phase"): sel.SelectSelector(
+                sel.SelectSelectorConfig(options=["1", "3"], translation_key="phase_only",
                                          mode=sel.SelectSelectorMode.DROPDOWN)),
         })
+        schema = self.add_suggested_values_to_schema(
+            schema, {k: v for k, v in f.items() if v and v != ANY})
         return self.async_show_form(
             step_id="store_search", data_schema=schema, errors=errors,
             description_placeholders={"count": str(len(index.specs)), "store_url": STORE_SITE_URL},
         )
 
     async def async_step_store_select(self, user_input: dict | None = None) -> ConfigFlowResult:
-        if user_input is not None and "spec_id" in user_input:
-            self._pending_spec = next(s for s in self._matches if s["id"] == user_input["spec_id"])
-            return await self.async_step_store_confirm()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            chosen = user_input.get("spec_ids") or []
+            if chosen:
+                self._queue = [s for s in self._matches if s["id"] in chosen]
+                return await self.async_step_group()
+            errors["base"] = "none_selected"
         options = [sel.SelectOptionDict(value=s["id"], label=spec_label(s)) for s in self._matches]
-        mode = sel.SelectSelectorMode.LIST if len(options) <= 8 else sel.SelectSelectorMode.DROPDOWN
+        mode = sel.SelectSelectorMode.LIST if len(options) <= 10 else sel.SelectSelectorMode.DROPDOWN
+        default = [options[0]["value"]] if len(options) == 1 else []
         return self.async_show_form(
             step_id="store_select",
             data_schema=vol.Schema({
-                vol.Required("spec_id", default=options[0]["value"]): sel.SelectSelector(
-                    sel.SelectSelectorConfig(options=options, mode=mode)),
+                vol.Required("spec_ids", default=default): sel.SelectSelector(
+                    sel.SelectSelectorConfig(options=options, mode=mode, multiple=True)),
             }),
+            errors=errors,
             description_placeholders={"matches": str(len(options))},
-        )
-
-    async def async_step_store_confirm(self, user_input: dict | None = None) -> ConfigFlowResult:
-        assert self._pending_spec is not None
-        if user_input is not None:
-            return await self.async_step_group()
-        return self.async_show_form(
-            step_id="store_confirm", data_schema=vol.Schema({}),
-            description_placeholders=_spec_summary(self._pending_spec),
         )
 
     # --- Manual entry ----------------------------------------------------------
@@ -246,12 +264,13 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             spec, errors = self._manual_spec(user_input)
             if not errors:
-                self._pending_spec = spec
+                self._queue = [spec]
                 return await self.async_step_group()
 
         country = self.hass.config.country or ""
         schema = vol.Schema({
             vol.Required("brand"): _text,
+            vol.Optional("series"): _text,
             vol.Required("model"): _text,
             vol.Optional("variant"): _text,
             vol.Required("regions", default=country): _text,
@@ -333,6 +352,8 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         }
         if ui.get("variant"):
             spec["variant"] = ui["variant"].strip()
+        if ui.get("series"):
+            spec["series"] = ui["series"].strip()
         if not errors and validate_spec(spec):
             errors["base"] = "invalid_spec"
             _LOGGER.debug("Manual spec rejected: %s", validate_spec(spec))
@@ -341,23 +362,26 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
     # --- Battery group + system -----------------------------------------------
 
     async def async_step_group(self, user_input: dict | None = None) -> ConfigFlowResult:
+        if self._pending_spec is None:
+            self._pending_spec = self._queue.pop(0)
         spec = self._pending_spec
-        assert spec is not None
         errors: dict[str, str] = {}
-        placeholders = {"name": f"{spec['brand']} {spec['model']}", "error": ""}
+        placeholders = {**_spec_summary(spec), "remaining": str(len(self._queue)),
+                        "allowed": _allowed_units(spec)}
         if user_input is not None:
             units = int(user_input[CONF_UNITS])
             install = date.fromisoformat(user_input[CONF_INSTALL_DATE])
             try:
                 validate_units(spec, units)
-            except SpecError as err:
+            except SpecError:
                 errors[CONF_UNITS] = "bad_units"
-                placeholders["error"] = str(err)
             if install > dt_util.now().date():
                 errors[CONF_INSTALL_DATE] = "future_date"
             if not errors:
                 self._groups.append({CONF_SPEC: spec, CONF_UNITS: units, CONF_INSTALL_DATE: install.isoformat()})
                 self._pending_spec = None
+                if self._queue:
+                    return await self.async_step_group()
                 return await self.async_step_add_more()
 
         cap = spec["capacity"]
@@ -374,7 +398,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_add_more(self, user_input: dict | None = None) -> ConfigFlowResult:
         summary = "\n".join(
-            f"- {g[CONF_UNITS]} × {g[CONF_SPEC]['brand']} {g[CONF_SPEC]['model']}, installed {g[CONF_INSTALL_DATE]}"
+            f"- {g[CONF_UNITS]} × {g[CONF_SPEC]['brand']} {g[CONF_SPEC]['model']} · {g[CONF_INSTALL_DATE]}"
             for g in self._groups)
         return self.async_show_menu(
             step_id="add_more", menu_options=["sensors", "store_search", "manual"],
@@ -413,26 +437,31 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                 system.modules_usable = any("module_discharged_energy" in m for m in system.modules.values())
                 self._detected[system.value] = system
 
+        # Option labels are data (profile names, ✓/✗); "manual" is translated via translation_key.
         options: list[sel.SelectOptionDict] = []
+        lines: list[str] = []
         for profile in profiles:
             found = per_profile[profile["id"]]
             for system in found:
                 options.append(sel.SelectOptionDict(value=system.value, label=system.label(len(found) > 1)))
+                lines.append(f"- {system.label(len(found) > 1)}: {len(system.roles)} · {len(system.modules)}")
             if not found:
-                options.append(sel.SelectOptionDict(
-                    value=f"{profile['id']}|none", label=f"{profile['name']} — not found in Home Assistant"))
-        options.append(sel.SelectOptionDict(value=MANUAL, label="Choose sensors myself"))
+                options.append(sel.SelectOptionDict(value=f"{profile['id']}|none", label=f"{profile['name']} ✗"))
+                lines.append(f"- {profile['name']}: ✗")
+        options.append(sel.SelectOptionDict(value=MANUAL, label=MANUAL))
         default = next(iter(self._detected), MANUAL)
         return self.async_show_form(
             step_id="sensors",
             data_schema=vol.Schema({
                 vol.Required("integration", default=default): sel.SelectSelector(
-                    sel.SelectSelectorConfig(options=options, mode=sel.SelectSelectorMode.LIST)),
+                    sel.SelectSelectorConfig(options=options, mode=sel.SelectSelectorMode.LIST,
+                                             translation_key="integration")),
             }),
             errors=errors,
             description_placeholders={
                 "brands": ", ".join(sorted(brands)),
                 "count": str(len(profiles)),
+                "found": "\n".join(lines) or DASH,
                 "store_url": STORE_SITE_URL,
             },
         )
@@ -452,7 +481,8 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             (g[CONF_SPEC]["capacity"].get("reported_kwh", g[CONF_SPEC]["capacity"].get("nominal_kwh")), g[CONF_UNITS])
             for g in self._groups
         ]
-        assignment, problems = assign_modules(rated, group_caps)
+        assignment, unassigned, counts = assign_modules(rated, group_caps)
+        problems = bool(unassigned) or any(found != want for found, want in counts)
 
         if user_input is not None:
             self._modules = []
@@ -468,16 +498,18 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         lines = []
         for mid in sorted(mods):
             grp = assignment.get(mid)
-            spec = self._groups[grp][CONF_SPEC] if grp is not None else None
-            cap = f"{rated[mid]:g} kWh" if rated[mid] is not None else "capacity unknown"
-            lines.append(f"- {mid}: {cap} → {spec['model'] if spec else 'not assigned'}")
+            cap = f"{_num(rated[mid])} kWh" if rated[mid] is not None else "?"
+            lines.append(f"- {mid}: {cap} → {self._groups[grp][CONF_SPEC]['model'] if grp is not None else '✗'}")
+        per_group = "\n".join(
+            f"- {g[CONF_SPEC]['model']}: {found} / {want} {'✓' if found == want else '✗'}"
+            for g, (found, want) in zip(self._groups, counts))
         return self.async_show_form(
             step_id="modules",
             data_schema=vol.Schema({vol.Required(CONF_USE_MODULES, default=not problems): sel.BooleanSelector()}),
             description_placeholders={
                 "count": str(len(mods)),
                 "modules": "\n".join(lines),
-                "problems": ("\n\n⚠️ " + "\n⚠️ ".join(problems)) if problems else "",
+                "per_group": per_group,
             },
         )
 
@@ -501,17 +533,13 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             suggested = {ROLE_TO_CONF[r]: eid for r, (_lvl, eid) in self._system.roles.items() if r in ROLE_TO_CONF}
         if suggested:
             schema = self.add_suggested_values_to_schema(schema, suggested)
-        detected = ""
-        if self._system:
-            levels = ", ".join(f"{r.replace('_', ' ')} ({lvl})" for r, (lvl, _e) in self._system.roles.items())
-            detected = f"Filled in from {self._system.profile_name}: {levels or 'nothing'}."
-            if self._system.ambiguous:
-                detected += (" Several inverter-level sensors matched for "
-                             f"{', '.join(r.replace('_', ' ') for r in self._system.ambiguous)}, so choose those yourself.")
-            if self._modules:
-                detected += f" Tracking {len(self._modules)} battery modules individually."
-        return self.async_show_form(step_id="system", data_schema=schema, errors=errors,
-                                    description_placeholders={"detected": detected})
+        sysd = self._system
+        return self.async_show_form(step_id="system", data_schema=schema, errors=errors, description_placeholders={
+            "profile": sysd.profile_name if sysd else DASH,
+            "filled": str(len([r for r in sysd.roles if r in ROLE_TO_CONF])) if sysd else "0",
+            "ambiguous": ", ".join(sysd.ambiguous) if sysd and sysd.ambiguous else DASH,
+            "modules": str(len(self._modules)),
+        })
 
 
 class BatteryLedgerOptionsFlow(OptionsFlow):

@@ -40,7 +40,7 @@ def test_matches_existing_template_figures():
     assert res.hardware == ledger.HW_MATCH
     # Warranty counts discharged energy; with only a charged sensor it falls back and says so
     assert res.groups[0].basis_used == "charged"
-    assert any("discharged energy sensor not configured" in n for n in res.notes)
+    assert ledger.NOTE_NO_DISCHARGED_SENSOR in res.notes
 
 
 def test_projected_capped_at_warranty():
@@ -80,7 +80,7 @@ def test_mixed_groups_split_by_capacity_and_age():
     assert res.groups[0].used_kwh == pytest.approx(10000 * w_old / (w_old + w_new))
     assert res.limit_kwh == pytest.approx(23770 * 2 + 26680)
     assert sum(g.used_kwh for g in res.groups) == pytest.approx(10000)
-    assert any("estimate" in n for n in res.notes)
+    assert ledger.NOTE_SPLIT_ESTIMATE in res.notes
 
 
 def test_unspecified_basis_prefers_charged():
@@ -90,7 +90,7 @@ def test_unspecified_basis_prefers_charged():
         groups=[ledger.GroupInput(spec, 1, TODAY - timedelta(days=10))], today=TODAY,
         charged_kwh=1000, discharged_kwh=900))
     assert res.used_kwh == pytest.approx(1000)
-    assert any("conservative" in n for n in res.notes)
+    assert ledger.NOTE_BASIS_UNSTATED_CHARGED in res.notes
 
 
 def test_discharged_basis_uses_discharged_sensor():
@@ -146,7 +146,7 @@ def test_incomplete_modules_fall_back_to_plant():
         today=TODAY, discharged_kwh=500))
     assert res.groups[0].source == "plant"
     assert res.used_kwh == pytest.approx(500)
-    assert any("2 of 3 modules" in n for n in res.notes)
+    assert f"{ledger.NOTE_MODULES_NOT_USED}:{BAT8['id']}:2/3" in res.notes
 
 
 def test_mixed_module_and_plant_groups():
@@ -157,7 +157,7 @@ def test_mixed_module_and_plant_groups():
     assert res.groups[0].used_kwh == pytest.approx(700)
     assert res.groups[1].used_kwh == pytest.approx(300)
     assert res.module_vs_plant_pct is None
-    assert not any("estimate" in n for n in res.notes)
+    assert ledger.NOTE_SPLIT_ESTIMATE not in res.notes
 
 
 def test_modules_only_without_plant_sensor():

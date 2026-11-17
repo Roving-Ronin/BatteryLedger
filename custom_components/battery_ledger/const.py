@@ -3,6 +3,12 @@
 from datetime import timedelta
 
 DOMAIN = "battery_ledger"
+
+# Config entry schema version. A change to what an entry stores (data/options, including
+# the copied battery specs) bumps one of these and adds one step to async_migrate_entry
+# in __init__.py, with a test feeding it an entry in the old format.
+CONFIG_ENTRY_VERSION = 1
+CONFIG_ENTRY_MINOR_VERSION = 1
 NAME = "BatteryLedger"
 
 STORE_INDEX_URL = "https://roving-ronin.github.io/BatteryLedger-Store/index.json"

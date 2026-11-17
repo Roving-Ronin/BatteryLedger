@@ -3,43 +3,41 @@
     "step": {
       "user": {
         "title": "Find your battery",
-        "description": "Look up your battery in the [BatteryLedger Store]({store_url}) ({count} batteries, list updated {updated}), or enter its details yourself.\n\n{status}",
+        "description": "Look up your battery in the [BatteryLedger Store]({store_url}): {count} batteries, list dated {updated}. Or enter its details yourself.",
         "menu_options": {
           "store_search": "Search the BatteryLedger Store",
-          "store_refresh": "Refresh the Store list",
+          "store_refresh": "Update the Store list now",
           "manual": "Enter details manually"
         }
       },
       "store_search": {
         "title": "Search the BatteryLedger Store",
-        "description": "Filter the {count} batteries in the Store. Leave the search box empty to list everything that matches the filters.",
+        "description": "Filter the {count} batteries in the Store. Leave any filter empty to include everything.",
         "data": {
           "search": "Search (brand or model)",
           "brand": "Brand",
+          "series": "Model",
           "region": "Region",
           "phase": "Phase"
         },
         "data_description": {
-          "region": "Warranty terms often differ by country, so pick the one where the battery is installed."
+          "region": "Warranty terms often differ by country, so pick the one where the battery is installed.",
+          "series": "Some brands have more than one model using different battery modules, e.g. Sigenergy SigenStor and Neo."
         }
       },
       "store_select": {
-        "title": "Choose your battery",
-        "description": "{matches} matching batteries.",
+        "title": "Choose your battery modules",
+        "description": "{matches} matching batteries (✓ = checked by a maintainer). Tick **every** model installed in this system, e.g. both BAT 8.0 and BAT 10.0 if you have a mix. You'll enter how many of each, and when their warranty started, next.",
         "data": {
-          "spec_id": "Battery"
+          "spec_ids": "Battery models"
         }
-      },
-      "store_confirm": {
-        "title": "{name}",
-        "description": "**Regions:** {regions}\n**Phases:** {phases}\n**Chemistry:** {chemistry}\n**Usable capacity:** {usable}\n**Warranty:** {warranty}\n**Throughput limit:** {throughput} (counted as {basis})\n**Checked by a maintainer:** {verified}\n**Sources:** {sources}\n\nSpec `{spec_id}`, version {version}. Submit to use this battery."
       },
       "manual": {
         "title": "Enter battery details",
         "description": "Use the figures from your manufacturer's datasheet and warranty for your country. Enter throughput in kWh (23.77 MWh = 23770 kWh).",
         "data": {
           "brand": "Brand",
-          "model": "Model",
+          "model": "Battery module",
           "variant": "Variant",
           "regions": "Regions",
           "chemistry": "Chemistry",
@@ -54,33 +52,39 @@
           "throughput_basis": "Throughput counted as",
           "throughput_scope": "Throughput limit applies",
           "throughput_kwh": "Throughput limit (kWh)",
-          "throughput_table": "Throughput table"
+          "throughput_table": "Throughput table",
+          "series": "Model"
         },
         "data_description": {
           "regions": "Comma-separated country codes, e.g. AU, NZ.",
-          "throughput_table": "Only for 'Table by unit count': one row per line as units=kWh, e.g. 3=60000."
+          "throughput_table": "Only for 'Table by unit count': one row per line as units=kWh, e.g. 3=60000.",
+          "series": "Product line, e.g. SigenStor or Neo.",
+          "model": "The battery module or unit as the manufacturer names it, e.g. SigenStor BAT 8.0."
         }
       },
       "group": {
         "title": "{name}",
-        "description": "How many units are installed, and when was the warranty start date (usually the install or commissioning date)? {error}",
+        "description": "**Regions:** {regions} · **Phases:** {phases} · **Chemistry:** {chemistry}\n**Usable capacity per unit:** {usable} kWh\n**Warranty:** {years} years, to {eol}% capacity\n**Throughput limit:** per unit {tp_unit} · per system {tp_system} · by unit count {tp_table}\n**Throughput counted on:** {basis} energy\n**Checked by a maintainer:** {verified} · **Sources:** {sources}\n\nHow many of these are installed, and when did their warranty start (usually the install or commissioning date)?\n\nModels still to set up after this one: {remaining}",
         "data": {
           "units": "Number of units",
           "install_date": "Warranty start date"
+        },
+        "data_description": {
+          "install_date": "The date picker shows dates in the format set in your Home Assistant user profile (Profile → Date format)."
         }
       },
       "add_more": {
         "title": "Battery groups",
-        "description": "Added so far:\n{groups}\n\nIf you have more than one battery type on the same system (for example BAT 8.0 and BAT 10.0 modules, or modules added later), add each as its own group.",
+        "description": "Added so far (units × model · warranty start):\n{groups}\n\nAdd another group if you have another battery model, or more of the same model added later with a different warranty start date.",
         "menu_options": {
           "sensors": "Continue",
-          "store_search": "Add another battery type from the Store",
-          "manual": "Add another battery type manually"
+          "store_search": "Add another model or later install from the Store",
+          "manual": "Add another model manually"
         }
       },
       "system": {
         "title": "System and costs",
-        "description": "Choose the lifetime energy sensors from your inverter. At least one of charged or discharged energy is needed.\n\n{detected}",
+        "description": "Choose the lifetime energy sensors from your inverter. At least one of charged or discharged energy is needed.\n\nFilled in from: {profile} · sensors filled in: {filled} · battery modules tracked individually: {modules}\nChoose these yourself (several inverter-level sensors matched): {ambiguous}",
         "data": {
           "name": "Name",
           "cost": "Battery cost",
@@ -98,17 +102,25 @@
       },
       "sensors": {
         "title": "Inverter integration",
-        "description": "Which integration provides your battery's sensors? BatteryLedger has {count} sensor profiles for {brands} in the [Store]({store_url}) and has looked for their sensors in this Home Assistant. Choosing one fills in the sensors on the next step, where you can still change them.",
+        "description": "Which integration provides your battery's sensors? BatteryLedger has {count} sensor profiles for {brands} in the [Store]({store_url}) and has looked for their sensors in this Home Assistant (sensors found · battery modules found; ✗ = not found):\n{found}\n\nChoosing one fills in the sensors on the next step, where you can still change them.",
         "data": {
           "integration": "Integration"
         }
       },
       "modules": {
         "title": "Battery modules",
-        "description": "Found lifetime discharge sensors for {count} individual battery modules:\n{modules}{problems}\n\nWith per-module tracking each module is measured against its own warranty limit, and the most-used module sets the warranty status. These sensors come from the unofficial Sigen Cloud API and can lag or stop; the plant sensor is still used as a fallback.",
+        "description": "Found lifetime discharge sensors for {count} individual battery modules (module: rated capacity → battery model, ✗ = couldn't be matched):\n{modules}\n\nModules found / configured per model:\n{per_group}\n\nWith per-module tracking each module is measured against its own warranty limit, and the most-used module sets the warranty status. These sensors come from the unofficial Sigen Cloud API and can lag or stop; the plant sensor is still used as a fallback. If anything above is marked ✗, check your battery groups before turning this on.",
         "data": {
           "use_modules": "Track battery modules individually"
         }
+      },
+      "store_refresh_ok": {
+        "title": "Store list updated",
+        "description": "The BatteryLedger Store list now has {count} batteries (dated {updated}). Submit to continue."
+      },
+      "store_refresh_failed": {
+        "title": "Couldn't update the Store list",
+        "description": "The Store couldn't be reached, so BatteryLedger keeps using the list it already has ({count} batteries, dated {updated}).\n\nDetail: `{error}`\n\nSubmit to continue."
       }
     },
     "error": {
@@ -119,9 +131,10 @@
       "throughput_required": "Enter the throughput limit in kWh.",
       "bad_table": "Enter one row per line as units=kWh, e.g. 3=60000.",
       "invalid_spec": "Some figures don't add up (check usable vs nominal capacity, warranty years and end-of-life %).",
-      "bad_units": "That unit count isn't valid for this battery.",
+      "bad_units": "That unit count isn't valid for this battery. Allowed: {allowed}.",
       "future_date": "The warranty start date can't be in the future.",
-      "not_detected": "This integration's sensors weren't found in Home Assistant. Choose another, or choose sensors yourself."
+      "not_detected": "This integration's sensors weren't found in Home Assistant. Choose another, or choose sensors yourself.",
+      "none_selected": "Tick at least one battery model."
     }
   },
   "options": {
@@ -143,13 +156,6 @@
     }
   },
   "selector": {
-    "phase": {
-      "options": {
-        "any": "Any phase",
-        "1": "Single phase",
-        "3": "Three phase"
-      }
-    },
     "phase_only": {
       "options": {
         "1": "Single phase",
@@ -175,6 +181,11 @@
         "per_system": "Per system (regardless of unit count)",
         "table": "Table by unit count",
         "none": "No throughput limit"
+      }
+    },
+    "integration": {
+      "options": {
+        "manual": "Choose sensors myself"
       }
     }
   },
@@ -259,7 +270,7 @@
         "step": {
           "confirm": {
             "title": "Updated spec for {model}",
-            "description": "The BatteryLedger Store has revised this battery's spec (version {old} → {new}):\n\n{changes}\n\nSubmit to use the new figures. Your sensors will recalculate."
+            "description": "The BatteryLedger Store has revised this battery's spec (version {old} → {new}). Changed fields:\n\n{changes}\n\n(– means only notes or sources changed.) Submit to use the new figures. Your sensors will recalculate."
           }
         },
         "abort": {

@@ -3,7 +3,6 @@
 import json
 from datetime import timedelta
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 from homeassistant import config_entries
@@ -15,7 +14,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.battery_ledger.const import DOMAIN
 from custom_components.battery_ledger.detect import RegistryEntity, assign_modules, detect
-from custom_components.battery_ledger.store_client import StoreIndexError
 
 SNAPSHOT = Path(__file__).resolve().parent.parent / "custom_components" / "battery_ledger" / "data" / "index_snapshot.json"
 PROFILES = {p["id"]: p for p in json.loads(SNAPSHOT.read_text())["profiles"]}
@@ -24,11 +22,6 @@ STATION = "203840556"
 SERIALS = ["110b13641026", "110b13641048"]
 
 
-@pytest.fixture(autouse=True)
-def offline_store():
-    with patch("custom_components.battery_ledger.store_client.StoreIndex.async_refresh",
-               side_effect=StoreIndexError("offline")):
-        yield
 
 
 def typqxq_entities():
@@ -89,10 +82,10 @@ def test_inverter_level_used_when_no_plant_sensor():
 
 
 def test_assign_modules_by_capacity():
-    out, problems = assign_modules({"a": 8.06, "b": 9.04, "c": 8.06}, [(8.06, 2), (9.04, 1)])
-    assert out == {"a": 0, "b": 1, "c": 0} and problems == []
-    out, problems = assign_modules({"a": 8.06, "b": None}, [(8.06, 1), (9.04, 1)])
-    assert "b" not in out and any("unknown" in p for p in problems)
+    out, unassigned, counts = assign_modules({"a": 8.06, "b": 9.04, "c": 8.06}, [(8.06, 2), (9.04, 1)])
+    assert out == {"a": 0, "b": 1, "c": 0} and unassigned == [] and counts == [(2, 2), (1, 1)]
+    out, unassigned, counts = assign_modules({"a": 8.06, "b": None}, [(8.06, 1), (9.04, 1)])
+    assert unassigned == ["b"] and counts == [(1, 1), (0, 1)]
 
 
 async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
@@ -121,9 +114,8 @@ async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
     flow = hass.config_entries.flow
     r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
-    r = await flow.async_configure(r["flow_id"], {"search": "bat 8", "brand": "Sigenergy", "region": "AU", "phase": "any"})
-    r = await flow.async_configure(r["flow_id"], {"spec_id": "sigenergy-sigenstor-bat-8-0-anz"})
-    r = await flow.async_configure(r["flow_id"], {})
+    r = await flow.async_configure(r["flow_id"], {"search": "bat 8", "brand": "Sigenergy", "region": "AU"})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sigenergy-sigenstor-bat-8-0-anz"]})
     install = (dt_util.now().date() - timedelta(days=365)).isoformat()
     r = await flow.async_configure(r["flow_id"], {"units": 2, "install_date": install})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
@@ -137,10 +129,11 @@ async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
     assert r["errors"] == {"integration": "not_detected"}
     r = await flow.async_configure(r["flow_id"], {"integration": "sigenergy2mqtt|prefix=sigen|plant=0"})
     assert r["step_id"] == "modules"
-    assert r["description_placeholders"]["problems"] == ""
+    assert "2 / 2 ✓" in r["description_placeholders"]["per_group"]
     r = await flow.async_configure(r["flow_id"], {"use_modules": True})
     assert r["step_id"] == "system"
-    assert "Tracking 2 battery modules" in r["description_placeholders"]["detected"]
+    assert r["description_placeholders"]["modules"] == "2"
+    assert r["description_placeholders"]["profile"] == "sigenergy2mqtt (MQTT)"
     suggested = {str(k): k.description["suggested_value"] for k in r["data_schema"].schema
                  if k.description and "suggested_value" in k.description}
     assert suggested["discharged_energy_entity"] == "sensor.sigen_0_accumulated_discharge_energy"

@@ -132,31 +132,39 @@ class StoreIndex:
     def brands(self) -> list[str]:
         return sorted({s["brand"] for s in self.specs}, key=str.lower)
 
+    def series(self) -> list[tuple[str, str]]:
+        """(brand, series) pairs, e.g. ("Sigenergy", "SigenStor")."""
+        return sorted({(s["brand"], s["series"]) for s in self.specs if s.get("series")},
+                      key=lambda x: (x[0].lower(), x[1].lower()))
+
     def regions(self) -> list[str]:
         return sorted({r for s in self.specs for r in s["regions"]})
 
-    def search(self, text: str = "", brand: str = ANY, region: str = ANY, phase: str = ANY) -> list[dict]:
+    def search(self, text: str = "", brand: str = ANY, region: str = ANY, phase: str = ANY,
+               series: str = ANY) -> list[dict]:
+        """series is ANY or "<brand>|<series>"."""
         words = text.lower().split()
         out = []
         for s in self.specs:
             if brand != ANY and s["brand"] != brand:
                 continue
+            if series != ANY and f"{s['brand']}|{s.get('series', '')}" != series:
+                continue
             if region != ANY and region not in s["regions"] and "GLOBAL" not in s["regions"]:
                 continue
             if phase != ANY and phase not in s["phases"]:
                 continue
-            hay = f"{s['brand']} {s['model']} {s.get('variant', '')} {s['id']}".lower()
+            hay = f"{s['brand']} {s.get('series', '')} {s['model']} {s.get('variant', '')} {s['id']}".lower()
             if all(w in hay for w in words):
                 out.append(s)
         return out
 
 
 def spec_label(spec: dict) -> str:
-    """Label used in dropdowns, e.g. 'Sigenergy · SigenStor BAT 10.0 · AU/NZ · 1/3-phase'."""
+    """Dropdown label, data only: 'Sigenergy · SigenStor BAT 10.0 · AU/NZ · 1φ/3φ ✓' (✓ = verified)."""
     name = " ".join(x for x in (spec["model"], spec.get("variant")) if x)
-    phases = "/".join(spec["phases"]) + "-phase"
-    tag = "" if spec.get("verified") else " · unverified"
-    return f"{spec['brand']} · {name} · {'/'.join(spec['regions'])} · {phases}{tag}"
+    phases = "/".join(f"{p}φ" for p in spec["phases"])
+    return f"{spec['brand']} · {name} · {'/'.join(spec['regions'])} · {phases}{' ✓' if spec.get('verified') else ''}"
 
 
 async def async_get_store_index(hass: HomeAssistant) -> StoreIndex:

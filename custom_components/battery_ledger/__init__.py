@@ -10,7 +10,15 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import CONF_GROUPS, CONF_SPEC, DOMAIN, MANUAL_ID_PREFIX, STORE_REFRESH_INTERVAL
+from .const import (
+    CONF_GROUPS,
+    CONF_SPEC,
+    CONFIG_ENTRY_MINOR_VERSION,
+    CONFIG_ENTRY_VERSION,
+    DOMAIN,
+    MANUAL_ID_PREFIX,
+    STORE_REFRESH_INTERVAL,
+)
 from .runtime import LedgerRuntime
 from .store_client import StoreIndex, async_get_store_index
 
@@ -33,6 +41,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: BatteryLedgerConfigEntry
     entry.async_on_unload(entry.add_update_listener(_async_reload))
 
     check_spec_updates(hass, index, entry)
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Bring an entry saved by an older BatteryLedger up to the current format.
+
+    Rules: deterministic and idempotent, never drop user data (groups, specs, install
+    dates, cost, sensor choices), one step per version, each with an old-format test.
+    """
+    if entry.version > CONFIG_ENTRY_VERSION:
+        # Saved by a newer BatteryLedger: refuse rather than guess (user downgraded).
+        _LOGGER.error("BatteryLedger entry '%s' is version %s.%s, newer than this release supports (%s.%s)",
+                      entry.title, entry.version, entry.minor_version,
+                      CONFIG_ENTRY_VERSION, CONFIG_ENTRY_MINOR_VERSION)
+        return False
+
+    data = {**entry.data}
+    version, minor = entry.version, entry.minor_version
+
+    # Future steps go here, oldest first, e.g.:
+    # if version == 1 and minor < 2:
+    #     data = _migrate_1_1_to_1_2(data)
+    #     minor = 2
+
+    if (version, minor) != (entry.version, entry.minor_version):
+        hass.config_entries.async_update_entry(entry, data=data, version=version, minor_version=minor)
+        _LOGGER.info("Migrated BatteryLedger entry '%s' to version %s.%s", entry.title, version, minor)
     return True
 
 

@@ -1,7 +1,7 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-17T01:37:11+00:00",
+ "generated": "2026-11-17T02:33:49+00:00",
  "count": 4,
  "brands": [
   "Sigenergy"
@@ -10,12 +10,19 @@
   "AU",
   "NZ"
  ],
+ "series": [
+  [
+   "Sigenergy",
+   "SigenStor"
+  ]
+ ],
  "specs": [
   {
    "schema_version": 1,
    "id": "sigenergy-sigenstor-bat-10-0-anz",
    "spec_version": 1,
    "brand": "Sigenergy",
+   "series": "SigenStor",
    "model": "SigenStor BAT 10.0",
    "regions": [
     "AU",
@@ -60,10 +67,11 @@
   },
   {
    "schema_version": 1,
-   "id": "sigenergy-sigenstor-bat-5-0-anz",
+   "id": "sigenergy-sigenstor-bat-8-0-anz",
    "spec_version": 1,
    "brand": "Sigenergy",
-   "model": "SigenStor BAT 5.0",
+   "series": "SigenStor",
+   "model": "SigenStor BAT 8.0",
    "regions": [
     "AU",
     "NZ"
@@ -75,9 +83,9 @@
    ],
    "capacity": {
     "unit": "module",
-    "nominal_kwh": 5.38,
-    "usable_kwh": 5.2,
-    "reported_kwh": 5.38,
+    "nominal_kwh": 8.06,
+    "usable_kwh": 7.8,
+    "reported_kwh": 8.06,
     "min_units": 1,
     "max_units": 6
    },
@@ -87,7 +95,7 @@
     "throughput": {
      "basis": "discharged",
      "scope": "per_unit",
-     "kwh": 15840
+     "kwh": 23770
     },
     "notes": "70% of usable energy at 10 years or the Minimum Throughput Energy, whichever comes first. Throughput is counted as discharged energy, recorded by the battery from the warranty start date."
    },
@@ -110,6 +118,7 @@
    "id": "sigenergy-sigenstor-bat-6-0-anz",
    "spec_version": 1,
    "brand": "Sigenergy",
+   "series": "SigenStor",
    "model": "SigenStor BAT 6.0",
    "regions": [
     "AU",
@@ -154,10 +163,11 @@
   },
   {
    "schema_version": 1,
-   "id": "sigenergy-sigenstor-bat-8-0-anz",
+   "id": "sigenergy-sigenstor-bat-5-0-anz",
    "spec_version": 1,
    "brand": "Sigenergy",
-   "model": "SigenStor BAT 8.0",
+   "series": "SigenStor",
+   "model": "SigenStor BAT 5.0",
    "regions": [
     "AU",
     "NZ"
@@ -169,9 +179,9 @@
    ],
    "capacity": {
     "unit": "module",
-    "nominal_kwh": 8.06,
-    "usable_kwh": 7.8,
-    "reported_kwh": 8.06,
+    "nominal_kwh": 5.38,
+    "usable_kwh": 5.2,
+    "reported_kwh": 5.38,
     "min_units": 1,
     "max_units": 6
    },
@@ -181,7 +191,7 @@
     "throughput": {
      "basis": "discharged",
      "scope": "per_unit",
-     "kwh": 23770
+     "kwh": 15840
     },
     "notes": "70% of usable energy at 10 years or the Minimum Throughput Energy, whichever comes first. Throughput is counted as discharged energy, recorded by the battery from the warranty start date."
    },

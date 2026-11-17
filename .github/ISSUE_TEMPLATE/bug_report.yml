@@ -64,7 +64,7 @@ body:
     id: integration-version
     attributes:
       label: BatteryLedger Version
-      description: Shown in HACS, or Settings → Devices & services → BatteryLedger.
+      description: Shown in the Marketplace (or HACS), or Settings → Devices & services → BatteryLedger.
     validations:
       required: true
   - type: input

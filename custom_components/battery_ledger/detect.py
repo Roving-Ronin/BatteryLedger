@@ -66,13 +66,8 @@ class DetectedSystem:
         return f"{self.profile_id}|{self.key}"
 
     def label(self, multiple: bool) -> str:
-        parts = [self.profile_name]
-        if multiple:
-            parts.append(self.key.replace("|", " "))
-        found = f"{len(self.roles)} sensors"
-        if self.modules:
-            found += f", {len(self.modules)} battery modules"
-        return f"{' · '.join(parts)} — found {found}"
+        """Data-only label: profile name, plus the system key when one integration has several."""
+        return f"{self.profile_name} · {self.key.replace('|', ' ')}" if multiple else f"{self.profile_name} ✓"
 
 
 def _system_key(groups: dict[str, str]) -> str:
@@ -118,29 +113,24 @@ def assign_modules(
     modules: dict[str, float | None],
     groups: list[tuple[float | None, int]],
     tolerance: float = 0.03,
-) -> tuple[dict[str, int], list[str]]:
+) -> tuple[dict[str, int], list[str], list[tuple[int, int]]]:
     """Assign modules to battery groups by their rated capacity.
 
     modules: module ID -> rated kWh reported (None if unknown)
     groups: per group (rated kWh per unit from the spec, configured units)
-    Returns (module ID -> group index, problems).
+    Returns (module ID -> group index, unassigned module IDs, per group (found, configured)).
     """
     out: dict[str, int] = {}
-    problems: list[str] = []
+    unassigned: list[str] = []
     for mid, kwh in sorted(modules.items()):
         if len(groups) == 1:
             out[mid] = 0
             continue
-        if kwh is None:
-            problems.append(f"module {mid}: rated capacity unknown, can't tell which battery group it belongs to")
-            continue
-        fits = [i for i, (cap, _) in enumerate(groups) if cap and abs(kwh - cap) <= cap * tolerance]
+        fits = [i for i, (cap, _) in enumerate(groups)
+                if kwh is not None and cap and abs(kwh - cap) <= cap * tolerance]
         if len(fits) == 1:
             out[mid] = fits[0]
         else:
-            problems.append(f"module {mid}: rated {kwh:g} kWh matches {len(fits)} battery groups")
-    for i, (_, units) in enumerate(groups):
-        n = sum(1 for g in out.values() if g == i)
-        if n != units:
-            problems.append(f"battery group {i + 1}: found {n} modules, configured {units}")
-    return out, problems
+            unassigned.append(mid)
+    counts = [(sum(1 for g in out.values() if g == i), units) for i, (_, units) in enumerate(groups)]
+    return out, unassigned, counts

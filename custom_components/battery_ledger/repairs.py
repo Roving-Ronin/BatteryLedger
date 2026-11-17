@@ -13,16 +13,17 @@ from homeassistant.data_entry_flow import FlowResult
 from .const import CONF_GROUPS, CONF_SPEC
 from .store_client import async_get_store_index
 
+# Spec fields shown in the diff, by their names in the spec format (data, not prose).
 _COMPARE = [
-    ("Usable capacity (kWh)", lambda s: s["capacity"]["usable_kwh"]),
-    ("Reported capacity (kWh)", lambda s: s["capacity"].get("reported_kwh")),
-    ("Warranty years", lambda s: s["warranty"]["years"]),
-    ("End-of-life capacity (%)", lambda s: s["warranty"]["eol_capacity_pct"]),
-    ("Throughput basis", lambda s: s["warranty"]["throughput"]["basis"]),
-    ("Throughput limit", lambda s: json.dumps(
+    ("capacity.usable_kwh", lambda s: s["capacity"]["usable_kwh"]),
+    ("capacity.reported_kwh", lambda s: s["capacity"].get("reported_kwh")),
+    ("warranty.years", lambda s: s["warranty"]["years"]),
+    ("warranty.eol_capacity_pct", lambda s: s["warranty"]["eol_capacity_pct"]),
+    ("warranty.throughput.basis", lambda s: s["warranty"]["throughput"]["basis"]),
+    ("warranty.throughput", lambda s: json.dumps(
         {k: v for k, v in s["warranty"]["throughput"].items() if k in ("scope", "kwh", "table")})),
-    ("Phases", lambda s: ", ".join(s["phases"])),
-    ("Regions", lambda s: ", ".join(s["regions"])),
+    ("phases", lambda s: ", ".join(s["phases"])),
+    ("regions", lambda s: ", ".join(s["regions"])),
 ]
 
 
@@ -34,8 +35,8 @@ def _changes(old: dict, new: dict) -> str:
         except KeyError:
             continue
         if a != b:
-            lines.append(f"- {label}: {a} → {b}")
-    return "\n".join(lines) or "- No changes to the figures BatteryLedger uses (notes or sources only)."
+            lines.append(f"- `{label}`: {a} → {b}")
+    return "\n".join(lines) or "–"
 
 
 class SpecUpdateRepairFlow(RepairsFlow):

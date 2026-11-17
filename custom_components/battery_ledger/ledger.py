@@ -41,6 +41,15 @@ HW_MISMATCH = "mismatch"
 _STATUS_RANK = {STATUS_ON_TRACK: 0, STATUS_AHEAD: 1, STATUS_EXPIRED: 2}
 
 
+# Codes in LedgerResult.notes (sensor attribute "notes"); explained in the README.
+NOTE_SPLIT_ESTIMATE = "plant_energy_split_by_capacity_and_age"
+NOTE_BASIS_UNSTATED_CHARGED = "basis_unstated_using_charged"
+NOTE_BASIS_UNSTATED_DISCHARGED = "basis_unstated_using_discharged"
+NOTE_NO_DISCHARGED_SENSOR = "discharged_sensor_missing_using_charged"
+NOTE_NO_CHARGED_SENSOR = "charged_sensor_missing_using_discharged"
+NOTE_MODULES_NOT_USED = "module_counters_not_used"
+
+
 class SpecError(ValueError):
     """A spec can't be used for the configured system."""
 
@@ -216,12 +225,10 @@ def _energy_for_basis(basis: str, charged, discharged) -> tuple[float, str, str 
     if basis == "charged" and charged is not None:
         return charged, "charged", None
     if charged is not None:
-        note = ("warranty doesn't state a basis; using charged energy (conservative)"
-                if basis == "unspecified" else "discharged energy sensor not configured; using charged energy")
+        note = NOTE_BASIS_UNSTATED_CHARGED if basis == "unspecified" else NOTE_NO_DISCHARGED_SENSOR
         return charged, "charged", note
     if discharged is not None:
-        note = ("warranty doesn't state a basis; using discharged energy (no charged sensor configured)"
-                if basis == "unspecified" else "charged energy sensor not configured; using discharged energy")
+        note = NOTE_BASIS_UNSTATED_DISCHARGED if basis == "unspecified" else NOTE_NO_CHARGED_SENSOR
         return discharged, "discharged", note
     raise SpecError("no energy sensor available")
 
@@ -251,11 +258,10 @@ def compute(inp: LedgerInput) -> LedgerResult:
 
     notes: list[str] = []
     if sum(1 for m in module_mode if not m) > 1:
-        notes.append("energy split between battery groups by capacity x days in service (estimate)")
+        notes.append(NOTE_SPLIT_ESTIMATE)
     for g, m in zip(inp.groups, module_mode):
         if g.module_kwh and not m:
-            notes.append(f"{_label(g.spec)}: module counters not used "
-                         f"({len(g.module_kwh)} of {g.units} modules, or warranty not per-unit discharged energy)")
+            notes.append(f"{NOTE_MODULES_NOT_USED}:{g.spec.get('id', 'custom')}:{len(g.module_kwh)}/{g.units}")
 
     results: list[GroupResult] = []
     for g, d, share, initial, by_module in zip(inp.groups, days, shares, caps, module_mode):
