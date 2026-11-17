@@ -12,13 +12,16 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
+    CONF_CURRENCY_STYLE,
     CONF_GROUPS,
+    CURRENCY_STYLE_CODE,
     CONF_SPEC,
     CONFIG_ENTRY_MINOR_VERSION,
     CONFIG_ENTRY_VERSION,
     DOMAIN,
     ENTITY_ID_PREFIX,
     MANUAL_ID_PREFIX,
+    REMOVED_SENSOR_KEYS_1_3,
     SENSOR_KEY_RENAMES_1_2,
     STORE_REFRESH_INTERVAL,
 )
@@ -66,6 +69,17 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if version == 1 and minor < 2:
         await _migrate_entities_1_2(hass, entry)
         minor = 2
+
+    if version == 1 and minor < 3:
+        # 0.1.3 (entry 1.3): currency comes from Home Assistant's regional setting, with a code/symbol choice.
+        # A currency typed into an older setup is kept (and still used); the display stays as code.
+        data.setdefault(CONF_CURRENCY_STYLE, CURRENCY_STYLE_CODE)
+        # Sensors that duplicated the YAML package's attributes are gone; remove their registry entries.
+        registry = er.async_get(hass)
+        for key in REMOVED_SENSOR_KEYS_1_3:
+            if entity_id := registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{key}"):
+                registry.async_remove(entity_id)
+        minor = 3
 
     # Future steps go here, oldest first.
 

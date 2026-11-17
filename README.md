@@ -61,11 +61,17 @@ Or add it manually:
 4. **Battery modules** (when available, e.g. sigenergy2mqtt with the Sigen Cloud API enabled): per-module
    discharge counters are assigned to your battery groups by each module's rated capacity, and each module is
    tracked against its own warranty limit.
-5. **System:** battery cost and currency, and the sensors (filled in from step 3 if detected): lifetime
+5. **System:** battery cost (in your Home Assistant currency, from Settings → System → General), whether cost per
+   kWh and cost sensors show the currency symbol (`$`, `$/kWh`, the default, as in the YAML package) or code
+   (`AUD`, `AUD/kWh`, which Home Assistant formats as money in each user's locale), and the sensors (filled in from step 3 if detected): lifetime
    **charged** and/or **discharged** energy, and optionally rated capacity (hardware check) and battery state of
    health.
 
-Cost, currency and sensors can be changed later under **Configure**.
+Cost, the currency display and sensors can be changed later under **Configure**.
+
+**Dates:** the warranty start date picker shows dates in the format set in each user's Home Assistant profile
+(your name at the bottom of the sidebar → Profile → **Date format**). It defaults to your profile language's
+format, so English (US) shows month-day-year; choose **Day-Month-Year** there for dd/mm/yyyy.
 
 ## Sensors
 
@@ -76,27 +82,26 @@ Entity IDs are `sensor.battery_ledger_<name>`. A second BatteryLedger setup gets
 | `total_rated_throughput` | Total warranted energy throughput for the configured units | `total_pack_count` |
 | `remaining_rated_throughput` | Warranted throughput still left | |
 | `rated_throughput_used` | Energy counted against the warranty so far | `groups`, `notes` |
-| `rated_life_used` | Throughput used as % of the warranted total | |
+| `cycles_per_day` | Full equivalent cycles per day: energy counted ÷ days since warranty start ÷ rated capacity (the inverter's rated capacity sensor, else the spec's figure × units). Replaces the YAML package's `battery_cycles_per_day` | |
 | `warranty_time_elapsed` | Time since warranty start as % of the warranty period | |
 | `projected_warranted_throughput` | Throughput by the end of the warranty at the average rate so far (capped at the limit) | `average_daily_kwh`, `low_confidence` |
 | `cost_per_kwh_rated` | Battery cost ÷ warranted throughput | |
 | `cost_per_kwh_projected` | Battery cost ÷ projected throughput | |
 | `cost_consumed_to_date` | Cost apportioned to throughput used | `percent_of_rated_life_used`, `estimated_remaining_value` |
-| `estimated_remaining_value` | Battery cost minus cost consumed | `remaining_value_by_warranty_life` |
 | `initial_usable_capacity` | Usable capacity at beginning of life | |
 | `estimated_usable_capacity` | Warranty floor health %: the minimum capacity the warranty guarantees today (see below) | `remaining_usable_kwh`, `degradation_driver`, `warranty_status`, `groups`, `notes` |
-| `remaining_usable_capacity` | The same warranty floor in kWh | |
-| `degradation_driver` | Whether age or throughput is using up the warranty faster | |
-| `warranty_status` | On track, degrading faster than the time curve, or warranty ended | |
 | `hardware_capacity_validation` | Whether the inverter's reported capacity matches the configured units (if a rated capacity sensor is set) | `configured_rated_kwh`, `reported_hardware_kwh` |
 | `soh_above_warranty_floor` | Reported state of health minus the warranty floor, in percentage points (if a SoH sensor is set) | `reported_soh_pct`, `warranty_floor_pct` |
 | `most_used_module_throughput` | Highest per-module share of its warranted throughput (module tracking) | `worst_module`, `modules`, `module_total_vs_plant_pct` |
 | `module_soc_spread` | Highest minus lowest module state of charge right now (module tracking) | `module_soc` |
 
-Coming from the original YAML package: the names match it with `sigen_battery_` replaced by `battery_ledger_`.
-Remove the YAML package before setting up BatteryLedger. `degradation_driver` and `warranty_status` now report
-codes (`age` / `throughput`, `on_track` / `ahead_of_time` / `expired`), which Home Assistant shows translated;
-templates that compared the old text need the codes instead.
+Coming from the original YAML package: its nine sensors are reproduced exactly (states, units, icons, attribute
+names and values, friendly names), with `sigen_battery_` replaced by `battery_ledger_`. Remove the YAML package
+before setting up BatteryLedger in the same Home Assistant. BatteryLedger adds only sensors with new information: `rated_throughput_used`, `warranty_time_elapsed`,
+`cycles_per_day`, and the module and SoH sensors. *Projected Warranted Throughput* is the package's
+formula (cycles per day × capacity × warranty days, i.e. average daily throughput × warranty days) with the
+days taken from the warranty start date, so no separate age or cycles sensors are needed; it's capped at the
+warranted total. `cycles_per_day` replaces the package's `battery_cycles_per_day`. Friendly names start with "Battery" for every brand.
 
 ## What the numbers mean (and don't)
 

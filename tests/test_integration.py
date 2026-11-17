@@ -55,12 +55,12 @@ async def _setup_via_flow(hass: HomeAssistant, install_date: str) -> config_entr
     assert result["step_id"] == "sensors"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"integration": "manual"})
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"name": "Sigen battery", "currency": "AUD"})
+        result["flow_id"], {"name": "Sigen battery"})
     assert result["errors"] == {"base": "no_energy_entity"}
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {"name": "Sigen battery", "cost": 26062, "currency": "AUD",
+        {"name": "Sigen battery", "cost": 26062,
          "charged_energy_entity": CHARGED, "reported_capacity_entity": RATED})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
@@ -77,19 +77,32 @@ async def test_flow_and_sensors(hass: HomeAssistant):
 
     assert float(val("total_rated_throughput").state) == 142620
     assert float(val("remaining_rated_throughput").state) == 127735
-    assert float(val("rated_life_used").state) == pytest.approx(10.44, abs=0.01)
+    for removed in ("rated_life_used", "estimated_remaining_value", "remaining_usable_capacity",
+                    "degradation_driver", "warranty_status"):
+        assert val(removed) is None  # duplicates of the YAML attributes, not created
     assert float(val("cost_per_kwh_rated").state) == pytest.approx(0.1827, abs=0.0001)
-    assert val("cost_per_kwh_rated").attributes["unit_of_measurement"] == "AUD/kWh"
+    # Default currency style is the symbol, as in the YAML package
+    assert val("cost_per_kwh_rated").attributes["unit_of_measurement"] == "$/kWh"
+    assert val("cost_consumed_to_date").attributes["unit_of_measurement"] == "$"
+    assert "device_class" not in val("cost_consumed_to_date").attributes
     assert float(val("cost_consumed_to_date").state) == pytest.approx(2720, abs=1)
-    assert val("degradation_driver").state == "age"
-    assert val("warranty_status").state == "on_track"
-    assert val("hardware_capacity_validation").state == "match"
+    assert val("hardware_capacity_validation").state == "Match Verified"
     assert val("hardware_capacity_validation").attributes["reported_hardware_kwh"] == 48.36
     assert val("total_rated_throughput").attributes["total_pack_count"] == 6
     cost = val("cost_consumed_to_date").attributes
     assert cost["percent_of_rated_life_used"] == pytest.approx(10.44, abs=0.01)
     usable = val("estimated_usable_capacity").attributes
-    assert usable["degradation_driver"] == "age" and usable["warranty_status"] == "on_track"
+    assert usable["degradation_driver"] == "Age (Time Elapsed)"
+    assert usable["warranty_status"] == "On Track / Normal"
+    # Same attributes as the YAML package, nothing extra
+    assert set(usable) == {"remaining_usable_kwh", "degradation_driver", "warranty_status",
+                           "unit_of_measurement", "icon", "friendly_name"}
+    assert usable["friendly_name"] == "Battery Estimated Usable Capacity"
+    assert set(val("projected_warranted_throughput").attributes) == {"unit_of_measurement", "icon", "friendly_name"}
+    assert val("total_rated_throughput").attributes["friendly_name"] == "Battery Total Rated Throughput"
+    cycles = val("cycles_per_day")
+    assert cycles.attributes["unit_of_measurement"] == "C/day" and cycles.attributes["state_class"] == "measurement"
+    assert float(cycles.state) == pytest.approx(14885 / 487 / 48.36, abs=0.0001)
     assert float(val("initial_usable_capacity").state) == pytest.approx(46.8)
 
     # Energy counter moves -> recalculated after the debounce
@@ -151,12 +164,12 @@ async def test_manual_entry_with_table(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "sensors"})
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"integration": "manual"})
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"name": "Acme", "currency": "AUD", "charged_energy_entity": CHARGED})
+        result["flow_id"], {"name": "Acme", "charged_energy_entity": CHARGED})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     # 100 MWh converted to kWh; no discharged sensor so it falls back to charged
     assert float(hass.states.get("sensor.battery_ledger_rated_throughput_used").state) == pytest.approx(100000)
-    assert hass.states.get("sensor.battery_ledger_warranty_status").state == "expired"
+    assert hass.states.get("sensor.battery_ledger_estimated_usable_capacity").attributes["warranty_status"] == "Warranty Ended"
     assert hass.states.get("sensor.battery_ledger_cost_consumed_to_date").state == "unavailable"
 
 
@@ -187,7 +200,7 @@ async def test_mixed_models_in_one_pass(hass: HomeAssistant):
     assert "· 2025-07-18" in r["description_placeholders"]["groups"]
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
     r = await flow.async_configure(r["flow_id"], {"integration": "manual"})
-    r = await flow.async_configure(r["flow_id"], {"name": "Mixed", "currency": "AUD", "charged_energy_entity": CHARGED})
+    r = await flow.async_configure(r["flow_id"], {"name": "Mixed", "charged_energy_entity": CHARGED})
     assert r["type"] is FlowResultType.CREATE_ENTRY
     groups = r["result"].data["groups"]
     assert [(g["spec"]["model"], g["units"]) for g in groups] == [("SigenStor BAT 10.0", 2), ("SigenStor BAT 8.0", 4)]
@@ -204,3 +217,32 @@ async def test_store_refresh_result_steps(hass: HomeAssistant):
     assert r["description_placeholders"]["error"] == "offline"
     r = await flow.async_configure(r["flow_id"], {})
     assert r["type"] is FlowResultType.MENU and r["step_id"] == "user"
+
+
+async def test_currency_symbol_and_default_name(hass: HomeAssistant):
+    """Currency comes from HA; symbol style changes cost per kWh only; name defaults to '<Brand> Battery'."""
+    hass.config.currency = "EUR"
+    hass.states.async_set(CHARGED, "100", {"unit_of_measurement": "kWh"})
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+    r = await flow.async_configure(r["flow_id"], {"search": "bat 5"})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sigenergy-sigenstor-bat-5-0-anz"]})
+    r = await flow.async_configure(r["flow_id"], {"units": 1, "install_date": "2025-01-01"})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    r = await flow.async_configure(r["flow_id"], {"integration": "manual"})
+    assert r["step_id"] == "system"
+    assert r["description_placeholders"]["currency"] == "EUR" and r["description_placeholders"]["symbol"] == "€"
+    name_key = next(k for k in r["data_schema"].schema if str(k) == "name")
+    assert name_key.default() == "Sigenergy Battery"
+    r = await flow.async_configure(r["flow_id"], {"name": "Sigenergy Battery", "cost": 5000,
+                                                  "currency_style": "code", "charged_energy_entity": CHARGED})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    assert r["title"] == "Sigenergy Battery"
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.battery_ledger_cost_per_kwh_rated").attributes["unit_of_measurement"] == "EUR/kWh"
+    consumed = hass.states.get("sensor.battery_ledger_cost_consumed_to_date").attributes
+    # Code style: monetary device class, so HA formats it as currency in the user's locale
+    assert consumed["unit_of_measurement"] == "EUR" and consumed["device_class"] == "monetary"
+    # Friendly names never include the brand
+    assert consumed["friendly_name"] == "Battery Cost Consumed To Date"

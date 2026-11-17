@@ -139,7 +139,7 @@ async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
     assert suggested["discharged_energy_entity"] == "sensor.sigen_0_accumulated_discharge_energy"
     assert suggested["soh_entity"] == "sensor.sigen_0_plant_battery_soh"
 
-    r = await flow.async_configure(r["flow_id"], {"name": "Sigen", "currency": "AUD", "cost": 9000, **suggested})
+    r = await flow.async_configure(r["flow_id"], {"name": "Sigen", "cost": 9000, **suggested})
     assert r["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
 
@@ -152,4 +152,4 @@ async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
     assert float(st("module_soc_spread").state) == pytest.approx(3)
     margin = float(st("soh_above_warranty_floor").state)
     assert margin == pytest.approx(99 - float(st("estimated_usable_capacity").state), abs=0.1)
-    assert st("hardware_capacity_validation").state == "match"
+    assert st("hardware_capacity_validation").state == "Match Verified"

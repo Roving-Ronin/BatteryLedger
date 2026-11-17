@@ -84,20 +84,21 @@
       },
       "system": {
         "title": "System and costs",
-        "description": "Choose the lifetime energy sensors from your inverter. At least one of charged or discharged energy is needed.\n\nFilled in from: {profile} · sensors filled in: {filled} · battery modules tracked individually: {modules}\nChoose these yourself (several inverter-level sensors matched): {ambiguous}",
+        "description": "Choose the lifetime energy sensors from your inverter. At least one of charged or discharged energy is needed.\n\nCosts use your Home Assistant currency, **{currency}** (Settings → System → General).\n\nFilled in from: {profile} · sensors filled in: {filled} · battery modules tracked individually: {modules}\nChoose these yourself (several inverter-level sensors matched): {ambiguous}",
         "data": {
           "name": "Name",
           "cost": "Battery cost",
-          "currency": "Currency",
           "charged_energy_entity": "Lifetime charged energy sensor",
           "discharged_energy_entity": "Lifetime discharged energy sensor",
           "reported_capacity_entity": "Rated capacity sensor (optional)",
-          "soh_entity": "Battery state of health sensor (optional)"
+          "soh_entity": "Battery state of health sensor (optional)",
+          "currency_style": "Show cost per kWh with"
         },
         "data_description": {
           "cost": "What you paid for the batteries, for cost per kWh and remaining value. Leave empty to skip the cost sensors.",
           "reported_capacity_entity": "The battery capacity your inverter reports, used to check the configured units match the hardware.",
-          "soh_entity": "The health % your inverter reports, compared against the warranty floor."
+          "soh_entity": "The health % your inverter reports, compared against the warranty floor.",
+          "currency_style": "Symbol: {symbol} and {symbol}/kWh, as in the original YAML package. Code: {currency} and {currency}/kWh, shown as money in each user's own currency format."
         }
       },
       "sensors": {
@@ -143,11 +144,15 @@
         "title": "BatteryLedger settings",
         "data": {
           "cost": "Battery cost",
-          "currency": "Currency",
           "charged_energy_entity": "Lifetime charged energy sensor",
           "discharged_energy_entity": "Lifetime discharged energy sensor",
           "reported_capacity_entity": "Rated capacity sensor (optional)",
-          "soh_entity": "Battery state of health sensor (optional)"
+          "soh_entity": "Battery state of health sensor (optional)",
+          "currency_style": "Show cost per kWh with"
+        },
+        "description": "Costs use your Home Assistant currency, **{currency}**.",
+        "data_description": {
+          "currency_style": "Symbol: {symbol} and {symbol}/kWh, as in the original YAML package. Code: {currency} and {currency}/kWh, shown as money in each user's own currency format."
         }
       }
     },
@@ -187,120 +192,60 @@
       "options": {
         "manual": "Choose sensors myself"
       }
+    },
+    "currency_style": {
+      "options": {
+        "code": "Currency code",
+        "symbol": "Currency symbol"
+      }
     }
   },
   "entity": {
     "sensor": {
       "total_rated_throughput": {
-        "name": "Total rated throughput",
-        "state_attributes": {
-          "total_pack_count": {
-            "name": "Total pack count"
-          }
-        }
+        "name": "Total Rated Throughput"
       },
       "remaining_rated_throughput": {
-        "name": "Remaining rated throughput"
-      },
-      "rated_throughput_used": {
-        "name": "Rated throughput used"
+        "name": "Remaining Rated Throughput"
       },
       "projected_warranted_throughput": {
-        "name": "Projected warranted throughput"
+        "name": "Projected Warranted Throughput"
       },
       "cost_per_kwh_rated": {
-        "name": "Cost per kWh (rated)"
+        "name": "Cost Per kWh (Rated)"
       },
       "cost_per_kwh_projected": {
-        "name": "Cost per kWh (10yr projected)"
+        "name": "Cost Per kWh (10yr Projected)"
       },
       "cost_consumed_to_date": {
-        "name": "Cost consumed to date",
-        "state_attributes": {
-          "percent_of_rated_life_used": {
-            "name": "Rated life used"
-          },
-          "estimated_remaining_value": {
-            "name": "Estimated remaining value"
-          }
-        }
-      },
-      "estimated_remaining_value": {
-        "name": "Estimated remaining value"
-      },
-      "rated_life_used": {
-        "name": "Rated life used"
-      },
-      "warranty_time_elapsed": {
-        "name": "Warranty time elapsed"
+        "name": "Cost Consumed To Date"
       },
       "initial_usable_capacity": {
-        "name": "Initial usable capacity"
+        "name": "Initial Usable Capacity"
       },
       "estimated_usable_capacity": {
-        "name": "Estimated usable capacity",
-        "state_attributes": {
-          "remaining_usable_kwh": {
-            "name": "Remaining usable kWh"
-          },
-          "degradation_driver": {
-            "name": "Degradation driver",
-            "state": {
-              "age": "Age (time elapsed)",
-              "throughput": "Throughput (cycling)"
-            }
-          },
-          "warranty_status": {
-            "name": "Warranty status",
-            "state": {
-              "on_track": "On track / normal",
-              "ahead_of_time": "Degrading faster than time curve",
-              "expired": "Warranty ended"
-            }
-          }
-        }
-      },
-      "remaining_usable_capacity": {
-        "name": "Remaining usable capacity"
-      },
-      "degradation_driver": {
-        "name": "Degradation driver",
-        "state": {
-          "age": "Age (time elapsed)",
-          "throughput": "Throughput (cycling)"
-        }
-      },
-      "warranty_status": {
-        "name": "Warranty status",
-        "state": {
-          "on_track": "On track / normal",
-          "ahead_of_time": "Degrading faster than time curve",
-          "expired": "Warranty ended"
-        }
+        "name": "Estimated Usable Capacity"
       },
       "hardware_capacity_validation": {
-        "name": "Hardware capacity validation",
-        "state": {
-          "match": "Match verified",
-          "mismatch": "Mismatch detected"
-        },
-        "state_attributes": {
-          "configured_rated_kwh": {
-            "name": "Configured rated kWh"
-          },
-          "reported_hardware_kwh": {
-            "name": "Reported hardware kWh"
-          }
-        }
+        "name": "Hardware Capacity Validation"
+      },
+      "rated_throughput_used": {
+        "name": "Rated Throughput Used"
+      },
+      "warranty_time_elapsed": {
+        "name": "Warranty Time Elapsed"
       },
       "most_used_module_throughput": {
-        "name": "Most-used module throughput"
+        "name": "Most-Used Module Throughput"
       },
       "module_soc_spread": {
-        "name": "Module SoC spread"
+        "name": "Module SoC Spread"
       },
       "soh_above_warranty_floor": {
-        "name": "SoH above warranty floor"
+        "name": "SoH Above Warranty Floor"
+      },
+      "cycles_per_day": {
+        "name": "Cycles Per Day"
       }
     }
   },
@@ -318,6 +263,11 @@
           "spec_gone": "This spec is no longer in use or no longer in the Store."
         }
       }
+    }
+  },
+  "device": {
+    "battery": {
+      "name": "Battery"
     }
   }
 }

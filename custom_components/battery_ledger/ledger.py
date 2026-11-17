@@ -201,6 +201,7 @@ class LedgerResult:
     health_margin: float | None = None
     reported_capacity_kwh: float | None = None
     total_units: int = 0
+    cycles_per_day: float | None = None
 
 
 def _pct(frac):
@@ -365,6 +366,11 @@ def compute(inp: LedgerInput) -> LedgerResult:
     soc_spread = (max(inp.module_soc.values()) - min(inp.module_soc.values())) if len(inp.module_soc) > 1 else None
     margin = inp.reported_soh_pct - floor_pct if inp.reported_soh_pct is not None else None
 
+    # Full equivalent cycles per day, as the original YAML package's battery_cycles_per_day:
+    # energy / days in service / capacity. Capacity: what the inverter reports, else the spec's figure.
+    cycle_capacity = inp.reported_capacity_kwh or expected_reported or initial_total
+    cycles = used_total / max_days / cycle_capacity if max_days > 0 and cycle_capacity else None
+
     return LedgerResult(
         groups=results, limit_kwh=limit_total, used_kwh=used_limited if limited else used_total,
         remaining_kwh=remaining, used_pct=used_pct, projected_kwh=projected_total,
@@ -378,4 +384,5 @@ def compute(inp: LedgerInput) -> LedgerResult:
         module_details=module_details, module_vs_plant_pct=module_vs_plant,
         soc_spread=soc_spread, module_soc=dict(inp.module_soc),
         reported_soh_pct=inp.reported_soh_pct, health_margin=margin,
-        reported_capacity_kwh=inp.reported_capacity_kwh, total_units=sum(g.units for g in inp.groups))
+        reported_capacity_kwh=inp.reported_capacity_kwh, total_units=sum(g.units for g in inp.groups),
+        cycles_per_day=cycles)

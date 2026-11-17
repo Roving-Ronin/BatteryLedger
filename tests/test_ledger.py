@@ -165,3 +165,18 @@ def test_modules_only_without_plant_sensor():
         groups=[ledger.GroupInput(BAT8, 1, TODAY - timedelta(days=10), module_kwh={"A": 50.0})],
         today=TODAY))
     assert res.used_kwh == pytest.approx(50)
+
+
+def test_cycles_per_day_matches_yaml_formula():
+    """YAML: discharged / age_days / capacity; projected = cycles x capacity x warranty days."""
+    days, discharged, rated = 487, 14886.0, 48.36
+    spec = BAT8  # discharged basis
+    res = ledger.compute(ledger.LedgerInput(
+        groups=[ledger.GroupInput(spec, 6, TODAY - timedelta(days=days))], today=TODAY,
+        discharged_kwh=discharged, reported_capacity_kwh=rated))
+    assert res.cycles_per_day == pytest.approx(discharged / days / rated)
+    assert res.projected_kwh == pytest.approx(res.cycles_per_day * rated * 10 * 365.25)
+    # Without a rated capacity sensor, the spec's reported capacity x units is used
+    res = ledger.compute(ledger.LedgerInput(
+        groups=[ledger.GroupInput(spec, 6, TODAY - timedelta(days=days))], today=TODAY, discharged_kwh=discharged))
+    assert res.cycles_per_day == pytest.approx(discharged / days / (8.06 * 6))

@@ -23,6 +23,9 @@ from .const import (
     CONF_CHARGED_ENTITY,
     CONF_COST,
     CONF_CURRENCY,
+    CONF_CURRENCY_STYLE,
+    CURRENCY_STYLE_SYMBOL,
+    CURRENCY_SYMBOLS,
     CONF_DISCHARGED_ENTITY,
     CONF_GROUPS,
     CONF_INSTALL_DATE,
@@ -63,7 +66,15 @@ class LedgerRuntime:
 
     @property
     def currency(self) -> str:
+        """ISO currency code: Home Assistant's regional setting (or a pre-1.3 entry's own)."""
         return self.config.get(CONF_CURRENCY) or self.hass.config.currency
+
+    @property
+    def currency_label(self) -> str:
+        """For the cost-per-kWh unit: the code, or its symbol if the user chose symbols."""
+        if self.config.get(CONF_CURRENCY_STYLE) == CURRENCY_STYLE_SYMBOL:
+            return CURRENCY_SYMBOLS.get(self.currency, self.currency)
+        return self.currency
 
     @property
     def groups(self) -> list[dict]:

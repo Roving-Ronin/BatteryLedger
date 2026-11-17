@@ -28,6 +28,10 @@ from .const import (
     CONF_CHARGED_ENTITY,
     CONF_COST,
     CONF_CURRENCY,
+    CONF_CURRENCY_STYLE,
+    CURRENCY_STYLE_CODE,
+    CURRENCY_STYLE_SYMBOL,
+    CURRENCY_SYMBOLS,
     CONF_DISCHARGED_ENTITY,
     CONFIG_ENTRY_MINOR_VERSION,
     CONFIG_ENTRY_VERSION,
@@ -117,7 +121,11 @@ def _system_schema(defaults: dict[str, Any], *, with_name: bool) -> vol.Schema:
         fields[vol.Required("name", default=defaults.get("name", NAME))] = _text
     fields.update({
         vol.Optional(CONF_COST): _num_box(min=0, max=10_000_000, step=0.01),
-        vol.Required(CONF_CURRENCY, default=defaults.get(CONF_CURRENCY, "")): _text,
+        # Symbol by default: matches the original YAML package ($, $/kWh).
+        vol.Required(CONF_CURRENCY_STYLE, default=defaults.get(CONF_CURRENCY_STYLE, CURRENCY_STYLE_SYMBOL)):
+            sel.SelectSelector(sel.SelectSelectorConfig(
+                options=[CURRENCY_STYLE_CODE, CURRENCY_STYLE_SYMBOL], translation_key="currency_style",
+                mode=sel.SelectSelectorMode.LIST)),
         vol.Optional(CONF_CHARGED_ENTITY): _energy_entity_selector(),
         vol.Optional(CONF_DISCHARGED_ENTITY): _energy_entity_selector(),
         vol.Optional(CONF_CAPACITY_ENTITY): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
@@ -132,6 +140,11 @@ ROLE_TO_CONF = {
     "rated_capacity": CONF_CAPACITY_ENTITY,
     "soh": CONF_SOH_ENTITY,
 }
+
+
+def _currency_placeholders(code: str) -> dict[str, str]:
+    """Examples for the code / symbol choice, from Home Assistant's regional currency."""
+    return {"currency": code, "symbol": CURRENCY_SYMBOLS.get(code, code)}
 
 
 def _check_system(user_input: dict) -> dict[str, str]:
@@ -526,7 +539,8 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_MODULES: self._modules,
                 })
         first = self._groups[0][CONF_SPEC]
-        defaults = {"name": f"{first['brand']} battery", CONF_CURRENCY: self.hass.config.currency}
+        # Brand in title form + "Battery": e.g. "Sigenergy Battery", "Sungrow Battery".
+        defaults = {"name": f"{first['brand']} Battery"}
         schema = _system_schema(defaults, with_name=True)
         suggested = dict(user_input or {})
         if user_input is None and self._system:
@@ -539,6 +553,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             "filled": str(len([r for r in sysd.roles if r in ROLE_TO_CONF])) if sysd else "0",
             "ambiguous": ", ".join(sysd.ambiguous) if sysd and sysd.ambiguous else DASH,
             "modules": str(len(self._modules)),
+            **_currency_placeholders(self.hass.config.currency),
         })
 
 
@@ -552,11 +567,13 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
             if not errors:
                 # Store every field so a cleared optional field overrides setup data.
                 data = {k: user_input.get(k) for k in
-                        (CONF_COST, CONF_CURRENCY, CONF_CHARGED_ENTITY, CONF_DISCHARGED_ENTITY,
+                        (CONF_COST, CONF_CURRENCY_STYLE, CONF_CHARGED_ENTITY, CONF_DISCHARGED_ENTITY,
                          CONF_CAPACITY_ENTITY, CONF_SOH_ENTITY)}
                 return self.async_create_entry(data=data)
         current = {**self.config_entry.data, **self.config_entry.options}
-        schema = _system_schema({CONF_CURRENCY: current.get(CONF_CURRENCY) or self.hass.config.currency},
+        schema = _system_schema({CONF_CURRENCY_STYLE: current.get(CONF_CURRENCY_STYLE, CURRENCY_STYLE_CODE)},
                                 with_name=False)
         schema = self.add_suggested_values_to_schema(schema, user_input or current)
-        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
+        code = current.get(CONF_CURRENCY) or self.hass.config.currency
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors,
+                                    description_placeholders=_currency_placeholders(code))

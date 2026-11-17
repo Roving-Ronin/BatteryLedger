@@ -50,6 +50,12 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
 - Entity IDs are `sensor.battery_ledger_<key>` (`ENTITY_ID_PREFIX`), keys and attribute names taken from
   the original YAML package. **Renaming a key or entity ID breaks users' dashboards**: avoid it; if it's
   unavoidable, add a migration step that moves the registry entry (see `_migrate_entities_1_2`).
+- **`YAML_SENSORS` must stay identical to the original YAML package**: same state values, units, icons,
+  attribute names and attribute values (`YAML_*_TEXT` in `const.py`), no `device_class` (except monetary
+  with the currency-code style), no extra attributes, no attribution. New detail goes on `EXTRA_SENSORS`.
+  `test_flow_and_sensors` checks this.
+- Friendly names are the translated device name ("Battery") + Title Case entity name, never the brand or
+  the setup's title.
 
 ### Specs
 - A chosen spec is **copied into the config entry** (pinned). Store revisions reach an existing setup
@@ -67,7 +73,8 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
   is refused, not guessed at.
 
 ### UI text
-- **No English inside Python code.** Wording goes in `strings.json`; copy it to
+- **No English inside Python code** (the one exception: the `YAML_*_TEXT` compatibility values in
+  `const.py`, which are a data contract with existing templates). Wording goes in `strings.json`; copy it to
   `translations/en.json` (the Pull Requests workflow checks they match). Description placeholders carry
   data only (numbers, names, dates, IDs, ✓/✗). Where wording differs by case, use a separate step or
   error key rather than building text in code. Don't use ICU `plural`/`select` syntax: core HA doesn't.
