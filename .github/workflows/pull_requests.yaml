@@ -1,0 +1,46 @@
+name: Pull Requests
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Integration checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Compile every module
+        run: python -m compileall -q custom_components/battery_ledger
+
+      - name: translations/en.json matches strings.json
+        run: |
+          if ! diff -q custom_components/battery_ledger/strings.json custom_components/battery_ledger/translations/en.json; then
+            echo "::error file=custom_components/battery_ledger/translations/en.json::translations/en.json differs from strings.json. Copy strings.json over it."
+            exit 1
+          fi
+
+      - name: Bundled Store snapshot is valid JSON with specs
+        run: |
+          python - <<'PY'
+          import json, sys
+          path = "custom_components/battery_ledger/data/index_snapshot.json"
+          data = json.load(open(path))
+          if data.get("index_format") != 1 or not data.get("specs"):
+              print(f"::error file={path}::Snapshot must have index_format 1 and at least one spec")
+              sys.exit(1)
+          print(f"{len(data['specs'])} specs, {len(data.get('profiles', []))} profiles")
+          PY
+
+      - name: manifest.json is valid
+        run: python -c "import json; m = json.load(open('custom_components/battery_ledger/manifest.json')); assert m['domain'] == 'battery_ledger'; print(m['version'])"

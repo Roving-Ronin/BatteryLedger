@@ -1,6 +1,18 @@
 <p align="center"><img src="images/banner.png" alt="BatteryLedger: ESS Health &amp; Asset Tracking by Roving-Ronin" width="582"></p>
 
-# BatteryLedger
+[![HACS][hacs-badge]][hacs-url]
+[![release][release-badge]][release-url]
+[![downloads][downloads-badge]][release-url]
+[![stars][repo-stars-badge]][repo-url]
+[![license][license-badge]][license-url]
+[![installs][installs-badge]][installs-url]
+
+[![maintained][maintained-badge]][commits-url]
+[![activity][activity-badge]][commits-url]
+[![Validate][validate-badge]][validate-url]
+[![Tests][tests-badge]][tests-url]
+
+___
 
 Home Assistant custom integration to track Energy Storage System (ESS) battery health, throughput warranty,
 degradation, cost per kWh, and remaining asset value.
@@ -11,8 +23,11 @@ warranty figures.
 
 ## Installation
 
-HACS → ⋮ → Custom repositories → `https://github.com/Roving-Ronin/BatteryLedger` (Integration), install
-**BatteryLedger**, restart Home Assistant, then Settings → Devices & services → Add integration → BatteryLedger.
+[![Open your Home Assistant instance and open this repository in HACS.][hacs-button]][hacs-url]
+
+Or in HACS → ⋮ → Custom repositories, add `https://github.com/Roving-Ronin/BatteryLedger` as an **Integration**.
+Install **BatteryLedger**, restart Home Assistant, then go to Settings → Devices & services → Add integration →
+BatteryLedger.
 
 ## Setup
 
@@ -85,7 +100,7 @@ Home Assistant 2026.3 or newer shows BatteryLedger's own icon. Older versions wo
 ## Development
 
 ```bash
-pip install pytest-homeassistant-custom-component
+pip install -r requirements_test.txt
 pytest -q
 ```
 
@@ -94,3 +109,39 @@ flow, sensors and Store-revision repairs in a test Home Assistant instance.
 
 The bundled Store snapshot is `custom_components/battery_ledger/data/index_snapshot.json`; refresh it from the
 Store's published `index.json` before each release.
+
+## Releasing
+
+Draft a new GitHub release, create a tag such as `v0.2.0` on `main`, and publish. The release workflow takes the
+version from the tag, writes it into `manifest.json`, attaches `battery_ledger.zip` to the release (what HACS installs
+and the download badge counts), and commits the version back to `main`. Mark betas as a pre-release (e.g. `v0.3.0b1`);
+they don't change the version on `main`.
+
+
+<!-- Badges -->
+
+[hacs-badge]: https://img.shields.io/badge/HACS-Custom-orange?style=flat-square
+[release-badge]: https://img.shields.io/github/v/release/Roving-Ronin/BatteryLedger?style=flat-square&color=blue&label=Release
+[downloads-badge]: https://img.shields.io/github/downloads/Roving-Ronin/BatteryLedger/total?style=flat-square&label=Downloads
+[installs-badge]: https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.battery_ledger.total&style=flat-square
+[maintained-badge]: https://img.shields.io/badge/Maintained-yes-brightgreen?style=flat-square
+[activity-badge]: https://img.shields.io/github/commit-activity/y/Roving-Ronin/BatteryLedger?style=flat-square&label=Commit%20Activity
+[license-badge]: https://img.shields.io/github/license/Roving-Ronin/BatteryLedger?style=flat-square&label=License
+[repo-stars-badge]: https://img.shields.io/github/stars/Roving-Ronin/BatteryLedger?style=flat-square&logo=github&label=Repo%20Stars
+[validate-badge]: https://img.shields.io/github/actions/workflow/status/Roving-Ronin/BatteryLedger/validate.yaml?branch=main&label=Validate&style=flat-square
+[tests-badge]: https://img.shields.io/github/actions/workflow/status/Roving-Ronin/BatteryLedger/tests.yaml?branch=main&label=Tests&style=flat-square
+
+<!-- Install buttons -->
+
+[hacs-button]: https://my.home-assistant.io/badges/hacs_repository.svg
+[hacs-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=Roving-Ronin&repository=BatteryLedger&category=integration
+
+<!-- References -->
+
+[repo-url]: https://github.com/Roving-Ronin/BatteryLedger
+[release-url]: https://github.com/Roving-Ronin/BatteryLedger/releases
+[installs-url]: https://analytics.home-assistant.io/custom_integrations.json
+[commits-url]: https://github.com/Roving-Ronin/BatteryLedger/commits/main
+[validate-url]: https://github.com/Roving-Ronin/BatteryLedger/actions/workflows/validate.yaml
+[tests-url]: https://github.com/Roving-Ronin/BatteryLedger/actions/workflows/tests.yaml
+[license-url]: https://github.com/Roving-Ronin/BatteryLedger/blob/main/LICENSE

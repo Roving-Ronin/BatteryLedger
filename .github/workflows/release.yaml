@@ -1,0 +1,88 @@
+name: Release
+
+# Runs when a GitHub release is published. The release tag is the version:
+#   1. Takes the version from the tag (v0.3.0 -> 0.3.0).
+#   2. Writes it into manifest.json and builds battery_ledger.zip from the
+#      integration folder, then attaches the zip to the release. HACS / the
+#      Marketplace install from this zip (hacs.json zip_release), which is also
+#      what the download badge counts.
+#   3. Commits the same version bump back to the default branch, so the repo's
+#      manifest.json stays in step. Nobody needs to edit manifest.json by hand.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  MANIFEST: custom_components/battery_ledger/manifest.json
+
+jobs:
+  release:
+    name: Build and attach battery_ledger.zip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v7
+
+      - name: Version from the release tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${TAG#v}"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-]?(a|b|rc|dev)[0-9]*)?$'; then
+            echo "::error::Release tag '$TAG' isn't a version. Use a tag like v0.3.0 (or 0.3.0, v0.3.0b1)."
+            exit 1
+          fi
+          echo "Release version: $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Write the version into manifest.json
+        run: |
+          jq --indent 2 --arg v "$VERSION" '.version = $v' "$MANIFEST" > manifest.tmp
+          mv manifest.tmp "$MANIFEST"
+          grep '"version"' "$MANIFEST"
+
+      - name: Build battery_ledger.zip
+        run: |
+          cd custom_components/battery_ledger
+          zip -r -q "$GITHUB_WORKSPACE/battery_ledger.zip" . -x "*/__pycache__/*" "*.pyc"
+          cd "$GITHUB_WORKSPACE"
+          unzip -l battery_ledger.zip
+          unzip -p battery_ledger.zip manifest.json | grep '"version"'
+
+      - name: Attach the zip to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" battery_ledger.zip --clobber
+
+  sync-manifest:
+    name: Commit the version to ${{ github.event.repository.default_branch }}
+    needs: release
+    runs-on: ubuntu-latest
+    # Pre-releases (e.g. betas) don't move the default branch's version
+    if: ${{ !github.event.release.prerelease }}
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Commit manifest.json version if it changed
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${TAG#v}"
+          jq --indent 2 --arg v "$VERSION" '.version = $v' "$MANIFEST" > manifest.tmp
+          mv manifest.tmp "$MANIFEST"
+          if git diff --quiet -- "$MANIFEST"; then
+            echo "manifest.json already at $VERSION"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Set manifest version to $VERSION (release $TAG)" -- "$MANIFEST"
+          if ! git push -q origin "HEAD:${{ github.event.repository.default_branch }}"; then
+            echo "::warning::Couldn't push the version bump (branch protection?). The release zip is correct; manifest.json on the default branch still shows the old version."
+          fi

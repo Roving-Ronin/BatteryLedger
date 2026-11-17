@@ -1,0 +1,108 @@
+name: Bug report
+description: Report a problem with the BatteryLedger integration
+labels: ['type/bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **NOTE:** Before you start, please check the following.
+
+        - Read the [README](https://github.com/Roving-Ronin/BatteryLedger/blob/main/README.md), in particular *What the numbers mean (and don't)*.
+        - Make sure no [similar issues (including closed ones)](https://github.com/Roving-Ronin/BatteryLedger/issues?q=is%3Aissue+label%3Atype%2Fbug) exist.
+        - Make sure you are on the latest release, and have restarted Home Assistant after updating.
+        - **Wrong battery or warranty figures?** Those come from the [BatteryLedger Store](https://github.com/Roving-Ronin/BatteryLedger-Store/issues/new?template=spec-submission.yml): please submit a correction there instead.
+
+        Thanks for taking the time to help improve this project!
+  - type: checkboxes
+    attributes:
+      label: Is there an existing issue for this?
+      description: Please search to see if an issue already exists for the bug you encountered.
+      options:
+        - label: I have searched the existing issues
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part?
+      options:
+        - Setup - Store search / battery selection
+        - Setup - manual battery entry
+        - Setup - inverter integration / sensor detection
+        - Setup - battery modules
+        - Sensors / calculations
+        - Store spec updates (Repairs)
+        - Other / Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current Behaviour
+      description: A concise description of what you're experiencing. Screenshots are very helpful.
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps To Reproduce
+      description: Steps to reproduce the behaviour.
+      placeholder: |
+        1. Add BatteryLedger, search for...
+        2. On the Inverter integration step...
+        3. See error...
+    validations:
+      required: false
+  - type: textarea
+    id: expected-behaviour
+    attributes:
+      label: Expected Behaviour
+      description: A concise description of what you expected to happen.
+      placeholder: Tell us what you should see!
+    validations:
+      required: true
+  - type: input
+    id: integration-version
+    attributes:
+      label: BatteryLedger Version
+      description: Shown in HACS, or Settings → Devices & services → BatteryLedger.
+    validations:
+      required: true
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant Version
+      description: The version of Home Assistant you have installed (Settings → About).
+    validations:
+      required: true
+  - type: input
+    id: battery
+    attributes:
+      label: Battery
+      description: Brand, model and number of modules, e.g. Sigenergy SigenStor BAT 8.0 × 6. Include the spec ID if you picked it from the Store.
+    validations:
+      required: true
+  - type: input
+    id: inverter-integration
+    attributes:
+      label: Inverter integration
+      description: The integration providing your battery's sensors, and its version, e.g. sigenergy2mqtt 2026.11.1 or Sigenergy Local Modbus 1.2.3.
+    validations:
+      required: false
+  - type: textarea
+    id: sensors
+    attributes:
+      label: Sensor details
+      description: |
+        For detection problems: the *unique ID* of the sensors that weren't found, from Settings → Entities → the sensor → ⚙️, or `.storage/core.entity_registry`.
+        Please replace serial numbers and Sigen station IDs with `<serial>` / `<station>` before posting: this issue is public.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log Output
+      description: Relevant lines from Settings → System → Logs mentioning `battery_ledger`. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+    validations:
+      required: false
