@@ -60,7 +60,7 @@ Or add it manually:
    integrations it knows for your battery brand: currently TypQxQ's Sigenergy Local Modbus and sigenergy2mqtt
    for Sigenergy, mkaiser's Sungrow SHx Modbus package and Wingman3434's Sungrow SHx Inverter for Sungrow,
    wlcrs's Huawei Solar for Huawei and iStore, and
-   [Energy Manager](https://github.com/ha-energymanager/ha-energymanager) for any brand. If
+   [Energy Manager](https://github.com/ha-energymanager/ha-energymanager) for all of these brands. If
    Energy Manager is installed, its battery install date also pre-fills the warranty start date.
 4. **Battery modules** (when available, e.g. sigenergy2mqtt with the Sigen Cloud API enabled): per-module
    discharge counters are assigned to your battery groups by each module's rated capacity, and each module is

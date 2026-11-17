@@ -124,9 +124,10 @@ class StoreIndex:
         return self._data.get("profiles", [])
 
     def profiles_for_brands(self, brands: set[str]) -> list[dict]:
-        """Profiles for any of these brands; "*" profiles (e.g. Energy Manager) apply to every brand."""
-        return [p for p in self.profiles
-                if "*" in p.get("brands", []) or brands & set(p.get("brands", []))]
+        """Profiles for any of these brands, brand-specific integrations first: sorted by how many
+        brands each covers, so a generic one (e.g. Energy Manager) comes last. Stable within a count."""
+        hits = [p for p in self.profiles if brands & set(p.get("brands", []))]
+        return sorted(hits, key=lambda p: len(p.get("brands", [])))
 
     def get(self, spec_id: str) -> dict | None:
         return next((s for s in self.specs if s["id"] == spec_id), None)

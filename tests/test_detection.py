@@ -124,9 +124,9 @@ async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
     values = [o["value"] for o in options]
     assert "sigenergy2mqtt|prefix=sigen|plant=0" in values
     assert "sigen-local-modbus|none" in values  # listed, but not installed
-    # Sigenergy: its own integrations plus Energy Manager (any brand), in Store order
+    # Sigenergy: its own integrations, then Energy Manager
     profile_ids = [v.split("|")[0] for v in values if v != "manual"]
-    assert profile_ids == ["energy-manager", "sigen-local-modbus", "sigenergy2mqtt"]
+    assert profile_ids == ["sigen-local-modbus", "sigenergy2mqtt", "energy-manager"]
 
     r = await flow.async_configure(r["flow_id"], {"integration": "sigen-local-modbus|none"})
     assert r["errors"] == {"integration": "not_detected"}
@@ -246,7 +246,7 @@ async def test_sungrow_integration_choices(hass: HomeAssistant):
     r = await flow.async_configure(r["flow_id"], {"units": 4, "install_date": "2025-01-01"})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
     ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
-    assert ids == ["energy-manager", "sungrow-shx-inverter-wingman3434", "sungrow-shx-modbus-mkaiser", "manual"]
+    assert ids == ["sungrow-shx-inverter-wingman3434", "sungrow-shx-modbus-mkaiser", "energy-manager", "manual"]
 
 
 def test_detect_huawei_solar():
@@ -270,4 +270,4 @@ async def test_istore_offers_huawei_solar(hass: HomeAssistant):
     r = await flow.async_configure(r["flow_id"], {"units": 3, "install_date": "2025-01-01"})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
     ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
-    assert ids == ["energy-manager", "huawei-solar-wlcrs", "manual"]
+    assert ids == ["huawei-solar-wlcrs", "energy-manager", "manual"]

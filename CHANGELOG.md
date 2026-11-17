@@ -8,7 +8,7 @@ credit where there is one.
 
 ### TL;DR
 - Model is now chosen after the brand, and only lists that brand's models
-- Energy Manager supported for any battery brand, including its battery install date
+- Energy Manager offered for Sigenergy, Huawei, iStore and Sungrow, including its battery install date
 - Sungrow setups can pick up sensors from mkaiser's Modbus package or Wingman3434's integration
 - Huawei and iStore setups can pick up sensors from wlcrs's Huawei Solar integration
 - Bundled Store list adds Huawei LUNA2000 and iStore batteries, and keeps only Sungrow's current warranty
@@ -19,11 +19,11 @@ credit where there is one.
   matching batteries, and is skipped when there's just one.
 
 ### Added
-- Energy Manager sensor profile: offered whatever the battery brand, since Energy Manager translates each
-  vendor's integration into the same sensors. Setup fills in its lifetime discharged and charged energy,
+- Energy Manager sensor profile: offered for Sigenergy, Huawei, iStore and Sungrow, after each brand's own
+  integrations, since Energy Manager translates each vendor's integration into the same sensors. Setup fills in its lifetime discharged and charged energy,
   battery capacity and SoH sensors, and pre-fills the warranty start date from its
   `input_datetime.battery_install_date`.
-- Sensor profiles can apply to any brand (`"*"`), use fixed unique IDs, and include an install-date entity
+- Sensor profiles can use fixed unique IDs and include an install-date entity
   from another platform (e.g. a helper). Any integration that keeps an install date pre-fills it the same way.
 - Sungrow sensor profiles for mkaiser's Sungrow SHx Modbus YAML package and Wingman3434's Sungrow SHx Inverter
   integration: lifetime battery discharge and charge, battery capacity and SoH.

@@ -1,7 +1,7 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-17T07:20:43+00:00",
+ "generated": "2026-11-17T07:25:44+00:00",
  "count": 10,
  "brands": [
   "Huawei",
@@ -535,14 +535,17 @@
   {
    "schema_version": 1,
    "id": "energy-manager",
-   "profile_version": 1,
+   "profile_version": 2,
    "name": "Energy Manager",
    "integration": {
     "platform": "mqtt",
     "url": "https://github.com/ha-energymanager/ha-energymanager"
    },
    "brands": [
-    "*"
+    "Sigenergy",
+    "Huawei",
+    "iStore",
+    "Sungrow"
    ],
    "roles": {
     "discharged_energy": [
