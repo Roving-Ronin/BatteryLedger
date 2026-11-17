@@ -334,3 +334,47 @@ async def test_deye_integration_choices(hass: HomeAssistant):
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
     ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
     assert ids == ["deye-esphome-lewa-reka", "deye-solarman-davidrapan", "energy-manager", "manual"]
+
+
+def test_detect_goodwe():
+    sn = "9010KETU000W1234"
+    ents = [RegistryEntity(f"sensor.goodwe_{name}", "goodwe", f"goodwe-{key}-{sn}")
+            for key, name in (("e_bat_discharge_total", "total_battery_discharge"),
+                              ("e_bat_charge_total", "total_battery_charge"),
+                              ("e_bat_charge_day", "today_battery_charge"),
+                              ("battery_soh", "battery_state_of_health"))]
+    [system] = detect(PROFILES["goodwe"], ents)
+    assert system.roles["discharged_energy"][1] == "sensor.goodwe_total_battery_discharge"
+    assert system.roles["charged_energy"][1] == "sensor.goodwe_total_battery_charge"  # not "today"
+    assert system.roles["soh"][1] == "sensor.goodwe_battery_state_of_health"
+
+
+async def test_goodwe_integration_choices(hass: HomeAssistant):
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+    r = await flow.async_configure(r["flow_id"], {"brand": "GoodWe"})
+    r = await flow.async_configure(r["flow_id"], {"series": "GoodWe|Lynx Home F"})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["goodwe-lx-f3-3-h-anz"]})
+    r = await flow.async_configure(r["flow_id"], {"units": 3, "install_date": "2024-03-01"})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
+    assert ids == ["goodwe", "energy-manager", "manual"]
+
+
+def test_detect_huawei_emma_stack():
+    """A cascaded stack (up to 3 inverters) with an EMMA: the EMMA's site totals win over each inverter's."""
+    ents = []
+    for sn in ("HV1111111111", "HV2222222222", "HV3333333333"):
+        ents += [RegistryEntity(f"sensor.batteries_{k}_{sn[-1]}", "huawei_solar", f"{sn}_storage_{k}")
+                 for k in ("total_discharge", "total_charge", "rated_capacity")]
+    # Without an EMMA, three inverters' totals are ambiguous, so nothing is detected (sensors are chosen manually)
+    assert detect(PROFILES["huawei-solar-wlcrs"], ents) == []
+    emma = "EMMA00000001"
+    ents += [RegistryEntity(f"sensor.emma_{k}", "huawei_solar", f"{emma}_{k}")
+             for k in ("total_discharged_energy", "total_charged_energy", "rated_ess_capacity", "charged_energy_today")]
+    [system] = detect(PROFILES["huawei-solar-wlcrs"], ents)
+    assert system.roles["discharged_energy"] == ("plant", "sensor.emma_total_discharged_energy")
+    assert system.roles["charged_energy"] == ("plant", "sensor.emma_total_charged_energy")
+    assert system.roles["rated_capacity"] == ("plant", "sensor.emma_rated_ess_capacity")
+    assert not system.ambiguous

@@ -63,7 +63,11 @@ Or add it manually:
    - **AlphaESS:** [senalse's AlphaESS Modbus TCP](https://github.com/senalse/ha-alphaess-modbus)
    - **Deye:** [davidrapan's Solarman](https://github.com/davidrapan/ha-solarman),
      [Lewa-Reka's ESPHome Deye Inverter](https://github.com/Lewa-Reka/esphome-deye-inverter)
-   - **Huawei and iStore:** [wlcrs's Huawei Solar](https://github.com/wlcrs/huawei_solar)
+   - **GoodWe (ET, EH, BT and BH hybrids):** [GoodWe](https://www.home-assistant.io/integrations/goodwe/) (core, or
+     [mletenay's custom version](https://github.com/mletenay/home-assistant-goodwe-inverter)). GoodWe's ES-family
+     inverters don't report lifetime battery energy, so use Energy Manager or choose the sensors yourself.
+   - **Huawei and iStore:** [wlcrs's Huawei Solar](https://github.com/wlcrs/huawei_solar). With an EMMA (or
+     SmartLogger), its site-wide totals cover a cascaded stack of up to 3 inverters.
    - **Sungrow:** [mkaiser's Sungrow SHx Modbus package](https://github.com/mkaiser/Sungrow-SHx-Inverter-Modbus-Home-Assistant),
      [Wingman3434's Sungrow SHx Inverter](https://github.com/Wingman3434/sungrow-shx-inverter-hacs)
    - **All of these brands:** [Energy Manager](https://github.com/ha-energymanager/ha-energymanager). If it's

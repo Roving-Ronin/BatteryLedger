@@ -16,6 +16,8 @@ credit where there is one.
   Energy Manager
 - Bundled Store list adds Deye batteries, with sensors from davidrapan's Solarman, Lewa-Reka's ESPHome Deye
   Inverter or Energy Manager
+- Bundled Store list adds GoodWe batteries, with sensors from the GoodWe integration (ET-family hybrids) or
+  Energy Manager
 
 ### Changed
 - Card: the settings cog is at the bottom right, on the same row as the hardware capacity check (on its own
@@ -38,6 +40,14 @@ credit where there is one.
   and discharge). Solarman's Battery SOH and Battery Capacity are its own estimates, so they aren't used.
 - Sensor profiles can use a `{mac}` placeholder for ESPHome devices, whose unique IDs start with the device's MAC
   address. Each ESPHome inverter is found as its own system.
+- Bundled Store list: GoodWe (Australia and New Zealand), with the Lynx Home F (LX F3.3-H, throughput table per
+  tower), Lynx Home F G2 (LX F3.2-20), Lynx Home U (LX U5.4-L) and Lynx U G3 (LX U5.0-30).
+- Sensor profile for GoodWe (Home Assistant core and mletenay's custom version share the domain and unique IDs):
+  lifetime battery charge and discharge and the BMS state of health, on ET/EH/BT/BH hybrids. GoodWe's ES-family
+  inverters don't report lifetime battery energy.
+- Huawei Solar (wlcrs) profile v2: uses the EMMA's site-wide battery totals and rated ESS capacity (or a
+  SmartLogger's, with its state of health) before a single inverter's Batteries device, so a cascaded stack of up
+  to 3 inverters is tracked as one system.
 - README: the integrations BatteryLedger knows are listed by battery brand.
 
 ### Fixed

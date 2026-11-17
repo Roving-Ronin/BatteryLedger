@@ -1,11 +1,12 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-17T13:58:33+00:00",
- "count": 26,
+ "generated": "2026-11-17T14:13:16+00:00",
+ "count": 30,
  "brands": [
   "AlphaESS",
   "Deye",
+  "GoodWe",
   "Huawei",
   "iStore",
   "Sigenergy",
@@ -51,6 +52,22 @@
   [
    "Deye",
    "Spring SE"
+  ],
+  [
+   "GoodWe",
+   "Lynx Home F"
+  ],
+  [
+   "GoodWe",
+   "Lynx Home F G2"
+  ],
+  [
+   "GoodWe",
+   "Lynx Home U"
+  ],
+  [
+   "GoodWe",
+   "Lynx U G3"
   ],
   [
    "Huawei",
@@ -829,6 +846,208 @@
   },
   {
    "schema_version": 1,
+   "id": "goodwe-lx-f3-3-h-anz",
+   "spec_version": 1,
+   "brand": "GoodWe",
+   "series": "Lynx Home F",
+   "model": "LX F3.3-H",
+   "regions": [
+    "AU",
+    "NZ"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 3.275,
+    "usable_kwh": 3.275,
+    "min_units": 2,
+    "max_units": 5
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "table",
+     "table": [
+      {
+       "units": 2,
+       "kwh": 16770
+      },
+      {
+       "units": 3,
+       "kwh": 25160
+      },
+      {
+       "units": 4,
+       "kwh": 33540
+      },
+      {
+       "units": 5,
+       "kwh": 41930
+      }
+     ]
+    },
+    "notes": "70% of usable energy at 10 years or the Minimum Through Output Energy, whichever comes first. Per tower: LX F6.6-H (2 modules) 16.77 MWh, F9.8-H 25.16, F13.1-H 33.54, F16.4-H (5 modules) 41.93 MWh. Throughput is the Minimum Through Output Energy (discharged energy), from the earlier of installation or six months after production."
+   },
+   "sources": [
+    {
+     "url": "https://solarproof.com.au/warranty_documents/battery_warranty_GOODWE%20Limited%20Warranty%20for%20Lynx%20F%20Series%20Battery%20System-AU%26NZ.pdf",
+     "title": "GoodWe Limited Warranty, Lynx F Series (AU and NZ)"
+    },
+    {
+     "url": "https://solarproof.com.au/datasheets/battery_datasheet_GW_Lynx%20Home%20F%20Series%20(HV)_Datasheet-AU.pdf",
+     "title": "GoodWe Lynx Home F Series datasheet (AU)"
+    }
+   ],
+   "notes": "High voltage, for GoodWe ET/EH/BT/BH inverters: LX F3.3-H modules (3.27 kWh, 100% usable), 2-5 per tower (LX F6.6-H to LX F16.4-H). Towers can run in parallel; set up one BatteryLedger battery group per tower.",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "goodwe-lx-f3-2-20-anz",
+   "spec_version": 1,
+   "brand": "GoodWe",
+   "series": "Lynx Home F G2",
+   "model": "LX F3.2-20",
+   "regions": [
+    "AU",
+    "NZ"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1",
+    "3"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 3.2,
+    "usable_kwh": 3.2,
+    "min_units": 2,
+    "max_units": 9
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "per_unit",
+     "kwh": 11680
+    },
+    "notes": "70% of usable energy at 10 years or the Minimum Through Output Energy, whichever comes first. 3.65 MWh per usable kWh: 11.68 MWh per 3.2 kWh module (LX F6.4-H-20 23.36 MWh to LX F28.8-H-20 105.12 MWh). Throughput is the Minimum Through Output Energy (discharged energy), from the earlier of installation or six months after production."
+   },
+   "sources": [
+    {
+     "url": "https://solarproof.com.au/warranty_documents/battery_warranty_GOODWE%20Limited%20Warranty%20for%20Lynx%20LX%20F%20G2%20Series%20Battery%20System-AU%26NZ.pdf",
+     "title": "GoodWe Limited Warranty, Lynx LX F G2 Series (AU and NZ)"
+    },
+    {
+     "url": "https://www.solahart.com.au/media/10701/goodwe-lynx-f-g2-series.pdf",
+     "title": "GoodWe Lynx F G2 Series datasheet (Solahart AU)",
+     "date": "2023-10-01"
+    }
+   ],
+   "notes": "High voltage, for GoodWe ET/EH/BT/BH inverters: LX F3.2-20 modules (3.2 kWh, 100% usable), 2-9 per tower (LX F6.4-H-20 to LX F28.8-H-20).",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "goodwe-lx-u5-4-l-anz",
+   "spec_version": 1,
+   "brand": "GoodWe",
+   "series": "Lynx Home U",
+   "model": "LX U5.4-L",
+   "regions": [
+    "AU",
+    "NZ"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 5.4,
+    "usable_kwh": 4.8,
+    "min_units": 1,
+    "max_units": 6
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "per_unit",
+     "kwh": 12420
+    },
+    "notes": "70% of usable energy at 10 years or the Minimum Through Output Energy, whichever comes first. 12.42 MWh per module. Throughput is the Minimum Through Output Energy (discharged energy), from the earlier of installation or six months after production."
+   },
+   "sources": [
+    {
+     "url": "https://www.chilliwebsites.com/sitefiles/6944/file/Gw_Lynx_Home_U_Battery_Warranty_Policy.pdf",
+     "title": "GoodWe Limited Warranty, Lynx Series LX U (AU and NZ), Rev 1.1",
+     "date": "2021-10-12"
+    }
+   ],
+   "notes": "Low voltage, for GoodWe ES/EM/SBP inverters: 5.4 kWh modules, 4.8 kWh usable, 1-6 in parallel. GoodWe's ES-family integrations don't report lifetime battery energy; use Energy Manager or choose sensors manually.",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "goodwe-lx-u5-0-30-anz",
+   "spec_version": 1,
+   "brand": "GoodWe",
+   "series": "Lynx U G3",
+   "model": "LX U5.0-30",
+   "regions": [
+    "AU",
+    "NZ"
+   ],
+   "chemistry": "LFP",
+   "phases": [
+    "1"
+   ],
+   "capacity": {
+    "unit": "module",
+    "nominal_kwh": 5.0,
+    "usable_kwh": 5.0,
+    "min_units": 1,
+    "max_units": 6
+   },
+   "warranty": {
+    "years": 10,
+    "eol_capacity_pct": 70,
+    "throughput": {
+     "basis": "discharged",
+     "scope": "per_unit",
+     "kwh": 14300
+    },
+    "notes": "70% of usable energy at 10 years or the Minimum Through Output Energy, whichever comes first. 14.3 MWh per module. Throughput is the Minimum Through Output Energy (discharged energy), from the earlier of installation or six months after production."
+   },
+   "sources": [
+    {
+     "url": "https://solarproof.com.au/warranty_documents/battery_warranty_GOODWE%20Limited%20Warranty%20for%20Lynx%20U%20G3%20Series%20Battery%20System-AU_NZ.pdf",
+     "title": "GoodWe Limited Warranty, Lynx Series LX U 5.0-30 (AU and NZ), Rev 1.3",
+     "date": "2025-05-08"
+    }
+   ],
+   "notes": "Low voltage, for GoodWe ES-family inverters: 5.0 kWh modules, 100% usable, up to 30 kWh (6 modules). GoodWe's ES-family integrations don't report lifetime battery energy; use Energy Manager or choose sensors manually.",
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
    "id": "huawei-luna2000-7-s1-au",
    "spec_version": 1,
    "brand": "Huawei",
@@ -1478,7 +1697,7 @@
   {
    "schema_version": 1,
    "id": "energy-manager",
-   "profile_version": 4,
+   "profile_version": 5,
    "name": "Energy Manager",
    "integration": {
     "platform": "mqtt",
@@ -1488,6 +1707,7 @@
     "Sigenergy",
     "AlphaESS",
     "Deye",
+    "GoodWe",
     "Huawei",
     "iStore",
     "Sungrow"
@@ -1582,8 +1802,53 @@
   },
   {
    "schema_version": 1,
-   "id": "huawei-solar-wlcrs",
+   "id": "goodwe",
    "profile_version": 1,
+   "name": "GoodWe (Home Assistant core, or mletenay's custom version)",
+   "integration": {
+    "platform": "goodwe",
+    "url": "https://www.home-assistant.io/integrations/goodwe/"
+   },
+   "brands": [
+    "GoodWe"
+   ],
+   "roles": {
+    "discharged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "goodwe-e_bat_discharge_total-{serial}",
+      "default_entity_ids": [
+       "sensor.goodwe_total_battery_discharge"
+      ]
+     }
+    ],
+    "charged_energy": [
+     {
+      "level": "plant",
+      "unique_id": "goodwe-e_bat_charge_total-{serial}",
+      "default_entity_ids": [
+       "sensor.goodwe_total_battery_charge"
+      ]
+     }
+    ],
+    "soh": [
+     {
+      "level": "plant",
+      "unique_id": "goodwe-battery_soh-{serial}",
+      "default_entity_ids": [
+       "sensor.goodwe_battery_state_of_health"
+      ]
+     }
+    ]
+   },
+   "submitted_by": "Roving-Ronin",
+   "verified": false,
+   "updated": "2026-11-18"
+  },
+  {
+   "schema_version": 1,
+   "id": "huawei-solar-wlcrs",
+   "profile_version": 2,
    "name": "Huawei Solar (wlcrs)",
    "integration": {
     "platform": "huawei_solar",
@@ -1597,6 +1862,20 @@
     "discharged_energy": [
      {
       "level": "plant",
+      "unique_id": "{serial}_total_discharged_energy",
+      "default_entity_ids": [
+       "sensor.emma_total_discharged_energy"
+      ]
+     },
+     {
+      "level": "plant",
+      "unique_id": "{serial}_smartlogger_total_energy_discharge_d",
+      "default_entity_ids": [
+       "sensor.smartlogger_total_discharged_energy"
+      ]
+     },
+     {
+      "level": "inverter",
       "unique_id": "{serial}_storage_total_discharge",
       "default_entity_ids": [
        "sensor.batteries_total_discharge"
@@ -1606,6 +1885,20 @@
     "charged_energy": [
      {
       "level": "plant",
+      "unique_id": "{serial}_total_charged_energy",
+      "default_entity_ids": [
+       "sensor.emma_total_charged_energy"
+      ]
+     },
+     {
+      "level": "plant",
+      "unique_id": "{serial}_smartlogger_total_energy_charged",
+      "default_entity_ids": [
+       "sensor.smartlogger_total_charged_energy"
+      ]
+     },
+     {
+      "level": "inverter",
       "unique_id": "{serial}_storage_total_charge",
       "default_entity_ids": [
        "sensor.batteries_total_charge"
@@ -1615,16 +1908,32 @@
     "rated_capacity": [
      {
       "level": "plant",
+      "unique_id": "{serial}_rated_ess_capacity",
+      "default_entity_ids": [
+       "sensor.emma_rated_ess_capacity"
+      ]
+     },
+     {
+      "level": "inverter",
       "unique_id": "{serial}_storage_rated_capacity",
       "default_entity_ids": [
        "sensor.batteries_rated_capacity"
+      ]
+     }
+    ],
+    "soh": [
+     {
+      "level": "plant",
+      "unique_id": "{serial}_smartlogger_soh",
+      "default_entity_ids": [
+       "sensor.smartlogger_state_of_health"
       ]
      }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-17"
+   "updated": "2026-11-18"
   },
   {
    "schema_version": 1,
