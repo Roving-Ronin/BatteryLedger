@@ -1,7 +1,7 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-17T05:22:18+00:00",
+ "generated": "2026-11-17T05:55:51+00:00",
  "count": 8,
  "brands": [
   "Sigenergy",
@@ -71,7 +71,7 @@
     }
    ],
    "submitted_by": "Roving-Ronin",
-   "verified": false,
+   "verified": true,
    "updated": "2026-11-17"
   },
   {
@@ -119,7 +119,7 @@
     }
    ],
    "submitted_by": "Roving-Ronin",
-   "verified": false,
+   "verified": true,
    "updated": "2026-11-17"
   },
   {
@@ -167,7 +167,7 @@
     }
    ],
    "submitted_by": "Roving-Ronin",
-   "verified": false,
+   "verified": true,
    "updated": "2026-11-17"
   },
   {
@@ -215,7 +215,7 @@
     }
    ],
    "submitted_by": "Roving-Ronin",
-   "verified": false,
+   "verified": true,
    "updated": "2026-11-17"
   },
   {
