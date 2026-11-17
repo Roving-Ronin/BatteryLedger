@@ -3,7 +3,7 @@
  *
  * Data comes from the integration's websocket command battery_ledger/card/setups: each setup's sensors
  * (found by unique ID, so renamed entities still work), battery groups and saved card settings.
- * Admins change the settings with the cog at the top right; they're saved per setup by the integration.
+ * Admins change the settings with the cog at the bottom right; they're saved per setup by the integration.
  */
 const CARD_VERSION = new URL(import.meta.url).searchParams.get("v") || "dev";  // the integration version
 const WS_SETUPS = "battery_ledger/card/setups";
@@ -23,7 +23,7 @@ const STRINGS = {
     by_time: "Warranty by Time Elapsed:",
     by_throughput: "Warranty by Throughput Used:",
     driver: "Warranty Driver:",
-    cycles: "Cycles Per Day:",
+    cycles: "Battery cycles per day (Average):",
     warranty_ends: "Warranty Ends:",
     remaining_throughput: "Remaining Rated Throughput",
     of_total: "of {total} kWh",
@@ -37,7 +37,7 @@ const STRINGS = {
     projected: "projected",
     health: "Health",
     actual_soh: "Actual SoH (battery)",
-    warranty_allows: "Warranty Allows (today)",
+    warranty_allows: "Projected SoH (Today)",
     no_soh: "No SoH sensor chosen for this setup",
     above: "{pct}% above warranty",
     below: "{pct}% below warranty",
@@ -91,7 +91,7 @@ const STYLE = `
   .chip.warn { background: rgba(255,166,0,.15); color: var(--bl-warn); }
   .chip.bad { background: rgba(219,68,55,.15); color: var(--bl-bad); }
   .chip.muted { background: var(--bl-tile); color: var(--bl-muted); }
-  .cog { color: var(--bl-muted); margin: -8px -8px -8px 0; }
+  .cog { color: var(--bl-muted); flex: none; margin: -10px -10px -10px 0; }
   section { margin-top: 16px; }
   section:first-of-type { margin-top: 0; }
   .ring-row { display: flex; align-items: center; gap: 18px; }
@@ -109,7 +109,10 @@ const STYLE = `
   .mid { font-size: 15px; font-weight: 500; }
   .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .section-head .t { font-size: 15px; font-weight: 500; }
-  .foot { border-top: 1px solid var(--divider-color); padding-top: 10px; margin-top: 12px; display: grid; gap: 4px; }
+  .foot { border-top: 1px solid var(--divider-color); padding-top: 10px; margin-top: 12px; display: flex;
+          justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .foot.bare { border-top: none; padding-top: 0; margin-top: 4px; justify-content: flex-end; }
+  .foot .lines { display: grid; gap: 4px; min-width: 0; }
   [data-entity] { cursor: pointer; }
   .msg { color: var(--bl-muted); padding: 8px 0; }
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center;
@@ -253,6 +256,7 @@ class BatteryLedgerCard extends HTMLElement {
       sec.throughput ? this._throughput(t) : "",
       sec.cost ? this._cost(t, setup) : "",
       sec.health ? this._health(t, setup) : "",
+      this._footer(t, sec.health),
     ].join("");
     const cog = body.querySelector(".cog");
     if (cog) cog.addEventListener("click", (ev) => { ev.stopPropagation(); this._openSettings(); });
@@ -265,13 +269,10 @@ class BatteryLedgerCard extends HTMLElement {
     const status = this._attr("estimated_usable_capacity", "warranty_status");
     const cls = status === "On Track / Normal" ? "ok" : status === "Degrading Faster Than Time Curve" ? "warn" : "muted";
     const chip = status ? `<span class="chip ${cls}"${this._ent("estimated_usable_capacity")}>${esc(status)}</span>` : "";
-    const cog = this._hass.user?.is_admin
-      ? `<ha-icon-button class="cog" label="${esc(t.settings_button)}" title="${esc(t.settings_button)}"><ha-icon icon="mdi:cog"></ha-icon></ha-icon-button>`
-      : "";
     return `<div class="head">
       <div class="avatar"><ha-icon icon="mdi:battery-charging"></ha-icon></div>
       <div class="grow"><div class="title">${esc(setup.title)}</div><div class="sub">${sub}</div></div>
-      ${chip}${cog}</div>`;
+      ${chip}</div>`;
   }
 
   _ring(timePct, tpPct) {
@@ -317,7 +318,7 @@ class BatteryLedgerCard extends HTMLElement {
       ${row(t.by_time, `${this._fmt(timePct, 2)}%`, this._ent("warranty_time_elapsed"), "var(--bl-time)")}
       ${row(t.by_throughput, `${this._fmt(tpPct, 2)}%`, this._ent("rated_throughput_used"), "var(--bl-tp)")}
       ${row(t.driver, esc(driver ?? "—"), this._ent("estimated_usable_capacity"))}
-      ${row(t.cycles, `${this._fmt(this._num("cycles_per_day"), 4)} C/day`, this._ent("cycles_per_day"))}
+      ${row(t.cycles, this._fmt(this._num("cycles_per_day"), 4), this._ent("cycles_per_day"))}
       ${end ? row(t.warranty_ends, esc(end)) : ""}
     </div></div></section>`;
   }
@@ -384,19 +385,6 @@ class BatteryLedgerCard extends HTMLElement {
           <div class="lbl">${Number.isFinite(curveKwh) ? `${this._fmt(curveKwh, 1)} kWh` : ""}${driver ? ` · ${esc(driver)}` : ""}</div></div>`;
     const sohColor = !hasSoh ? "var(--bl-tile)" : margin !== null && margin < 0 ? "var(--bl-bad)" : "var(--bl-time)";
 
-    const hw = this._state("hardware_capacity_validation");
-    const hwOk = hw?.state === "Match Verified";
-    const extra = [];
-    if (hw) {
-      const conf = hw.attributes.configured_rated_kwh, rep = hw.attributes.reported_hardware_kwh;
-      extra.push(`<div class="lbl"${this._ent("hardware_capacity_validation")}><ha-icon icon="${hwOk ? "mdi:shield-check-outline" : "mdi:shield-alert-outline"}" style="--mdc-icon-size:16px;color:${hwOk ? "var(--bl-ok)" : "var(--bl-bad)"}"></ha-icon>
-        ${esc(t.hardware)} ${esc(hw.state)}${conf != null && rep != null ? ` (${esc(conf)} / ${esc(rep)} kWh)` : ""}</div>`);
-    }
-    const mu = this._num("most_used_module_throughput");
-    if (mu !== null) extra.push(`<div class="lbl"${this._ent("most_used_module_throughput")}>${esc(t.most_used_module)} ${this._fmt(mu, 1)}%</div>`);
-    const spread = this._num("module_soc_spread");
-    if (spread !== null) extra.push(`<div class="lbl"${this._ent("module_soc_spread")}>${esc(t.soc_spread)} ${this._fmt(spread, 1)}%</div>`);
-
     return `<section>
       <div class="section-head"><span class="t">${esc(t.health)}</span>${chip}</div>
       <div class="tiles">${actualTile}${curveTile}</div>
@@ -405,8 +393,30 @@ class BatteryLedgerCard extends HTMLElement {
       <div class="spread"><span class="lbl">${esc(fill(t.eol, { pct: this._fmt(eol, 0) }))}</span>
         <span class="lbl" style="color:var(--bl-warn)">${curve !== null ? esc(fill(t.curve, { pct: this._fmt(curve, 1) })) : ""}</span>
         <span class="lbl">100%</span></div>
-      ${extra.length ? `<div class="foot">${extra.join("")}</div>` : ""}
     </section>`;
+  }
+
+  // Bottom row: the hardware check and module figures (with the Health section) and the settings cog.
+  _footer(t, withHealth) {
+    const extra = [];
+    if (withHealth) {
+      const hw = this._state("hardware_capacity_validation");
+      const hwOk = hw?.state === "Match Verified";
+      if (hw) {
+        const conf = hw.attributes.configured_rated_kwh, rep = hw.attributes.reported_hardware_kwh;
+        extra.push(`<div class="lbl"${this._ent("hardware_capacity_validation")}><ha-icon icon="${hwOk ? "mdi:shield-check-outline" : "mdi:shield-alert-outline"}" style="--mdc-icon-size:16px;color:${hwOk ? "var(--bl-ok)" : "var(--bl-bad)"}"></ha-icon>
+          ${esc(t.hardware)} ${esc(hw.state)}${conf != null && rep != null ? ` (${esc(conf)} / ${esc(rep)} kWh)` : ""}</div>`);
+      }
+      const mu = this._num("most_used_module_throughput");
+      if (mu !== null) extra.push(`<div class="lbl"${this._ent("most_used_module_throughput")}>${esc(t.most_used_module)} ${this._fmt(mu, 1)}%</div>`);
+      const spread = this._num("module_soc_spread");
+      if (spread !== null) extra.push(`<div class="lbl"${this._ent("module_soc_spread")}>${esc(t.soc_spread)} ${this._fmt(spread, 1)}%</div>`);
+    }
+    const cog = this._hass.user?.is_admin
+      ? `<ha-icon-button class="cog" label="${esc(t.settings_button)}" title="${esc(t.settings_button)}"><ha-icon icon="mdi:cog"></ha-icon></ha-icon-button>`
+      : "";
+    if (!extra.length && !cog) return "";
+    return `<div class="foot${extra.length ? "" : " bare"}">${extra.length ? `<div class="lines">${extra.join("")}</div>` : ""}${cog}</div>`;
   }
 
   _onClick(ev) {

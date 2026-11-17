@@ -97,7 +97,7 @@ The card has four sections:
   Capacity, what the warranty allows at this age and usage), on a scale from the end-of-warranty capacity
   to 100%. The hardware capacity check and module figures are shown when available.
 
-Tap any figure to open its sensor. Admins see a cog at the top right of the card. It opens the card
+Tap any figure to open its sensor. Admins see a cog at the bottom right of the card. It opens the card
 settings: decimal places for cost per kWh, and which sections to show. The settings are saved for each
 BatteryLedger setup, so the card looks the same on every dashboard and device.
 

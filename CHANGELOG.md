@@ -4,14 +4,32 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
-## v0.1.5 (unreleased)
+## v0.1.6 (unreleased)
+
+### TL;DR
+- The card's settings cog moves to the bottom right, next to the hardware capacity line
+- Card labels: "Battery cycles per day (Average)" and "Projected SoH (Today)"
+- Estimated Usable Capacity shows an icon again
+- Bundled Store list: Huawei LUNA2000-7-S1 and LUNA2000-5-S0 names; S1 batteries up to 9 modules
+
+### Changed
+- Card: the settings cog is at the bottom right, on the same row as the hardware capacity check (on its own
+  when the Health section is hidden), so the header only carries the warranty status.
+- Card: "Cycles Per Day" is labelled "Battery cycles per day (Average)", without the C/day unit, and
+  "Warranty Allows (today)" is "Projected SoH (Today)".
+- Bundled Store list: the Huawei specs are named LUNA2000-7-S1 and LUNA2000-5-S0 (new spec IDs; existing
+  setups keep their copied spec), and the LUNA2000-7-S1 and iStore IS-BATT-7000-ES allow 1-9 modules.
+
+### Fixed
+- Estimated Usable Capacity had no icon: `mdi:battery-analytics` (carried over from the YAML package) isn't a
+  Material Design icon. It's now `mdi:battery-heart-outline`.
+
+## v0.1.5 (2026-11-17)
 
 ### TL;DR
 - New BatteryLedger dashboard card, installed with the integration: warranty use, throughput, cost and health
 - The card compares your battery's actual SoH with what the warranty allows today
 - Card settings (cost per kWh decimal places, sections shown) from the cog on the card
-- Estimated Usable Capacity shows an icon again
-- Bundled Store list: Huawei LUNA2000-7-S1 and LUNA2000-5-S0 names; S1 batteries up to 9 modules
 
 ### Added
 - BatteryLedger card (`custom:battery-ledger-card`), served and loaded by the integration, so there's
@@ -28,14 +46,6 @@ credit where there is one.
   BatteryLedger for each setup, so every dashboard and device shows the same.
 - Rated Throughput Used's `groups` attribute gives each group's `warranty_years`, `warranty_end_date` and
   `end_of_warranty_capacity_pct`.
-
-### Changed
-- Bundled Store list: the Huawei specs are named LUNA2000-7-S1 and LUNA2000-5-S0 (new spec IDs; existing
-  setups keep their copied spec), and the LUNA2000-7-S1 and iStore IS-BATT-7000-ES allow 1-9 modules.
-
-### Fixed
-- Estimated Usable Capacity had no icon: `mdi:battery-analytics` (carried over from the YAML package) isn't a
-  Material Design icon. It's now `mdi:battery-heart-outline`.
 
 ## v0.1.4 (2026-11-17)
 
