@@ -4,7 +4,7 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
-## v0.1.10 (unreleased)
+## v0.1.10 (2026-11-18)
 
 ### TL;DR
 - The throughput warranty driver reads "Throughput (Cycles)" (was "Throughput (Cycle Abuse)"): update any
