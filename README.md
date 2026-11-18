@@ -112,9 +112,9 @@ Or add it manually:
 The sensors, the currency display and each battery group's cost can be changed later under **Configure**.
 Costs use your Home Assistant currency (Settings → System → General).
 
-**Dates:** the warranty start date picker shows dates in the format set in each user's Home Assistant profile
+**Dates:** the warranty start date picker and the card show dates in the format set in each user's Home Assistant profile
 (your name at the bottom of the sidebar → Profile → **Date format**). It defaults to your profile language's
-format, so English (US) shows month-day-year; choose **Day-Month-Year** there for dd/mm/yyyy.
+format, so English shows month-day-year; choose **Day-Month-Year** there for day first (e.g. 18/7/2035).
 
 ## Dashboard card
 
@@ -129,12 +129,13 @@ entry_id: <optional; the first setup is used if left out>
 ```
 
 The card has four sections:
-- **Warranty:** two rings show how much of the warranty is used by time elapsed and by throughput. The larger
-  one is the warranty driver. Below are cycles per day and two warranty end dates: **Date** (warranty start +
-  warranty years) and **Usage** (when the throughput limit would be reached at your average daily use so far).
-  The warranty ends at whichever comes first.
-- **Throughput:** remaining rated throughput counts down, with a marker for what's projected to be left when
-  the warranty ends.
+- **Warranty:** two rings show how much of the warranty is used by age (time elapsed) and by usage (throughput).
+  The larger one is the warranty driver, shown first with cycles per day. Below are two warranty end dates, each
+  above its share: by age, labelled with your battery's warranty period (e.g. **Warranty Ends (10 years)**:
+  warranty start + 10 years), and **Warranty Ends (by usage)**, when the throughput limit would be reached at your
+  average daily use so far. The warranty ends at whichever comes first, shown in red.
+- **Throughput:** remaining warrantied usage (rated throughput) counts down, with a marker for what's projected
+  to be left when the warranty ends.
 - **Cost:** value used to date (the `cost_consumed_to_date` sensor), remaining value, and cost per kWh, rated and
   projected.
 - **Health:** your battery's reported state of health against the warranty curve (Estimated Usable
@@ -222,6 +223,9 @@ estimated or substituted:
 | `discharged_sensor_missing_using_charged` | The warranty counts discharged energy, but no discharged sensor is configured |
 | `charged_sensor_missing_using_discharged` | The warranty counts charged energy, but no charged sensor is configured |
 | `module_counters_not_used:<spec id>:<found>/<configured>` | Module sensors exist for that battery group but couldn't be used (not every module found, or the warranty isn't per unit on discharged energy) |
+
+`degradation_driver` (on *Warranty floor health*) is `Age (Time Elapsed)` or `Throughput (Cycles)`: whichever of
+time and throughput is further through the warranty. Before 0.1.9 the second was `Throughput (Cycle Abuse)`.
 
 ## Reporting problems
 

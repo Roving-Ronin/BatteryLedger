@@ -95,7 +95,8 @@ SENSOR_KEY_RENAMES_1_2 = {
 # Attribute values and states copied from the original YAML package, so existing templates and
 # dashboards keep working. These are a compatibility contract, not UI text: don't translate or
 # reword them (the newer enum sensors carry translated codes instead).
-YAML_DRIVER_TEXT = {"age": "Age (Time Elapsed)", "throughput": "Throughput (Cycle Abuse)"}
+# "Throughput (Cycles)" was the YAML package's "Throughput (Cycle Abuse)" until 0.1.9 (changed on purpose).
+YAML_DRIVER_TEXT = {"age": "Age (Time Elapsed)", "throughput": "Throughput (Cycles)"}
 YAML_STATUS_TEXT = {
     "on_track": "On Track / Normal",
     "ahead_of_time": "Degrading Faster Than Time Curve",

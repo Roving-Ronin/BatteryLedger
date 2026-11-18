@@ -22,13 +22,13 @@ const STRINGS = {
     load_failed: "Couldn't load BatteryLedger data.",
     usable: "{kwh} kWh usable",
     warranty_used: "Warranty Used",
-    by_time: "Warranty by Time Elapsed:",
-    by_throughput: "Warranty by Throughput Used:",
+    by_time: "Warranty Used (by age):",
+    by_throughput: "Warranty Used (by usage):",
     driver: "Warranty Driver:",
-    cycles: "Battery cycles per day (Average):",
-    warranty_ends: "Warranty Ends (Date):",
-    warranty_ends_usage: "Warranty Ends (Usage):",
-    remaining_throughput: "Remaining Rated Throughput",
+    cycles: "Cycles per day (Average):",
+    warranty_ends: "Warranty Ends ({years} years):",
+    warranty_ends_usage: "Warranty Ends (by usage):",
+    remaining_throughput: "Remaining Warrantied Usage:",
     of_total: "of {total} kWh",
     left_at_end: "Left at warranty end (projected): {kwh} kWh",
     used: "{kwh} kWh used",
@@ -100,7 +100,13 @@ const STYLE = `
   .stats { flex: 1; display: grid; gap: 8px; min-width: 0; }
   .stat { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   .stat .v { font-size: 14px; font-weight: 500; text-align: right; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .driver-end { color: var(--bl-bad); }
+  /* A thin line above each end date, starting its group. */
+  .stat.spaced { border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); padding-top: 8px; }
+  /* The dot hangs in the gap left of the label, so every label's words start in line. */
+  .stat .lbl { position: relative; }
+  .dot { position: absolute; left: -14px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px;
+         border-radius: 50%; }
   .bar { height: 12px; border-radius: 6px; background: var(--bl-tile); position: relative; margin: 6px 0 4px; }
   .bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px; }
   .bar .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; }
@@ -210,6 +216,24 @@ class BatteryLedgerCard extends HTMLElement {
     return this._state(key)?.attributes?.[name];
   }
 
+  // A YYYY-MM-DD date in the user's Home Assistant format (Profile → Date format), as the rest of
+  // the frontend shows dates: the language's own order, or day-month-year / month-day-year / year-month-day.
+  _date(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+    if (!m) return iso || "—";
+    const date = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    const locale = this._hass?.locale || {};
+    const lang = locale.date_format === "system" ? undefined : (locale.language || this._hass?.language || "en");
+    const fmt = new Intl.DateTimeFormat(lang, { year: "numeric", month: "numeric", day: "numeric", timeZone: "UTC" });
+    const order = { DMY: ["day", "month", "year"], MDY: ["month", "day", "year"], YMD: ["year", "month", "day"] }[locale.date_format];
+    if (!order) return fmt.format(date);
+    const parts = fmt.formatToParts(date);
+    const value = Object.fromEntries(parts.filter((p) => p.type !== "literal").map((p) => [p.type, p.value]));
+    const sep = parts.find((p) => p.type === "literal")?.value ?? "/";
+    const last = parts[parts.length - 1];
+    return order.map((k) => value[k]).join(sep) + (last?.type === "literal" ? last.value : "");
+  }
+
   _fmt(v, digits) {
     if (v === null || v === undefined || !Number.isFinite(Number(v))) return "—";
     const lang = this._hass?.locale?.language || this._hass?.language || "en";
@@ -307,9 +331,10 @@ class BatteryLedgerCard extends HTMLElement {
   // Latest end across battery groups: by date (install + warranty years) or by usage (when the
   // throughput limit is reached at the average rate so far).
   _warrantyEnd(key = "warranty_end_date") {
-    const groups = this._attr("rated_throughput_used", "groups") || [];
-    const ends = groups.map((g) => g[key]).filter(Boolean).sort();
-    return ends.length ? ends[ends.length - 1] : null;
+    const groups = (this._attr("rated_throughput_used", "groups") || []).filter((g) => g[key]);
+    if (!groups.length) return null;
+    const last = groups.reduce((a, b) => (b[key] > a[key] ? b : a));
+    return { date: last[key], years: last.warranty_years };
   }
 
   _warranty(t) {
@@ -318,14 +343,21 @@ class BatteryLedgerCard extends HTMLElement {
     const driver = this._attr("estimated_usable_capacity", "degradation_driver");
     const end = this._warrantyEnd();
     const usageEnd = this._warrantyEnd("throughput_end_date");
-    const row = (label, value, ent, dot) => `<div class="stat"${ent || ""}><span class="lbl">${dot ? `<span class="dot" style="background:${dot}"></span>` : ""}${esc(label)}</span><span class="v">${value}</span></div>`;
+    // The end date that comes first is the one the warranty runs out on (the same as the warranty driver:
+    // usage ends first exactly when throughput is ahead of time), so it's shown in red.
+    // On a tie the driver is age, so the date end wins.
+    const endValue = (e, other, tieWins = false) => {
+      const first = !other || e.date < other.date || (tieWins && e.date === other.date);
+      return `<span${first ? ' class="driver-end"' : ""}>${esc(this._date(e.date))}</span>`;
+    };
+    const row = (label, value, ent, dot, spaced) => `<div class="stat${spaced ? " spaced" : ""}"${ent || ""}><span class="lbl">${dot ? `<span class="dot" style="background:${dot}"></span>` : ""}${esc(label)}</span><span class="v">${value}</span></div>`;
     return `<section><div class="ring-row">${this._ring(timePct, tpPct)}<div class="stats">
-      ${row(t.by_time, `${this._fmt(timePct, 2)}%`, this._ent("warranty_time_elapsed"), "var(--bl-time)")}
-      ${row(t.by_throughput, `${this._fmt(tpPct, 2)}%`, this._ent("rated_throughput_used"), "var(--bl-tp)")}
       ${row(t.driver, esc(driver ?? "—"), this._ent("estimated_usable_capacity"))}
       ${row(t.cycles, this._fmt(this._num("cycles_per_day"), 4), this._ent("cycles_per_day"))}
-      ${end ? row(t.warranty_ends, esc(end)) : ""}
-      ${usageEnd ? row(t.warranty_ends_usage, esc(usageEnd), this._ent("projected_warranted_throughput")) : ""}
+      ${end ? row(fill(t.warranty_ends, { years: this._fmt(end.years, end.years % 1 ? 1 : 0) }), endValue(end, usageEnd, true), "", null, true) : ""}
+      ${row(t.by_time, `${this._fmt(timePct, 2)}%`, this._ent("warranty_time_elapsed"), "var(--bl-time)")}
+      ${usageEnd ? row(t.warranty_ends_usage, endValue(usageEnd, end), this._ent("projected_warranted_throughput"), null, true) : ""}
+      ${row(t.by_throughput, `${this._fmt(tpPct, 2)}%`, this._ent("rated_throughput_used"), "var(--bl-tp)")}
     </div></div></section>`;
   }
 

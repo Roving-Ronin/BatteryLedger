@@ -4,19 +4,41 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
-## v0.1.6 (unreleased)
+## v0.1.10 (unreleased)
+
+### TL;DR
+- The throughput warranty driver reads "Throughput (Cycles)" (was "Throughput (Cycle Abuse)"): update any
+  template that compares against the old text
+- Card: warranty rows regrouped and relabelled, the end date driving the warranty in red, "Warranty Ends
+  (10 years)" from your battery's warranty period, and dates in your Home Assistant date format
+
+### Changed
+- The throughput warranty driver is "Throughput (Cycles)" instead of "Throughput (Cycle Abuse)", on the card and
+  in the `degradation_driver` attribute of `estimated_usable_capacity`. **Templates or automations that compare
+  against "Throughput (Cycle Abuse)" need updating.** "Age (Time Elapsed)" is unchanged.
+- Card: the warranty rows are Warranty Driver and Cycles per day (Average), then each warranty end date above
+  the share of the warranty it comes from: Warranty Ends (10 years) and Warranty Used (by age), then Warranty
+  Ends (by usage) and Warranty Used (by usage), with a thin line above each end date. Labels start in line,
+  with the ring colour dots to their left. The end date that comes first, the one driving the warranty, is
+  shown in red.
+- Card: the date end is labelled with the battery's warranty period, e.g. "Warranty Ends (10 years)" (was
+  "Warranty Ends (Date)"), and "Warranty Ends (Usage)" is "Warranty Ends (by usage)".
+- Card: warranty end dates follow each user's Home Assistant date format (Profile → Date format), as the rest of
+  Home Assistant does: Day-Month-Year shows 18/7/2035, for example, instead of 2035-07-18.
+- Card labels: "Warranty by Time Elapsed" is "Warranty Used (by age)", "Warranty by Throughput Used" is
+  "Warranty Used (by usage)", "Battery cycles per day (Average)" is "Cycles per day (Average)", and "Remaining
+  Rated Throughput" is "Remaining Warrantied Usage:".
+- Workflows use `actions/github-script` v9 (Dependabot, #1).
+
+## v0.1.9 (2026-11-18)
 
 ### TL;DR
 - New **Detect** setup: BatteryLedger reads your battery integration (pack count, capacity, inverter model,
   Energy Manager's brand) to suggest the battery model and module count, and can turn on the sensors it needs
 - Each battery group has its own cost, so batteries added later carry their own cost and warranty clock;
-  Energy Manager's install dates and costs pre-fill them
-- Cost Consumed To Date follows the warranty driver (time elapsed or throughput used)
-- BatteryLedger waits for your battery integration's sensors at startup and rides out dropouts
-- Card: "Warranty Ends (Usage)", the date the throughput limit is reached at your average use, beside
-  "Warranty Ends (Date)"; settings cog at the bottom right; relabelled rows
-- Bundled Store list adds SigenStor Neo, AlphaESS, Deye, GoodWe, BYD and Fronius batteries, with their
-  integrations' sensor profiles
+  Energy Manager's install dates and costs pre-fill them. Existing setups move their cost to the first group
+- Card: "Warranty Ends (Usage)", when the throughput limit is reached at your average use, beside "Warranty
+  Ends (Date)"; "Warranty Used" and "Value used to date" labels; the BatteryLedger logo
 
 ### Added
 - **Detect from my battery's integration**, a new first choice in setup. It finds the systems of every integration
@@ -36,8 +58,8 @@ credit where there is one.
 - Energy Manager's `battery_install_cost`, `battery_install_date_2` and `battery_install_cost_2` pre-fill the
   first and second battery groups (as `battery_install_date` already did)
 - Configure → **Battery costs**: one form per battery group
-- Card: **Warranty Ends (Usage)** shows when the throughput limit would be reached at the average daily use so far
-  (it can be before or after the date end); the time-based row is now **Warranty Ends (Date)**. Each battery
+- Card: **Warranty Ends (Usage)** shows when the throughput limit would be reached at the average daily use so
+  far (it can be before or after the date end); the time-based row is **Warranty Ends (Date)**. Each battery
   group's `throughput_end_date` is in the `groups` attribute
 - Bundled Store list: sensor profiles gain the readings Detect uses (Sigenergy Local Modbus pack count, model
   type and per-inverter capacity; wlcrs pack serial positions; BYD towers and modules; AlphaESS module count;
@@ -49,12 +71,37 @@ credit where there is one.
   without one until you set it under Configure → Battery costs. Each group's cost is used up on its own warranty
   driver; cost per kWh covers the groups that have a cost. The `groups` attribute gains `cost` and
   `cost_consumed`
+- Card: the BatteryLedger logo replaces the battery icon at the top left.
+- Card: the dial reads "Warranty Used", and "Cost Consumed To Date" is "Value used to date" (the sensor keeps its
+  name and entity ID).
+
+## v0.1.8 (2026-11-17)
+
+### TL;DR
+- BatteryLedger waits for your battery integration's sensors at startup, and rides out dropouts, instead of
+  briefly showing figures from the wrong energy counter
+
+### Changed
 - At startup, a battery integration that hadn't connected yet looked like a sensor that wasn't set up: with
   the discharged counter still unavailable, the warranty briefly used charged energy (and per-module tracking
   fell back to plant totals), leaving a blip in history. BatteryLedger now waits until every chosen source
   sensor has reported, up to 5 minutes after Home Assistant starts, with its sensors unavailable meanwhile.
   A source that drops out later keeps its last reading, so the basis no longer flips
 - README: card screenshot
+
+## v0.1.7 (2026-11-17)
+
+No v0.1.6 release was published; its changes are in this one.
+
+### TL;DR
+- Cost Consumed To Date (and Remaining Value) follow the warranty driver, so an age-driven battery uses up its
+  cost by time elapsed rather than by throughput
+- Card: settings cog at the bottom right; "Battery cycles per day (Average)" and "Projected SoH (Today)"
+- Bundled Store list adds SigenStor Neo, AlphaESS, Deye, GoodWe, BYD and Fronius batteries, with their
+  integrations' sensor profiles; Huawei LUNA2000 names
+- Estimated Usable Capacity shows an icon again
+
+### Changed
 - Cost Consumed To Date followed throughput used even when age drove the warranty, so it understated the cost
   used up (13.4% of the warranty gone, 10.2% of the cost). It now uses up each battery group's cost by that
   group's warranty life used (the larger of time elapsed and throughput used), and Remaining Value
@@ -62,9 +109,6 @@ credit where there is one.
   cost per kWh sensors are unchanged
 - Card: the settings cog is at the bottom right, on the same row as the hardware capacity check (on its own
   when the Health section is hidden), so the header only carries the warranty status.
-- Card: the BatteryLedger logo replaces the battery icon at the top left.
-- Card: the dial reads "Warranty Used", and "Cost Consumed To Date" is "Value used to date" (the sensor keeps its
-  name and entity ID).
 - Card: "Cycles Per Day" is labelled "Battery cycles per day (Average)", without the C/day unit, and
   "Warranty Allows (today)" is "Projected SoH (Today)".
 - Bundled Store list: the Huawei specs are named LUNA2000-7-S1 and LUNA2000-5-S0 (new spec IDs; existing
