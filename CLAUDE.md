@@ -18,7 +18,7 @@ pip install -r requirements_test.txt
 python -m pytest -q                      # all tests (real in-process Home Assistant, no network)
 python -m compileall -q custom_components/battery_ledger
 pip install ruff && ruff check .        # lint incl. security rules (ruff.toml); Tests workflow runs it
-pip install zizmor && zizmor .github/workflows   # workflow security audit; Security workflow runs it
+pip install zizmor && zizmor .   # workflow + Dependabot security audit; Security workflow runs it
 ```
 
 CI on every push and PR: Tests (Ruff, card syntax, pytest), Security (zizmor, CodeQL; also weekly),
