@@ -10,8 +10,6 @@ name: Release
 #      manifest.json stays in step. Nobody needs to edit manifest.json by hand.
 on:
   release:
-    permissions:
-      contents: write
     types: [published]
 
 permissions: {}
@@ -23,6 +21,8 @@ jobs:
   release:
     name: Build and attach battery_ledger.zip
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # attach the zip to the release
     steps:
       - name: Check out the release tag
         uses: actions/checkout@v7
