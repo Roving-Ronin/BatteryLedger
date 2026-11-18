@@ -4,7 +4,7 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
-## v0.1.12 (unreleased)
+## v0.1.12 (2026-11-18)
 
 ### TL;DR
 - Detect now says that the sensors it turns on stay on, also after BatteryLedger is removed
