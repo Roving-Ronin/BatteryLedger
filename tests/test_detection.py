@@ -149,7 +149,7 @@ async def test_flow_with_sigenergy2mqtt_modules(hass: HomeAssistant):
     assert suggested["discharged_energy_entity"] == "sensor.sigen_0_accumulated_discharge_energy"
     assert suggested["soh_entity"] == "sensor.sigen_0_plant_battery_soh"
 
-    r = await flow.async_configure(r["flow_id"], {"name": "Sigen", "cost": 9000, **suggested})
+    r = await flow.async_configure(r["flow_id"], {"name": "Sigen", **suggested})
     assert r["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     await _past_startup_wait(hass)  # some configured sensors never report here
@@ -376,8 +376,11 @@ def test_detect_huawei_emma_stack():
     for sn in ("HV1111111111", "HV2222222222", "HV3333333333"):
         ents += [RegistryEntity(f"sensor.batteries_{k}_{sn[-1]}", "huawei_solar", f"{sn}_storage_{k}")
                  for k in ("total_discharge", "total_charge", "rated_capacity")]
-    # Without an EMMA, three inverters' totals are ambiguous, so nothing is detected (sensors are chosen manually)
-    assert detect(PROFILES["huawei-solar-wlcrs"], ents) == []
+    # Without an EMMA, three inverters' totals are ambiguous: no sensors are filled in (chosen manually),
+    # but each inverter's rated capacity is kept for suggesting the battery model
+    [alone] = detect(PROFILES["huawei-solar-wlcrs"], ents)
+    assert not alone.roles and sorted(alone.ambiguous) == ["charged_energy", "discharged_energy", "rated_capacity"]
+    assert len(alone.inverters) == 3
     emma = "EMMA00000001"
     ents += [RegistryEntity(f"sensor.emma_{k}", "huawei_solar", f"{emma}_{k}")
              for k in ("total_discharged_energy", "total_charged_energy", "rated_ess_capacity", "charged_energy_today")]
@@ -418,3 +421,166 @@ async def test_byd_integration_choices(hass: HomeAssistant):
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
     ids = [o["value"].split("|")[0] for o in r["data_schema"].schema["integration"].config["options"]]
     assert ids == ["byd-battery-box-redpomodoro", "fronius-modbus-redpomodoro", "energy-manager", "manual"]
+
+
+def _register(hass, entities, *, disabled=(), owner_domain=None):
+    """Registry entries for (entity_id, platform, unique_id); some disabled by their integration."""
+    registry = er.async_get(hass)
+    owner = None
+    if owner_domain:
+        owner = MockConfigEntry(domain=owner_domain)
+        owner.add_to_hass(hass)
+    for ent in entities:
+        domain, object_id = ent.entity_id.split(".", 1)
+        registry.async_get_or_create(
+            domain, ent.platform, ent.unique_id, suggested_object_id=object_id, config_entry=owner,
+            disabled_by=er.RegistryEntryDisabler.INTEGRATION if ent.entity_id in disabled else None)
+
+
+def typqxq_inverter_entities(inverter="sigen_inverter"):
+    return [
+        RegistryEntity(f"sensor.{inverter}_model_type", "sigen", f"{TYP_ENTRY}_{inverter}_inverter_model_type"),
+        RegistryEntity(f"sensor.{inverter}_pack_count", "sigen", f"{TYP_ENTRY}_{inverter}_inverter_pack_count"),
+        RegistryEntity(f"sensor.{inverter}_rated_battery_capacity", "sigen",
+                       f"{TYP_ENTRY}_{inverter}_inverter_rated_battery_capacity"),
+    ]
+
+
+def test_detect_keeps_every_inverter():
+    ents = typqxq_entities() + typqxq_inverter_entities() + typqxq_inverter_entities("sigen_inverter_2")
+    [system] = detect(PROFILES["sigen-local-modbus"], ents)
+    assert sorted(system.inverters) == ["device=sigen_inverter", "device=sigen_inverter_2"]
+    assert system.inverters["device=sigen_inverter_2"]["inverter_pack_count"] == ["sensor.sigen_inverter_2_pack_count"]
+
+
+async def test_detect_enables_sensors_and_suggests(hass: HomeAssistant, monkeypatch):
+    """Sigen: the off-by-default pack count, model and capacity are turned on (with consent), then
+    48.36 kWh over 6 packs on a SigenStor inverter pre-fills 6 x BAT 8.0 for the user to confirm."""
+    from custom_components.battery_ledger import config_flow as cf
+
+    monkeypatch.setattr(cf, "ENABLE_WAIT_ATTEMPTS", (0, 0))
+    inv = typqxq_inverter_entities()
+    _register(hass, typqxq_entities() + inv, disabled={e.entity_id for e in inv}, owner_domain="sigen")
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    assert r["menu_options"][0] == "detect"
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "detect"})
+    assert r["step_id"] == "detect"
+    r = await flow.async_configure(r["flow_id"], {"system": f"sigen-local-modbus|entry={TYP_ENTRY}"})
+    assert r["step_id"] == "detect_enable" and r["description_placeholders"]["count"] == "3"
+
+    # The user agrees; the integration then reports (states set as it would after reloading)
+    r = await flow.async_configure(r["flow_id"], {"enable": True})
+    registry = er.async_get(hass)
+    assert all(not registry.async_get(e.entity_id).disabled for e in inv)
+    hass.states.async_set("sensor.sigen_inverter_model_type", "SigenStor EC 30.0 TP AU")
+    hass.states.async_set("sensor.sigen_inverter_pack_count", "6")
+    hass.states.async_set("sensor.sigen_inverter_rated_battery_capacity", "48.36", {"unit_of_measurement": "kWh"})
+    await hass.async_block_till_done()
+    r = await flow.async_configure(r["flow_id"])
+    assert r["step_id"] == "group"
+    assert r["description_placeholders"]["name"] == "Sigenergy SigenStor BAT 8.0"
+    units_key = next(k for k in r["data_schema"].schema if str(k) == "units")
+    assert units_key.description["suggested_value"] == 6
+
+    r = await flow.async_configure(r["flow_id"], {"units": 6, "install_date": "2025-07-18"})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    key = next(k for k in r["data_schema"].schema if str(k) == "integration")
+    assert key.default() == f"sigen-local-modbus|entry={TYP_ENTRY}"
+
+
+async def test_detect_without_consent_leaves_sensors_off(hass: HomeAssistant):
+    """Declining leaves the other integration's sensors alone; capacity alone can still suggest."""
+    inv = typqxq_inverter_entities()
+    _register(hass, typqxq_entities() + inv, disabled={inv[0].entity_id, inv[1].entity_id}, owner_domain="sigen")
+    hass.states.async_set("sensor.sigen_inverter_rated_battery_capacity", "24.18", {"unit_of_measurement": "kWh"})
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "detect"})
+    r = await flow.async_configure(r["flow_id"], {"system": f"sigen-local-modbus|entry={TYP_ENTRY}"})
+    r = await flow.async_configure(r["flow_id"], {"enable": False})
+    assert er.async_get(hass).async_get(inv[1].entity_id).disabled
+    # 24.18 kWh: 3 x BAT 8.0 or 4 x BAT 6.0 (or Neo) — the user picks; units follow the pick
+    assert r["step_id"] == "store_select"
+    options = [o["value"] for o in r["data_schema"].schema["spec_ids"].config["options"]]
+    assert "sigenergy-sigenstor-bat-8-0-anz" in options and "sigenergy-sigenstor-bat-6-0-anz" in options
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sigenergy-sigenstor-bat-6-0-anz"]})
+    units_key = next(k for k in r["data_schema"].schema if str(k) == "units")
+    assert units_key.description["suggested_value"] == 4
+
+
+async def test_detect_energy_manager_brand_dates_and_costs(hass: HomeAssistant):
+    """Energy Manager: brand from inverter_brand, model and units from capacity, and the install
+    dates and costs of the first and later batteries pre-fill each battery group."""
+    ents = em_entities() + [
+        RegistryEntity("input_select.inverter_brand", "input_select", "inverter_brand"),
+        RegistryEntity("input_number.battery_install_cost", "input_number", "battery_install_cost"),
+        RegistryEntity("input_datetime.battery_install_date_2", "input_datetime", "battery_install_date_2"),
+        RegistryEntity("input_number.battery_install_cost_2", "input_number", "battery_install_cost_2"),
+    ]
+    _register(hass, [e for e in ents if e.platform == "mqtt"], owner_domain="mqtt")
+    _register(hass, [e for e in ents if e.platform != "mqtt"])
+    hass.states.async_set("input_select.inverter_brand", "sungrow")
+    hass.states.async_set("sensor.inverter_battery_capacity", "9.6", {"unit_of_measurement": "kWh"})
+    hass.states.async_set("input_datetime.battery_install_date", "2024-11-02")
+    hass.states.async_set("input_number.battery_install_cost", "7200.0")
+    hass.states.async_set("input_datetime.battery_install_date_2", "2025-06-01")
+    hass.states.async_set("input_number.battery_install_cost_2", "2400.0")
+
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "detect"})
+    r = await flow.async_configure(r["flow_id"], {"system": "energy-manager|default"})
+    assert r["step_id"] == "group"
+    assert r["description_placeholders"]["name"] == "Sungrow SBR Battery Module 3.2 kWh"
+    suggested = {str(k): k.description["suggested_value"] for k in r["data_schema"].schema
+                 if k.description and "suggested_value" in k.description}
+    assert suggested == {"units": 3, "install_date": "2024-11-02", "cost": 7200.0}
+    r = await flow.async_configure(r["flow_id"], {"units": 3, "install_date": "2024-11-02", "cost": 7200})
+
+    # Batteries added later: the second group gets the "_2" date and cost
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+    r = await flow.async_configure(r["flow_id"], {"brand": "Sungrow"})
+    r = await flow.async_configure(r["flow_id"], {"series": "Sungrow|SBR"})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sungrow-sbr-battery-module-3-2-kwh-au"]})
+    suggested = {str(k): k.description["suggested_value"] for k in r["data_schema"].schema
+                 if k.description and "suggested_value" in k.description}
+    assert suggested == {"install_date": "2025-06-01", "cost": 2400.0}
+
+
+async def test_detect_huawei_counts_packs_from_serials(hass: HomeAssistant):
+    """wlcrs: packs with a serial number are counted; 20.7 kWh over 3 packs = LUNA2000-7-S1."""
+    sn = "HV1111111111"
+    ents = [RegistryEntity(f"sensor.batteries_{k}", "huawei_solar", f"{sn}_storage_{k}")
+            for k in ("total_discharge", "total_charge", "rated_capacity")]
+    ents += [RegistryEntity(f"sensor.battery_1_pack_{n}_serial_number", "huawei_solar",
+                            f"{sn}_storage_unit_1_battery_pack_{n}_serial_number") for n in (1, 2, 3)]
+    _register(hass, ents, owner_domain="huawei_solar")
+    hass.states.async_set("sensor.batteries_rated_capacity", "20700", {"unit_of_measurement": "Wh"})
+    for n, serial in ((1, "PACKSERIAL1"), (2, "PACKSERIAL2"), (3, "PACKSERIAL3")):
+        hass.states.async_set(f"sensor.battery_1_pack_{n}_serial_number", serial)
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "detect"})
+    r = await flow.async_configure(r["flow_id"], {"system": "huawei-solar-wlcrs|default"})
+    assert r["step_id"] == "group" and r["description_placeholders"]["name"] == "Huawei LUNA2000-7-S1"
+    units_key = next(k for k in r["data_schema"].schema if str(k) == "units")
+    assert units_key.description["suggested_value"] == 3
+
+    # An empty third position: 2 packs, 13.8 kWh
+    hass.states.async_set("sensor.batteries_rated_capacity", "13.8", {"unit_of_measurement": "kWh"})
+    hass.states.async_set("sensor.battery_1_pack_3_serial_number", "")
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "detect"})
+    r = await flow.async_configure(r["flow_id"], {"system": "huawei-solar-wlcrs|default"})
+    units_key = next(k for k in r["data_schema"].schema if str(k) == "units")
+    assert units_key.description["suggested_value"] == 2
+
+
+async def test_nothing_detected_goes_to_store_search(hass: HomeAssistant):
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "detect"})
+    assert r["step_id"] == "detect_none"
+    r = await flow.async_configure(r["flow_id"], {})
+    assert r["step_id"] == "store_search"

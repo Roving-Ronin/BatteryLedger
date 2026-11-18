@@ -229,12 +229,11 @@ class LedgerRuntime:
         try:
             self.result = compute(LedgerInput(
                 groups=[GroupInput(g[CONF_SPEC], int(g[CONF_UNITS]), date.fromisoformat(g[CONF_INSTALL_DATE]),
-                                   module_kwh=module_kwh.get(i))
+                                   module_kwh=module_kwh.get(i), cost=g.get(CONF_COST))
                         for i, g in enumerate(self.groups)],
                 today=dt_util.now().date(),
                 charged_kwh=charged,
                 discharged_kwh=discharged,
-                cost=cfg.get(CONF_COST),
                 reported_capacity_kwh=capacity,
                 reported_soh_pct=soh,
                 module_soc=module_soc,

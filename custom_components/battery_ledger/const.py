@@ -8,7 +8,7 @@ DOMAIN = "battery_ledger"
 # the copied battery specs) bumps one of these and adds one step to async_migrate_entry
 # in __init__.py, with a test feeding it an entry in the old format.
 CONFIG_ENTRY_VERSION = 1
-CONFIG_ENTRY_MINOR_VERSION = 3
+CONFIG_ENTRY_MINOR_VERSION = 4
 NAME = "BatteryLedger"
 
 STORE_INDEX_URL = "https://roving-ronin.github.io/BatteryLedger-Store/index.json"
@@ -29,7 +29,7 @@ CONF_GROUPS = "groups"
 CONF_SPEC = "spec"
 CONF_UNITS = "units"
 CONF_INSTALL_DATE = "install_date"
-CONF_COST = "cost"
+CONF_COST = "cost"  # per battery group (entry 1.4+); a setup-wide value before that
 CONF_CURRENCY = "currency"  # legacy (entries before 1.3): explicit currency code override
 CONF_CURRENCY_STYLE = "currency_style"
 CURRENCY_STYLE_CODE = "code"

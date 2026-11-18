@@ -70,3 +70,10 @@ def test_card_file_ships():
     text = Path(CARD_FILE).read_text(encoding="utf-8")
     assert 'customElements.define("battery-ledger-card"' in text
     assert "battery_ledger/card/setups" in text and "battery_ledger/card/save_settings" in text
+
+
+def test_logo_ships_with_the_card():
+    """The header logo is served next to the card file (and included in the release zip)."""
+    from custom_components.battery_ledger.card import CARD_FILE, LOGO_FILE
+    assert LOGO_FILE.is_file() and LOGO_FILE.parent == CARD_FILE.parent
+    assert "battery-ledger-logo.png" in CARD_FILE.read_text()

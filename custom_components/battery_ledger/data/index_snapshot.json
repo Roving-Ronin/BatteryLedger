@@ -1,7 +1,7 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-17T14:34:13+00:00",
+ "generated": "2026-11-18T06:09:21+00:00",
  "count": 34,
  "brands": [
   "AlphaESS",
@@ -1937,7 +1937,7 @@
   {
    "schema_version": 1,
    "id": "alphaess-modbus-senalse",
-   "profile_version": 1,
+   "profile_version": 2,
    "name": "AlphaESS Modbus TCP (senalse)",
    "integration": {
     "platform": "alphaess_modbus",
@@ -1982,6 +1982,15 @@
        "sensor.alphaess_inverter_battery_state_of_health"
       ]
      }
+    ],
+    "module_count": [
+     {
+      "level": "plant",
+      "unique_id": "{entry}_battery_module_count",
+      "default_entity_ids": [
+       "sensor.alphaess_inverter_battery_module_count"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
@@ -1991,7 +2000,7 @@
   {
    "schema_version": 1,
    "id": "byd-battery-box-redpomodoro",
-   "profile_version": 1,
+   "profile_version": 2,
    "name": "BYD Battery Box (redpomodoro)",
    "integration": {
     "platform": "byd_battery_box",
@@ -2036,6 +2045,24 @@
        "sensor.battery_management_unit_state_of_health"
       ]
      }
+    ],
+    "module_count": [
+     {
+      "level": "plant",
+      "unique_id": "bydb_modules",
+      "default_entity_ids": [
+       "sensor.battery_management_unit_modules"
+      ]
+     }
+    ],
+    "tower_count": [
+     {
+      "level": "plant",
+      "unique_id": "bydb_towers",
+      "default_entity_ids": [
+       "sensor.battery_management_unit_towers"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
@@ -2045,7 +2072,7 @@
   {
    "schema_version": 1,
    "id": "energy-manager",
-   "profile_version": 6,
+   "profile_version": 7,
    "name": "Energy Manager",
    "integration": {
     "platform": "mqtt",
@@ -2106,6 +2133,81 @@
       "unique_id": "battery_install_date",
       "default_entity_ids": [
        "input_datetime.battery_install_date"
+      ]
+     }
+    ],
+    "brand": [
+     {
+      "level": "plant",
+      "platform": "input_select",
+      "unique_id": "inverter_brand",
+      "default_entity_ids": [
+       "input_select.inverter_brand"
+      ],
+      "values": {
+       "sungrow": [
+        "Sungrow"
+       ],
+       "sigenergy": [
+        "Sigenergy"
+       ],
+       "goodwe": [
+        "GoodWe"
+       ],
+       "goodwe_et": [
+        "GoodWe"
+       ],
+       "goodwe_int": [
+        "GoodWe"
+       ],
+       "alphaess": [
+        "AlphaESS"
+       ],
+       "fronius": [
+        "Fronius",
+        "BYD"
+       ],
+       "huawei": [
+        "Huawei",
+        "iStore"
+       ],
+       "istore": [
+        "iStore",
+        "Huawei"
+       ],
+       "deye": [
+        "Deye"
+       ]
+      }
+     }
+    ],
+    "install_cost": [
+     {
+      "level": "plant",
+      "platform": "input_number",
+      "unique_id": "battery_install_cost",
+      "default_entity_ids": [
+       "input_number.battery_install_cost"
+      ]
+     }
+    ],
+    "install_date_2": [
+     {
+      "level": "plant",
+      "platform": "input_datetime",
+      "unique_id": "battery_install_date_2",
+      "default_entity_ids": [
+       "input_datetime.battery_install_date_2"
+      ]
+     }
+    ],
+    "install_cost_2": [
+     {
+      "level": "plant",
+      "platform": "input_number",
+      "unique_id": "battery_install_cost_2",
+      "default_entity_ids": [
+       "input_number.battery_install_cost_2"
       ]
      }
     ]
@@ -2244,7 +2346,7 @@
   {
    "schema_version": 1,
    "id": "huawei-solar-wlcrs",
-   "profile_version": 2,
+   "profile_version": 3,
    "name": "Huawei Solar (wlcrs)",
    "integration": {
     "platform": "huawei_solar",
@@ -2325,6 +2427,41 @@
        "sensor.smartlogger_state_of_health"
       ]
      }
+    ],
+    "inverter_rated_capacity": [
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_rated_capacity",
+      "default_entity_ids": [
+       "sensor.batteries_rated_capacity"
+      ]
+     }
+    ],
+    "pack_serial": [
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_1_battery_pack_1_serial_number"
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_1_battery_pack_2_serial_number"
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_1_battery_pack_3_serial_number"
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_2_battery_pack_1_serial_number"
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_2_battery_pack_2_serial_number"
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_2_battery_pack_3_serial_number"
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
@@ -2334,7 +2471,7 @@
   {
    "schema_version": 1,
    "id": "sigen-local-modbus",
-   "profile_version": 2,
+   "profile_version": 3,
    "name": "Sigenergy ESS (TypQxQ Local Modbus)",
    "integration": {
     "platform": "sigen",
@@ -2409,11 +2546,38 @@
        "sensor.sigen_inverter_battery_state_of_health"
       ]
      }
+    ],
+    "inverter_model": [
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_{device}_inverter_model_type",
+      "default_entity_ids": [
+       "sensor.sigen_inverter_model_type"
+      ]
+     }
+    ],
+    "inverter_pack_count": [
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_{device}_inverter_pack_count",
+      "default_entity_ids": [
+       "sensor.sigen_inverter_pack_count"
+      ]
+     }
+    ],
+    "inverter_rated_capacity": [
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_{device}_inverter_rated_battery_capacity",
+      "default_entity_ids": [
+       "sensor.sigen_inverter_rated_battery_capacity"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-17"
+   "updated": "2026-11-18"
   },
   {
    "schema_version": 1,

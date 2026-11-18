@@ -28,7 +28,8 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
 | File | Role |
 |---|---|
 | `ledger.py` | **All warranty / degradation / cost maths.** Pure Python, no HA imports, unit-tested directly. Never re-implement this maths elsewhere |
-| `detect.py` | Finds sensors from Store sensor profiles (unique-ID templates) and assigns modules to battery groups. Pure |
+| `detect.py` | Finds sensors from Store sensor profiles (unique-ID templates), per-inverter readings, and assigns modules to battery groups. Pure |
+| `suggest.py` | Suggests battery model and unit count from capacity, pack/module counts and inverter model text, for the user to confirm. Pure |
 | `store_client.py` | Downloads, caches and searches the Store index; bundled snapshot fallback |
 | `runtime.py` | Per-entry: reads source sensors, converts units, calls `ledger.compute`, signals sensors |
 | `sensor.py` | Entities only: values come from the `LedgerResult` |

@@ -6,6 +6,8 @@
  * Admins change the settings with the cog at the bottom right; they're saved per setup by the integration.
  */
 const CARD_VERSION = new URL(import.meta.url).searchParams.get("v") || "dev";  // the integration version
+// Served next to the card file, with the version so a new release isn't cached.
+const LOGO_URL = `${new URL("battery-ledger-logo.png", import.meta.url).pathname}?v=${encodeURIComponent(CARD_VERSION)}`;
 const WS_SETUPS = "battery_ledger/card/setups";
 const WS_SAVE = "battery_ledger/card/save_settings";
 const SECTIONS = ["warranty", "throughput", "cost", "health"];
@@ -19,18 +21,19 @@ const STRINGS = {
     loading: "Loading…",
     load_failed: "Couldn't load BatteryLedger data.",
     usable: "{kwh} kWh usable",
-    warranty_used: "warranty used",
+    warranty_used: "Warranty Used",
     by_time: "Warranty by Time Elapsed:",
     by_throughput: "Warranty by Throughput Used:",
     driver: "Warranty Driver:",
     cycles: "Battery cycles per day (Average):",
-    warranty_ends: "Warranty Ends:",
+    warranty_ends: "Warranty Ends (Date):",
+    warranty_ends_usage: "Warranty Ends (Usage):",
     remaining_throughput: "Remaining Rated Throughput",
     of_total: "of {total} kWh",
     left_at_end: "Left at warranty end (projected): {kwh} kWh",
     used: "{kwh} kWh used",
     no_throughput_limit: "This warranty has no throughput limit.",
-    cost_consumed: "Cost Consumed To Date",
+    cost_consumed: "Value used to date",
     remaining_value: "Remaining Value",
     cost_per_kwh: "Cost Per kWh",
     rated: "rated",
@@ -81,8 +84,7 @@ const STYLE = `
           --bl-tile: var(--secondary-background-color, rgba(127,127,127,.08)); }
   ha-card { display: block; padding: 16px; position: relative; }
   .head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-  .avatar { width: 40px; height: 40px; border-radius: 50%; flex: none; display: flex; align-items: center;
-            justify-content: center; background: rgba(var(--rgb-primary-color, 3,169,244), .15); color: var(--primary-color); }
+  .logo { width: 40px; height: 40px; flex: none; object-fit: contain; }
   .title { font-size: 16px; font-weight: 500; line-height: 1.3; }
   .sub, .lbl { font-size: 12px; color: var(--bl-muted); }
   .grow { flex: 1; min-width: 0; }
@@ -270,7 +272,7 @@ class BatteryLedgerCard extends HTMLElement {
     const cls = status === "On Track / Normal" ? "ok" : status === "Degrading Faster Than Time Curve" ? "warn" : "muted";
     const chip = status ? `<span class="chip ${cls}"${this._ent("estimated_usable_capacity")}>${esc(status)}</span>` : "";
     return `<div class="head">
-      <div class="avatar"><ha-icon icon="mdi:battery-charging"></ha-icon></div>
+      <img class="logo" src="${LOGO_URL}" alt="">
       <div class="grow"><div class="title">${esc(setup.title)}</div><div class="sub">${sub}</div></div>
       ${chip}</div>`;
   }
@@ -302,9 +304,11 @@ class BatteryLedgerCard extends HTMLElement {
     return Number.isFinite(attr) ? attr : null;
   }
 
-  _warrantyEnd() {
+  // Latest end across battery groups: by date (install + warranty years) or by usage (when the
+  // throughput limit is reached at the average rate so far).
+  _warrantyEnd(key = "warranty_end_date") {
     const groups = this._attr("rated_throughput_used", "groups") || [];
-    const ends = groups.map((g) => g.warranty_end_date).filter(Boolean).sort();
+    const ends = groups.map((g) => g[key]).filter(Boolean).sort();
     return ends.length ? ends[ends.length - 1] : null;
   }
 
@@ -313,6 +317,7 @@ class BatteryLedgerCard extends HTMLElement {
     const tpPct = this._throughputPct();
     const driver = this._attr("estimated_usable_capacity", "degradation_driver");
     const end = this._warrantyEnd();
+    const usageEnd = this._warrantyEnd("throughput_end_date");
     const row = (label, value, ent, dot) => `<div class="stat"${ent || ""}><span class="lbl">${dot ? `<span class="dot" style="background:${dot}"></span>` : ""}${esc(label)}</span><span class="v">${value}</span></div>`;
     return `<section><div class="ring-row">${this._ring(timePct, tpPct)}<div class="stats">
       ${row(t.by_time, `${this._fmt(timePct, 2)}%`, this._ent("warranty_time_elapsed"), "var(--bl-time)")}
@@ -320,6 +325,7 @@ class BatteryLedgerCard extends HTMLElement {
       ${row(t.driver, esc(driver ?? "—"), this._ent("estimated_usable_capacity"))}
       ${row(t.cycles, this._fmt(this._num("cycles_per_day"), 4), this._ent("cycles_per_day"))}
       ${end ? row(t.warranty_ends, esc(end)) : ""}
+      ${usageEnd ? row(t.warranty_ends_usage, esc(usageEnd), this._ent("projected_warranted_throughput")) : ""}
     </div></div></section>`;
   }
 

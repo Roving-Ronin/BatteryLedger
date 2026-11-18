@@ -14,6 +14,7 @@ from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
     CONF_CURRENCY_STYLE,
+    CONF_COST,
     CONF_GROUPS,
     CURRENCY_STYLE_CODE,
     CONF_SPEC,
@@ -91,10 +92,23 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 registry.async_remove(entity_id)
         minor = 3
 
+    options = {**entry.options}
+    if version == 1 and minor < 4:
+        # 0.1.6 (entry 1.4): cost belongs to each battery group, so batteries added later can carry
+        # their own. The setup's cost (the options value wins, as it did at runtime) goes to the first group.
+        cost = options.pop(CONF_COST) if CONF_COST in options else data.pop(CONF_COST, None)
+        data.pop(CONF_COST, None)
+        groups = [dict(g) for g in data.get(CONF_GROUPS, [])]
+        if groups and cost is not None and CONF_COST not in groups[0]:
+            groups[0][CONF_COST] = cost
+        data[CONF_GROUPS] = groups
+        minor = 4
+
     # Future steps go here, oldest first.
 
     if (version, minor) != (entry.version, entry.minor_version):
-        hass.config_entries.async_update_entry(entry, data=data, version=version, minor_version=minor)
+        hass.config_entries.async_update_entry(entry, data=data, options=options, version=version,
+                                               minor_version=minor)
         _LOGGER.info("Migrated BatteryLedger entry '%s' to version %s.%s", entry.title, version, minor)
     return True
 

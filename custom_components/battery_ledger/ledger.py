@@ -110,6 +110,8 @@ class GroupInput:
     install_date: date
     # Per-module lifetime discharged kWh keyed by module ID (serial); used only when complete.
     module_kwh: dict[str, float] | None = None
+    # What this group cost (batteries added later have their own cost and warranty clock).
+    cost: float | None = None
 
 
 @dataclass
@@ -118,7 +120,6 @@ class LedgerInput:
     today: date
     charged_kwh: float | None = None
     discharged_kwh: float | None = None
-    cost: float | None = None
     reported_capacity_kwh: float | None = None
     reported_soh_pct: float | None = None
     module_soc: dict[str, float] = field(default_factory=dict)
@@ -150,6 +151,10 @@ class GroupResult:
     warranty_years: float = 0.0
     eol_pct: float = 0.0
     warranty_end: date | None = None
+    # When the throughput limit is reached at the average rate so far (may be after warranty_end).
+    usage_end: date | None = None
+    cost: float | None = None
+    cost_consumed: float | None = None
 
     def as_attributes(self) -> dict:
         return {
@@ -166,10 +171,13 @@ class GroupResult:
             "warranty_floor_kwh": _r(self.floor_usable_kwh, 2),
             "warranty_years": self.warranty_years,
             "warranty_end_date": self.warranty_end.isoformat() if self.warranty_end else None,
+            "throughput_end_date": self.usage_end.isoformat() if self.usage_end else None,
             "end_of_warranty_capacity_pct": self.eol_pct,
             "driver": self.driver,
             "status": self.status,
             "energy_source": self.source,
+            "cost": _r(self.cost, 2),
+            "cost_consumed": _r(self.cost_consumed, 2),
         }
 
 
@@ -316,7 +324,10 @@ def compute(inp: LedgerInput) -> LedgerResult:
             driver=driver, status=status, source="modules" if by_module else "plant",
             modules=modules, module_kwh=dict(g.module_kwh) if by_module else {},
             warranty_years=w["years"], eol_pct=eol,
-            warranty_end=g.install_date + timedelta(days=round(warranty_days))))
+            warranty_end=g.install_date + timedelta(days=round(warranty_days)),
+            usage_end=(g.install_date + timedelta(days=round(limit / (used / d))))
+            if limit and d > 0 and used > 0 else None,
+            cost=g.cost if g.cost and g.cost > 0 else None))
 
     limited = [r for r in results if r.limit_kwh is not None]
     limit_total = sum(r.limit_kwh for r in limited) if limited else None
@@ -339,14 +350,20 @@ def compute(inp: LedgerInput) -> LedgerResult:
     worst = max(results, key=lambda r: r.life_fraction)
     status = max((r.status for r in results), key=_STATUS_RANK.get)
 
-    cost = inp.cost if inp.cost and inp.cost > 0 else None
-    cpk_rated = cost / limit_total if cost and limit_total else None
-    cpk_proj = cost / projected_total if cost and projected_total else None
-    # Cost is used up at the rate of the warranty driver: each group's life fraction (the larger of
-    # time elapsed and throughput used), weighted by usable capacity and capped at the whole cost.
-    life_weighted = sum(min(r.life_fraction, 1.0) * r.initial_usable_kwh for r in results) / initial_total
-    consumed = cost * life_weighted if cost else None
+    # Cost per battery group: each group's cost is used up at the rate of its warranty driver (its life
+    # fraction: the larger of time elapsed and throughput used), capped at that group's whole cost.
+    # Cost per kWh covers the groups that have a cost.
+    costed = [r for r in results if r.cost is not None]
+    for r in costed:
+        r.cost_consumed = r.cost * min(r.life_fraction, 1.0)
+    cost = sum(r.cost for r in costed) if costed else None
+    consumed = sum(r.cost_consumed for r in costed) if costed else None
     remaining_value = cost - consumed if consumed is not None else None
+    costed_limits = [r.limit_kwh for r in costed]
+    cpk_rated = cost / sum(costed_limits) if cost and costed_limits and None not in costed_limits else None
+    costed_proj = [r.projected_kwh for r in costed]
+    cpk_proj = (cost / sum(costed_proj) if cost and costed_proj and None not in costed_proj and sum(costed_proj) > 0
+                else None)
 
     expected_reported = None
     hardware = None

@@ -3,8 +3,9 @@
     "step": {
       "user": {
         "title": "Find your battery",
-        "description": "Look up your battery in the [BatteryLedger Store]({store_url}): {count} batteries, list dated {updated}. Or enter its details yourself.",
+        "description": "Find your battery: detect it from your inverter or battery integration, or look it up in the [BatteryLedger Store]({store_url}) ({count} batteries, list dated {updated}), or enter its details yourself.",
         "menu_options": {
+          "detect": "Detect from my battery's integration",
           "store_search": "Search the BatteryLedger Store",
           "store_refresh": "Update the Store list now",
           "manual": "Enter details manually"
@@ -62,13 +63,15 @@
       },
       "group": {
         "title": "{name}",
-        "description": "**Regions:** {regions} · **Phases:** {phases} · **Chemistry:** {chemistry}\n**Usable capacity per unit:** {usable} kWh\n**Warranty:** {years} years, to {eol}% capacity\n**Throughput limit:** per unit {tp_unit} · per system {tp_system} · by unit count {tp_table}\n**Throughput counted on:** {basis} energy\n**Checked by a maintainer:** {verified} · **Sources:** {sources}\n\nHow many of these are installed, and when did their warranty start (usually the install or commissioning date)?\n\nModels still to set up after this one: {remaining}",
+        "description": "**Regions:** {regions} · **Phases:** {phases} · **Chemistry:** {chemistry}\n**Usable capacity per unit:** {usable} kWh\n**Warranty:** {years} years, to {eol}% capacity\n**Throughput limit:** per unit {tp_unit} · per system {tp_system} · by unit count {tp_table}\n**Throughput counted on:** {basis} energy\n**Checked by a maintainer:** {verified} · **Sources:** {sources}\n\nHow many of these are installed, when did their warranty start (usually the install or commissioning date), and what did they cost?\n\nModels still to set up after this one: {remaining}",
         "data": {
           "units": "Number of units",
-          "install_date": "Warranty start date"
+          "install_date": "Warranty start date",
+          "cost": "Cost of these batteries"
         },
         "data_description": {
-          "install_date": "The date picker shows dates in the format set in your Home Assistant user profile (Profile → Date format)."
+          "install_date": "The date picker shows dates in the format set in your Home Assistant user profile (Profile → Date format).",
+          "cost": "What you paid for this group, in {currency}, for cost per kWh and remaining value. Batteries added later get their own cost. Leave empty to skip."
         }
       },
       "add_more": {
@@ -81,11 +84,10 @@
         }
       },
       "system": {
-        "title": "System and costs",
+        "title": "System",
         "description": "Choose the lifetime energy sensors from your inverter. At least one of charged or discharged energy is needed.\n\nCosts use your Home Assistant currency, **{currency}** (Settings → System → General).\n\nFilled in from: {profile} · sensors filled in: {filled} · battery modules tracked individually: {modules}\nChoose these yourself (several inverter-level sensors matched): {ambiguous}",
         "data": {
           "name": "Name",
-          "cost": "Battery cost",
           "charged_energy_entity": "Lifetime charged energy sensor",
           "discharged_energy_entity": "Lifetime discharged energy sensor",
           "reported_capacity_entity": "Rated capacity sensor (optional)",
@@ -93,7 +95,6 @@
           "currency_style": "Show cost per kWh with"
         },
         "data_description": {
-          "cost": "What you paid for the batteries, for cost per kWh and remaining value. Leave empty to skip the cost sensors.",
           "reported_capacity_entity": "The battery capacity your inverter reports, used to check the configured units match the hardware.",
           "soh_entity": "The health % your inverter reports, compared against the warranty floor.",
           "currency_style": "Symbol: {symbol} and {symbol}/kWh, as in the original YAML package. Code: {currency} and {currency}/kWh, shown as money in each user's own currency format."
@@ -130,6 +131,28 @@
         "data_description": {
           "series": "Brands can have more than one model using different battery modules, e.g. Sigenergy SigenStor and Neo, or Sungrow SBR and SBH."
         }
+      },
+      "detect": {
+        "title": "Detect your battery",
+        "description": "Found {count} system(s) from integrations BatteryLedger knows. Choose yours: BatteryLedger reads its battery capacity, module count and inverter model to suggest the battery model and number of modules, which you confirm next.",
+        "data": {
+          "system": "System"
+        }
+      },
+      "detect_none": {
+        "title": "Nothing detected",
+        "description": "No supported inverter or battery integration was found. Continue to search the BatteryLedger Store instead."
+      },
+      "detect_enable": {
+        "title": "Turn on sensors?",
+        "description": "{count} sensor(s) that help identify your battery are turned off by default in their integration:\n{entities}\n\nBatteryLedger can turn them on now. The integration reloads about 30 seconds later, then BatteryLedger checks for their readings after 45 seconds, and again 45 seconds later if they haven't all reported, then carries on. You can turn them off again later in Settings → Entities.",
+        "data": {
+          "enable": "Turn these sensors on"
+        }
+      },
+      "detect_wait": {
+        "title": "Waiting for sensors",
+        "description": "Waiting for the {count} sensor(s) to report. BatteryLedger checks after 45 seconds, and again 45 seconds later if needed."
       }
     },
     "error": {
@@ -144,14 +167,23 @@
       "future_date": "The warranty start date can't be in the future.",
       "not_detected": "This integration's sensors weren't found in Home Assistant. Choose another, or choose sensors yourself.",
       "none_selected": "Tick at least one battery model."
+    },
+    "progress": {
+      "wait_sensors": "Waiting for the sensors that were turned on to report."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "BatteryLedger settings",
+        "menu_options": {
+          "system": "Sensors and currency",
+          "costs": "Battery costs"
+        }
+      },
+      "system": {
+        "title": "Sensors and currency",
         "data": {
-          "cost": "Battery cost",
           "charged_energy_entity": "Lifetime charged energy sensor",
           "discharged_energy_entity": "Lifetime discharged energy sensor",
           "reported_capacity_entity": "Rated capacity sensor (optional)",
@@ -161,6 +193,13 @@
         "description": "Costs use your Home Assistant currency, **{currency}**.",
         "data_description": {
           "currency_style": "Symbol: {symbol} and {symbol}/kWh, as in the original YAML package. Code: {currency} and {currency}/kWh, shown as money in each user's own currency format."
+        }
+      },
+      "costs": {
+        "title": "Battery cost {number} of {total}",
+        "description": "**{group}** · warranty start {install_date}\n\nWhat these batteries cost, in **{currency}**. Leave empty to leave them out of the cost sensors.",
+        "data": {
+          "cost": "Cost of these batteries"
         }
       }
     },

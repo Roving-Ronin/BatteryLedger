@@ -49,12 +49,32 @@ Or add it manually:
 
 ## Setup
 
-1. **Find your battery:** search the Store by text, brand, region and phase (single / three), then pick the
-   model (e.g. Sigenergy SigenStor vs Neo, Sungrow SBR vs SBH) from those matching, or enter the details from your datasheet manually. **Tick every model installed**, e.g.
-   both BAT 8.0 and BAT 10.0 if you have a mix. The Store list is downloaded once a day (no account needed) and a copy
-   ships with each release for offline use.
-2. **Battery groups:** for each model, the number of modules/units and the warranty start date. Use *Add another
-   model or later install* for modules of the same model added later with a different warranty start date.
+1. **Find your battery:** choose **Detect from my battery's integration**, search the Store, or enter the details
+   from your datasheet manually.
+   - **Detect** looks through the integrations BatteryLedger knows (step 3) and reads what they report about the
+     batteries to suggest the model and number of modules, which you confirm on the next step:
+     - **Sigenergy (Sigenergy Local Modbus):** each inverter's battery pack count and rated battery capacity give
+       the capacity per module (48.36 kWh ÷ 6 = 8.06 kWh: BAT 8.0), and its model type tells SigenStor from Neo.
+     - **sigenergy2mqtt (Sigen Cloud):** each module's rated capacity.
+     - **Huawei / iStore (wlcrs):** rated capacity ÷ battery packs with a serial number: 5.0 kWh is the S0, 6.9 kWh
+       the S1. The S1 is shown as detected (the Huawei and iStore warranties are the same); for the S0 you choose
+       Huawei or iStore, as their warranties differ.
+     - **BYD Battery Box:** towers × modules and capacity per module (HVS or HVM).
+     - **AlphaESS (senalse):** battery module count.
+     - **Energy Manager and other integrations:** rated capacity alone, as a whole number of modules of one model
+       (Energy Manager's inverter brand narrows the brand). When more than one model fits, you choose.
+
+     Some of these sensors are off by default in their integration. Detect lists them and, if you agree, turns them
+     on, checks for their readings after 45 seconds (and again 45 seconds later if needed), then carries on; it
+     never turns on a sensor you turned off.
+   - **Store search:** by text, brand, region and phase (single / three), then pick the model (e.g. Sigenergy
+     SigenStor vs Neo, Sungrow SBR vs SBH) from those matching. **Tick every model installed**, e.g. both BAT 8.0
+     and BAT 10.0 if you have a mix.
+
+   The Store list is downloaded once a day (no account needed) and a copy ships with each release for offline use.
+2. **Battery groups:** for each model, the number of modules/units, the warranty start date and what they cost
+   (optional, in your Home Assistant currency). Use *Add another model or later install* for modules of the same
+   model added later with a different warranty start date: they keep their own cost and warranty clock.
 3. **Inverter integration:** BatteryLedger looks for your inverter integration's sensors using the Store's
    *sensor profiles* (matched by entity registry unique ID, so renamed entities still work) and lists the
    integrations it knows for your battery brand:
@@ -76,19 +96,21 @@ Or add it manually:
    - **Sungrow:** [mkaiser's Sungrow SHx Modbus package](https://github.com/mkaiser/Sungrow-SHx-Inverter-Modbus-Home-Assistant),
      [Wingman3434's Sungrow SHx Inverter](https://github.com/Wingman3434/sungrow-shx-inverter-hacs)
    - **All of these brands:** [Energy Manager](https://github.com/ha-energymanager/ha-energymanager). If it's
-     installed, its battery install date also pre-fills the warranty start date.
+     installed, its battery install date and cost pre-fill the first battery group, and the install date and cost
+     of batteries added later (`battery_install_date_2`, `battery_install_cost_2`) the second.
 
    You can also choose the sensors yourself.
 4. **Battery modules** (when available, e.g. sigenergy2mqtt with the Sigen Cloud API enabled): per-module
    discharge counters are assigned to your battery groups by each module's rated capacity, and each module is
    tracked against its own warranty limit.
-5. **System:** battery cost (in your Home Assistant currency, from Settings → System → General), whether cost per
+5. **System:** whether cost per
    kWh and cost sensors show the currency symbol (`$`, `$/kWh`, the default, as in the YAML package) or code
    (`AUD`, `AUD/kWh`, which Home Assistant formats as money in each user's locale), and the sensors (filled in from step 3 if detected): lifetime
    **charged** and/or **discharged** energy, and optionally rated capacity (hardware check) and battery state of
    health.
 
-Cost, the currency display and sensors can be changed later under **Configure**.
+The sensors, the currency display and each battery group's cost can be changed later under **Configure**.
+Costs use your Home Assistant currency (Settings → System → General).
 
 **Dates:** the warranty start date picker shows dates in the format set in each user's Home Assistant profile
 (your name at the bottom of the sidebar → Profile → **Date format**). It defaults to your profile language's
@@ -108,10 +130,13 @@ entry_id: <optional; the first setup is used if left out>
 
 The card has four sections:
 - **Warranty:** two rings show how much of the warranty is used by time elapsed and by throughput. The larger
-  one is the warranty driver. Below are cycles per day and the warranty end date.
+  one is the warranty driver. Below are cycles per day and two warranty end dates: **Date** (warranty start +
+  warranty years) and **Usage** (when the throughput limit would be reached at your average daily use so far).
+  The warranty ends at whichever comes first.
 - **Throughput:** remaining rated throughput counts down, with a marker for what's projected to be left when
   the warranty ends.
-- **Cost:** cost consumed to date, remaining value, and cost per kWh, rated and projected.
+- **Cost:** value used to date (the `cost_consumed_to_date` sensor), remaining value, and cost per kWh, rated and
+  projected.
 - **Health:** your battery's reported state of health against the warranty curve (Estimated Usable
   Capacity, what the warranty allows at this age and usage), on a scale from the end-of-warranty capacity
   to 100%. The hardware capacity check and module figures are shown when available.
@@ -137,9 +162,9 @@ If a source drops out later, its last reading is used until it's back.
 | `cycles_per_day` | Full equivalent cycles per day: energy counted ÷ days since warranty start ÷ rated capacity (the inverter's rated capacity sensor, else the spec's figure × units). Replaces the YAML package's `battery_cycles_per_day` | |
 | `warranty_time_elapsed` | Time since warranty start as % of the warranty period | |
 | `projected_warranted_throughput` | Throughput by the end of the warranty at the average rate so far (capped at the limit) | `average_daily_kwh`, `low_confidence` |
-| `cost_per_kwh_rated` | Battery cost ÷ warranted throughput | |
-| `cost_per_kwh_projected` | Battery cost ÷ projected throughput | |
-| `cost_consumed_to_date` | Cost apportioned to warranty life used, following the warranty driver (time elapsed or throughput used, whichever is further along). `percent_of_rated_life_used` stays the throughput share | `percent_of_rated_life_used`, `estimated_remaining_value` |
+| `cost_per_kwh_rated` | Battery cost ÷ warranted throughput (battery groups with a cost) | |
+| `cost_per_kwh_projected` | Battery cost ÷ projected throughput (battery groups with a cost) | |
+| `cost_consumed_to_date` | Cost apportioned to warranty life used: each battery group's cost by its own warranty driver (time elapsed or throughput used, whichever is further along), added up. `percent_of_rated_life_used` stays the throughput share. Each group's `cost` and `cost_consumed` are in the `groups` attribute | `percent_of_rated_life_used`, `estimated_remaining_value` |
 | `initial_usable_capacity` | Usable capacity at beginning of life | |
 | `estimated_usable_capacity` | Warranty floor health %: the minimum capacity the warranty guarantees today (see below) | `remaining_usable_kwh`, `degradation_driver`, `warranty_status`, `groups`, `notes` |
 | `hardware_capacity_validation` | Whether the inverter's reported capacity matches the configured units (if a rated capacity sensor is set) | `configured_rated_kwh`, `reported_hardware_kwh` |

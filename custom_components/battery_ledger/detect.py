@@ -25,7 +25,10 @@ PLACEHOLDERS = {
 # Placeholders that identify one system (plant); the others vary within it.
 SYSTEM_KEYS = ("entry", "prefix", "plant", "mac")
 
-SYSTEM_ROLES = ("discharged_energy", "charged_energy", "rated_capacity", "soh", "install_date")
+SYSTEM_ROLES = ("discharged_energy", "charged_energy", "rated_capacity", "soh", "install_date",
+                "install_cost", "install_date_2", "install_cost_2", "brand", "module_count", "tower_count")
+# Kept for every inverter (not narrowed to one entity): they describe the batteries on each inverter.
+INVERTER_ROLES = ("inverter_model", "inverter_pack_count", "inverter_rated_capacity", "pack_serial")
 MODULE_ROLES = ("module_discharged_energy", "module_charged_energy", "module_rated_capacity",
                 "module_soc", "module_soh")
 
@@ -61,6 +64,8 @@ class DetectedSystem:
     # module ID (serial) -> role -> entity_id
     modules: dict[str, dict[str, str]] = field(default_factory=dict)
     modules_usable: bool = False
+    # inverter key -> role -> entity_ids (pack_serial has one per pack position)
+    inverters: dict[str, dict[str, list[str]]] = field(default_factory=dict)
 
     @property
     def value(self) -> str:
@@ -73,6 +78,10 @@ class DetectedSystem:
 
 def _system_key(groups: dict[str, str]) -> str:
     return "|".join(f"{k}={groups[k]}" for k in SYSTEM_KEYS if k in groups) or "default"
+
+
+def _inverter_key(groups: dict[str, str]) -> str:
+    return "|".join(f"{k}={v}" for k, v in sorted(groups.items()) if k not in SYSTEM_KEYS) or "default"
 
 
 def detect(profile: dict, entities: Iterable[RegistryEntity]) -> list[DetectedSystem]:
@@ -98,6 +107,10 @@ def detect(profile: dict, entities: Iterable[RegistryEntity]) -> list[DetectedSy
                 key = _system_key(groups)
                 if role in MODULE_ROLES:
                     system(key).modules.setdefault(groups["serial"], {}).setdefault(role, ent.entity_id)
+                elif role in INVERTER_ROLES:
+                    found = system(key).inverters.setdefault(_inverter_key(groups), {}).setdefault(role, [])
+                    if ent.entity_id not in found:
+                        found.append(ent.entity_id)
                 else:
                     system(key)
                     matches.setdefault((key, role), []).append((idx, rule["level"], ent.entity_id))
@@ -109,7 +122,7 @@ def detect(profile: dict, entities: Iterable[RegistryEntity]) -> list[DetectedSy
             systems[key].roles[role] = top[0]
         else:
             systems[key].ambiguous.append(role)
-    return [s for s in systems.values() if s.roles or s.modules]
+    return [s for s in systems.values() if s.roles or s.modules or s.inverters]
 
 
 def assign_modules(

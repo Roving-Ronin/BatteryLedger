@@ -25,8 +25,8 @@ def test_matches_existing_template_figures():
     used = 142620 - 127735  # rated - remaining = charged energy so far
     install = TODAY - timedelta(days=487)
     res = ledger.compute(ledger.LedgerInput(
-        groups=[ledger.GroupInput(BAT8, 6, install)], today=TODAY,
-        charged_kwh=used, cost=26062.0, reported_capacity_kwh=48.36))
+        groups=[ledger.GroupInput(BAT8, 6, install, cost=26062.0)], today=TODAY,
+        charged_kwh=used, reported_capacity_kwh=48.36))
     assert res.limit_kwh == pytest.approx(142620)
     assert res.remaining_kwh == pytest.approx(127735)
     assert res.used_pct == pytest.approx(10.44, abs=0.01)
@@ -48,18 +48,23 @@ def test_matches_existing_template_figures():
 def test_projected_capped_at_warranty():
     install = TODAY - timedelta(days=100)
     res = ledger.compute(ledger.LedgerInput(
-        groups=[ledger.GroupInput(BAT8, 2, install)], today=TODAY, charged_kwh=20000, cost=10000))
+        groups=[ledger.GroupInput(BAT8, 2, install, cost=10000)], today=TODAY, charged_kwh=20000))
     assert res.projected_kwh == pytest.approx(res.limit_kwh)
     assert res.status == ledger.STATUS_AHEAD and res.driver == ledger.DRIVER_THROUGHPUT
     assert res.cost_per_kwh_projected == pytest.approx(res.cost_per_kwh_rated)
     # Throughput-driven: cost follows the throughput share
     assert res.cost_consumed == pytest.approx(10000 * res.groups[0].throughput_fraction)
+    # 20,000 kWh in 100 days: the 47,540 kWh limit is reached in about 238 days, long before 10 years
+    g = res.groups[0]
+    assert g.usage_end == install + timedelta(days=round(g.limit_kwh / 200))
+    assert g.usage_end < g.warranty_end
+    assert g.as_attributes()["throughput_end_date"] == g.usage_end.isoformat()
 
 
 def test_expired_by_throughput():
     res = ledger.compute(ledger.LedgerInput(
-        groups=[ledger.GroupInput(BAT8, 1, TODAY - timedelta(days=400))], today=TODAY,
-        charged_kwh=30000, cost=5000))
+        groups=[ledger.GroupInput(BAT8, 1, TODAY - timedelta(days=400), cost=5000)], today=TODAY,
+        charged_kwh=30000))
     assert res.status == ledger.STATUS_EXPIRED
     assert res.floor_pct == pytest.approx(70)
     assert res.remaining_kwh == 0
@@ -184,3 +189,38 @@ def test_cycles_per_day_matches_yaml_formula():
     res = ledger.compute(ledger.LedgerInput(
         groups=[ledger.GroupInput(spec, 6, TODAY - timedelta(days=days))], today=TODAY, discharged_kwh=discharged))
     assert res.cycles_per_day == pytest.approx(discharged / days / (8.06 * 6))
+
+
+def test_cost_per_group():
+    """Batteries added later carry their own cost on their own warranty clock."""
+    first = ledger.GroupInput(BAT8, 4, TODAY - timedelta(days=1461), cost=20000)  # 4 years in
+    added = ledger.GroupInput(BAT8, 2, TODAY - timedelta(days=365), cost=8000)    # 1 year in
+    res = ledger.compute(ledger.LedgerInput(groups=[first, added], today=TODAY, charged_kwh=1000))
+    g1, g2 = res.groups
+    assert g1.cost_consumed == pytest.approx(20000 * g1.life_fraction)
+    assert g2.cost_consumed == pytest.approx(8000 * g2.life_fraction)
+    assert res.cost_consumed == pytest.approx(g1.cost_consumed + g2.cost_consumed)
+    assert res.remaining_value == pytest.approx(28000 - res.cost_consumed)
+    assert res.cost_per_kwh_rated == pytest.approx(28000 / res.limit_kwh)
+    assert g1.as_attributes()["cost"] == 20000 and g2.as_attributes()["cost_consumed"] is not None
+
+
+def test_cost_only_on_some_groups():
+    """Groups without a cost are left out of the cost figures, not counted as free."""
+    first = ledger.GroupInput(BAT8, 4, TODAY - timedelta(days=365), cost=20000)
+    added = ledger.GroupInput(BAT10, 2, TODAY - timedelta(days=100))
+    res = ledger.compute(ledger.LedgerInput(groups=[first, added], today=TODAY, charged_kwh=1000))
+    assert res.cost_consumed == pytest.approx(res.groups[0].cost_consumed)
+    assert res.cost_per_kwh_rated == pytest.approx(20000 / res.groups[0].limit_kwh)
+    assert res.groups[1].cost is None and res.groups[1].as_attributes()["cost"] is None
+    none = ledger.compute(ledger.LedgerInput(groups=[ledger.GroupInput(BAT8, 1, TODAY)], today=TODAY, charged_kwh=0))
+    assert none.cost_consumed is None and none.remaining_value is None and none.cost_per_kwh_rated is None
+
+
+def test_usage_end_needs_a_limit_and_use():
+    unused = ledger.compute(ledger.LedgerInput(groups=[ledger.GroupInput(BAT8, 1, TODAY - timedelta(days=10))],
+                                               today=TODAY, charged_kwh=0))
+    assert unused.groups[0].usage_end is None
+    slow = ledger.compute(ledger.LedgerInput(groups=[ledger.GroupInput(BAT8, 1, TODAY - timedelta(days=365))],
+                                             today=TODAY, charged_kwh=365))
+    assert slow.groups[0].usage_end > slow.groups[0].warranty_end  # 1 kWh a day: the date ends it first

@@ -7,25 +7,48 @@ credit where there is one.
 ## v0.1.6 (unreleased)
 
 ### TL;DR
-- BatteryLedger waits for your battery integration's sensors at startup, and rides out dropouts, instead of
-  briefly showing figures from the wrong energy counter
-- Cost Consumed To Date (and Remaining Value) now follow the warranty driver, so an age-driven battery uses up
-  its cost by time elapsed rather than by throughput
-- The card's settings cog moves to the bottom right, next to the hardware capacity line
-- Card labels: "Battery cycles per day (Average)" and "Projected SoH (Today)"
-- Estimated Usable Capacity shows an icon again
-- Bundled Store list: Huawei LUNA2000-7-S1 and LUNA2000-5-S0 names; S1 batteries up to 9 modules
-- Bundled Store list adds the Sigenergy SigenStor Neo BAT 6.0 and BAT 8.0
-- Bundled Store list adds AlphaESS batteries, with sensors from senalse's AlphaESS Modbus TCP integration or
-  Energy Manager
-- Bundled Store list adds Deye batteries, with sensors from davidrapan's Solarman, Lewa-Reka's ESPHome Deye
-  Inverter or Energy Manager
-- Bundled Store list adds GoodWe batteries, with sensors from the GoodWe integration (ET-family hybrids) or
-  Energy Manager
-- Bundled Store list adds BYD Battery-Box Premium and Fronius Reserva, with sensors from redpomodoro's BYD Battery
-  Box or Fronius Modbus integrations, or Energy Manager
+- New **Detect** setup: BatteryLedger reads your battery integration (pack count, capacity, inverter model,
+  Energy Manager's brand) to suggest the battery model and module count, and can turn on the sensors it needs
+- Each battery group has its own cost, so batteries added later carry their own cost and warranty clock;
+  Energy Manager's install dates and costs pre-fill them
+- Cost Consumed To Date follows the warranty driver (time elapsed or throughput used)
+- BatteryLedger waits for your battery integration's sensors at startup and rides out dropouts
+- Card: "Warranty Ends (Usage)", the date the throughput limit is reached at your average use, beside
+  "Warranty Ends (Date)"; settings cog at the bottom right; relabelled rows
+- Bundled Store list adds SigenStor Neo, AlphaESS, Deye, GoodWe, BYD and Fronius batteries, with their
+  integrations' sensor profiles
+
+### Added
+- **Detect from my battery's integration**, a new first choice in setup. It finds the systems of every integration
+  BatteryLedger knows and suggests the battery model and number of modules, for you to confirm:
+  - Sigenergy Local Modbus: each inverter's pack count and rated battery capacity (capacity per module), with the
+    inverter model type telling SigenStor from Neo. Two inverters get a group each when together they're over a
+    model's per-inverter limit
+  - sigenergy2mqtt: each module's rated capacity, so mixed models are recognised
+  - Huawei / iStore (wlcrs): rated capacity ÷ battery packs with a serial number (S0 or S1). Rebadged batteries
+    with identical warranty figures are shown as detected; the S0, whose Huawei and iStore warranties differ, is
+    left for you to choose
+  - BYD Battery Box: towers × modules; AlphaESS: module count; Energy Manager and others: rated capacity alone,
+    narrowed by Energy Manager's inverter brand
+- Detect lists the sensors it needs that are off by default in their integration and, with your OK, turns them
+  on, checks for their readings after 45 seconds and again 45 seconds later, then carries on. Sensors you
+  turned off yourself are never touched
+- Energy Manager's `battery_install_cost`, `battery_install_date_2` and `battery_install_cost_2` pre-fill the
+  first and second battery groups (as `battery_install_date` already did)
+- Configure → **Battery costs**: one form per battery group
+- Card: **Warranty Ends (Usage)** shows when the throughput limit would be reached at the average daily use so far
+  (it can be before or after the date end); the time-based row is now **Warranty Ends (Date)**. Each battery
+  group's `throughput_end_date` is in the `groups` attribute
+- Bundled Store list: sensor profiles gain the readings Detect uses (Sigenergy Local Modbus pack count, model
+  type and per-inverter capacity; wlcrs pack serial positions; BYD towers and modules; AlphaESS module count;
+  Energy Manager's inverter brand, install costs and second install date)
 
 ### Changed
+- Cost belongs to each battery group (setup asks for it with the units and warranty start, not on the System
+  step). Existing setups move their cost to the first group (config entry 1.4); a group added later starts
+  without one until you set it under Configure → Battery costs. Each group's cost is used up on its own warranty
+  driver; cost per kWh covers the groups that have a cost. The `groups` attribute gains `cost` and
+  `cost_consumed`
 - At startup, a battery integration that hadn't connected yet looked like a sensor that wasn't set up: with
   the discharged counter still unavailable, the warranty briefly used charged energy (and per-module tracking
   fell back to plant totals), leaving a blip in history. BatteryLedger now waits until every chosen source
@@ -33,12 +56,15 @@ credit where there is one.
   A source that drops out later keeps its last reading, so the basis no longer flips
 - README: card screenshot
 - Cost Consumed To Date followed throughput used even when age drove the warranty, so it understated the cost
-  used up (13.4% of the warranty gone, 10.2% of the cost). It now takes each battery group's warranty life used
-  (the larger of time elapsed and throughput used), weighted by usable capacity, and Remaining Value
+  used up (13.4% of the warranty gone, 10.2% of the cost). It now uses up each battery group's cost by that
+  group's warranty life used (the larger of time elapsed and throughput used), and Remaining Value
   (`estimated_remaining_value`) follows. `percent_of_rated_life_used` is still the throughput share, and the
   cost per kWh sensors are unchanged
 - Card: the settings cog is at the bottom right, on the same row as the hardware capacity check (on its own
   when the Health section is hidden), so the header only carries the warranty status.
+- Card: the BatteryLedger logo replaces the battery icon at the top left.
+- Card: the dial reads "Warranty Used", and "Cost Consumed To Date" is "Value used to date" (the sensor keeps its
+  name and entity ID).
 - Card: "Cycles Per Day" is labelled "Battery cycles per day (Average)", without the C/day unit, and
   "Warranty Allows (today)" is "Projected SoH (Today)".
 - Bundled Store list: the Huawei specs are named LUNA2000-7-S1 and LUNA2000-5-S0 (new spec IDs; existing

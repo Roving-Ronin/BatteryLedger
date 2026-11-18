@@ -52,7 +52,7 @@ async def _setup_via_flow(hass: HomeAssistant, install_date: str) -> config_entr
             result["flow_id"], {"units": 7, "install_date": install_date})
 
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"units": 6, "install_date": install_date})
+        result["flow_id"], {"units": 6, "install_date": install_date, "cost": 26062})
     assert result["type"] is FlowResultType.MENU and result["step_id"] == "add_more"
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"next_step_id": "sensors"})
@@ -64,7 +64,7 @@ async def _setup_via_flow(hass: HomeAssistant, install_date: str) -> config_entr
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {"name": "Sigen battery", "cost": 26062,
+        {"name": "Sigen battery",
          "charged_energy_entity": CHARGED, "reported_capacity_entity": RATED})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
@@ -229,14 +229,14 @@ async def test_currency_symbol_and_default_name(hass: HomeAssistant):
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
     r = await flow.async_configure(r["flow_id"], {"search": "bat 5", "brand": "Sigenergy"})
     r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sigenergy-sigenstor-bat-5-0-anz"]})
-    r = await flow.async_configure(r["flow_id"], {"units": 1, "install_date": "2025-01-01"})
+    r = await flow.async_configure(r["flow_id"], {"units": 1, "install_date": "2025-01-01", "cost": 5000})
     r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
     r = await flow.async_configure(r["flow_id"], {"integration": "manual"})
     assert r["step_id"] == "system"
     assert r["description_placeholders"]["currency"] == "EUR" and r["description_placeholders"]["symbol"] == "€"
     name_key = next(k for k in r["data_schema"].schema if str(k) == "name")
     assert name_key.default() == "Sigenergy Battery"
-    r = await flow.async_configure(r["flow_id"], {"name": "Sigenergy Battery", "cost": 5000,
+    r = await flow.async_configure(r["flow_id"], {"name": "Sigenergy Battery",
                                                   "currency_style": "code", "charged_energy_entity": CHARGED})
     assert r["type"] is FlowResultType.CREATE_ENTRY
     assert r["title"] == "Sigenergy Battery"
@@ -354,3 +354,35 @@ async def test_source_dropout_keeps_basis(hass: HomeAssistant):
     await hass.async_block_till_done()
     assert float(hass.states.get(used).state) == pytest.approx(11000)
     assert "discharged_sensor_missing_using_charged" not in (hass.states.get(used).attributes.get("notes") or [])
+
+
+async def test_options_cost_per_group(hass: HomeAssistant):
+    """Options: each battery group's cost is set on its own form; a cleared cost is removed."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.battery_ledger.const import CONFIG_ENTRY_MINOR_VERSION, CONFIG_ENTRY_VERSION
+    index = await async_get_store_index(hass)
+    spec = index.get("sigenergy-sigenstor-bat-8-0-anz")
+    groups = [{"spec": spec, "units": 4, "install_date": "2024-01-01", "cost": 20000},
+              {"spec": spec, "units": 2, "install_date": "2025-06-01"}]
+    entry = MockConfigEntry(domain=DOMAIN, title="Sigen", version=CONFIG_ENTRY_VERSION,
+                            minor_version=CONFIG_ENTRY_MINOR_VERSION,
+                            data={"name": "Sigen", "groups": groups, "charged_energy_entity": CHARGED})
+    entry.add_to_hass(hass)
+    hass.states.async_set(CHARGED, "1000", {"unit_of_measurement": "kWh"})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    r = await hass.config_entries.options.async_init(entry.entry_id)
+    assert r["type"] is FlowResultType.MENU
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "costs"})
+    assert r["description_placeholders"]["number"] == "1" and r["description_placeholders"]["total"] == "2"
+    cost_key = next(k for k in r["data_schema"].schema if str(k) == "cost")
+    assert cost_key.description["suggested_value"] == 20000
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {})  # cleared
+    assert r["description_placeholders"]["install_date"] == "2025-06-01"
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"cost": 8000})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert "cost" not in entry.data["groups"][0] and entry.data["groups"][1]["cost"] == 8000
+    attrs = hass.states.get("sensor.battery_ledger_cost_consumed_to_date")
+    assert attrs is not None and float(attrs.state) > 0

@@ -91,3 +91,44 @@ async def test_1_2_duplicate_sensors_removed(hass: HomeAssistant):
     assert reg.async_get("sensor.battery_ledger_warranty_status") is None
     assert reg.async_get("sensor.battery_ledger_rated_life_used") is None
     assert reg.async_get("sensor.battery_ledger_total_rated_throughput") is not None  # kept
+
+
+async def test_1_3_cost_moves_to_first_group(hass: HomeAssistant):
+    """1.3 -> 1.4: the setup's cost becomes the first battery group's cost; nothing else changes."""
+    second = {**V1_DATA["groups"][0], "units": 1, "install_date": "2026-01-01"}
+    data = {**V1_DATA, "groups": [V1_DATA["groups"][0], second], "currency_style": "code", "cost": 9000}
+    entry = MockConfigEntry(domain=DOMAIN, title="Acme", data=data, version=1, minor_version=3)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert (entry.version, entry.minor_version) == (CONFIG_ENTRY_VERSION, CONFIG_ENTRY_MINOR_VERSION)
+    assert "cost" not in entry.data
+    assert entry.data["groups"][0] == {**V1_DATA["groups"][0], "cost": 9000}
+    assert entry.data["groups"][1] == second  # a later group has no cost until the user adds one
+    assert {k: v for k, v in entry.data.items() if k != "groups"} == {
+        k: v for k, v in data.items() if k not in ("groups", "cost")}
+
+
+async def test_1_3_options_cost_wins(hass: HomeAssistant):
+    """1.3 -> 1.4: a cost changed in the options (which overrode setup data) is the one kept."""
+    data = {**V1_DATA, "currency_style": "code", "cost": 9000}
+    entry = MockConfigEntry(domain=DOMAIN, title="Acme", data=data, options={"cost": 9500, "currency_style": "symbol"},
+                            version=1, minor_version=3)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.data["groups"][0]["cost"] == 9500
+    assert "cost" not in entry.data and "cost" not in entry.options
+    assert entry.options == {"currency_style": "symbol"}
+
+
+async def test_1_3_cleared_cost_and_no_cost(hass: HomeAssistant):
+    """1.3 -> 1.4: a cost cleared in the options (None) or never entered leaves the group without one."""
+    for options in ({"cost": None}, {}):
+        entry = MockConfigEntry(domain=DOMAIN, title="Acme", data={**V1_DATA, "cost": 9000} if options else V1_DATA,
+                                options=options, version=1, minor_version=3)
+        entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        assert "cost" not in entry.data["groups"][0]
+        assert "cost" not in entry.data and "cost" not in entry.options

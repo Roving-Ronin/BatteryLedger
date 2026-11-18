@@ -31,6 +31,8 @@ from .const import CONF_GROUPS, CONF_INSTALL_DATE, CONF_SPEC, CONF_UNITS, DOMAIN
 
 CARD_FILE = Path(__file__).parent / "www" / "battery-ledger-card.js"
 CARD_URL = f"/{DOMAIN}/battery-ledger-card.js"
+LOGO_FILE = Path(__file__).parent / "www" / "battery-ledger-logo.png"
+LOGO_URL = f"/{DOMAIN}/battery-ledger-logo.png"
 _REGISTERED = f"{DOMAIN}_card_registered"
 _SETTINGS = f"{DOMAIN}_card_settings"
 SETTINGS_STORE_KEY = f"{DOMAIN}.card_settings"
@@ -62,7 +64,10 @@ async def async_register_card(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_save_settings)
     if hass.http is None:  # no web server (e.g. some test setups)
         return
-    await hass.http.async_register_static_paths([StaticPathConfig(CARD_URL, str(CARD_FILE), True)])
+    await hass.http.async_register_static_paths([
+        StaticPathConfig(CARD_URL, str(CARD_FILE), True),
+        StaticPathConfig(LOGO_URL, str(LOGO_FILE), True),
+    ])
     if DATA_EXTRA_MODULE_URL in hass.data:  # the frontend is loaded
         version = (await async_get_integration(hass, DOMAIN)).version
         add_extra_js_url(hass, f"{CARD_URL}?v={version}")
