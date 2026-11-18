@@ -267,20 +267,20 @@ def compute(inp: LedgerInput) -> LedgerResult:
     days = [max((inp.today - g.install_date).days, 0) for g in inp.groups]
     caps = [g.spec["capacity"]["usable_kwh"] * g.units for g in inp.groups]
     module_mode = [_module_mode(g) for g in inp.groups]
-    weights = [0.0 if m else c * max(d, 1) for c, d, m in zip(caps, days, module_mode)]
+    weights = [0.0 if m else c * max(d, 1) for c, d, m in zip(caps, days, module_mode, strict=True)]
     total_weight = sum(weights) or 1.0
     shares = [w / total_weight for w in weights]
-    module_discharged = sum(sum(g.module_kwh.values()) for g, m in zip(inp.groups, module_mode) if m)
+    module_discharged = sum(sum(g.module_kwh.values()) for g, m in zip(inp.groups, module_mode, strict=True) if m)
 
     notes: list[str] = []
     if sum(1 for m in module_mode if not m) > 1:
         notes.append(NOTE_SPLIT_ESTIMATE)
-    for g, m in zip(inp.groups, module_mode):
+    for g, m in zip(inp.groups, module_mode, strict=True):
         if g.module_kwh and not m:
             notes.append(f"{NOTE_MODULES_NOT_USED}:{g.spec.get('id', 'custom')}:{len(g.module_kwh)}/{g.units}")
 
     results: list[GroupResult] = []
-    for g, d, share, initial, by_module in zip(inp.groups, days, shares, caps, module_mode):
+    for g, d, share, initial, by_module in zip(inp.groups, days, shares, caps, module_mode, strict=True):
         spec = g.spec
         w = spec["warranty"]
         limit = throughput_limit_kwh(spec, g.units)

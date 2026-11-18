@@ -29,7 +29,8 @@ BatteryLedger isn't in the default list yet, so add it as a custom repository fi
 
 [![Open this repository in the Marketplace][marketplace-button]][marketplace-url]
 
-Or add it manually:
+If that button doesn't open BatteryLedger, the HACS button below also works on Home Assistant 2026.11 and newer,
+or add it manually:
 
 1. Go to **Settings → Marketplace**, open the ⋮ menu and choose **Custom repositories**
 2. Add `https://github.com/Roving-Ronin/BatteryLedger` as an **Integration**
@@ -66,7 +67,8 @@ Or add it manually:
 
      Some of these sensors are off by default in their integration. Detect lists them and, if you agree, turns them
      on, checks for their readings after 45 seconds (and again 45 seconds later if needed), then carries on; it
-     never turns on a sensor you turned off.
+     never turns on a sensor you turned off. Sensors it turns on stay on, even if you remove BatteryLedger later;
+     turn them off under Settings → Entities if you no longer want them.
    - **Store search:** by text, brand, region and phase (single / three), then pick the model (e.g. Sigenergy
      SigenStor vs Neo, Sungrow SBR vs SBH) from those matching. **Tick every model installed**, e.g. both BAT 8.0
      and BAT 10.0 if you have a mix.
@@ -271,7 +273,7 @@ they don't change the version on `main`.
 <!-- Install buttons -->
 
 [marketplace-button]: https://my.home-assistant.io/badges/marketplace_repository.svg
-[marketplace-url]: https://my.home-assistant.io/redirect/marketplace_repository/?owner=Roving-Ronin&repository=BatteryLedger
+[marketplace-url]: https://my.home-assistant.io/redirect/marketplace_repository/?owner=Roving-Ronin&repository=BatteryLedger&category=integration
 [hacs-button]: https://my.home-assistant.io/badges/hacs_repository.svg
 [hacs-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=Roving-Ronin&repository=BatteryLedger&category=integration
 

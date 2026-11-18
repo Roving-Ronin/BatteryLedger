@@ -56,7 +56,8 @@ async def test_0_1_1_entities_renamed(hass: HomeAssistant):
     assert moved.entity_id == "sensor.battery_ledger_total_rated_throughput"
     assert moved.unique_id == f"{entry.entry_id}_total_rated_throughput"
     # A user-renamed entity keeps its entity ID; only its unique ID moves.
-    kept = reg.async_get("sensor.my_custom_health")
+    kept = reg.async_get(renamed.entity_id)
+    assert kept.entity_id == "sensor.my_custom_health"
     assert kept.unique_id == f"{entry.entry_id}_estimated_usable_capacity"
     assert entry.data == {**V1_DATA, "currency_style": "code"}  # 1.3 step adds the display style
 

@@ -17,7 +17,12 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements_test.txt
 python -m pytest -q                      # all tests (real in-process Home Assistant, no network)
 python -m compileall -q custom_components/battery_ledger
+pip install ruff && ruff check .        # lint incl. security rules (ruff.toml); Tests workflow runs it
+pip install zizmor && zizmor .   # workflow + Dependabot security audit; Security workflow runs it
 ```
+
+CI on every push and PR: Tests (Ruff, card syntax, pytest), Security (zizmor, CodeQL; also weekly),
+hassfest and the HACS validator.
 
 Tests run against a real test Home Assistant (pytest-homeassistant-custom-component), never a
 `MagicMock` hass: a mock accepts calls real HA rejects. `tests/conftest.py` makes every Store refresh
@@ -94,6 +99,15 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
   version back. Don't edit the manifest version by hand.
 - Refresh `data/index_snapshot.json` from the published Store index before a release.
 - `CHANGELOG.md`: every release opens with a `### TL;DR`, rewritten as a whole when entries are added.
+
+## Workflow security
+- Never put `${{ ... }}` expressions inside `run:` scripts: pass them through `env:` and use `"$VAR"`.
+  Issue titles, bodies and comments are attacker-controlled; read them only in `github-script` (as JS
+  values) or via `env:`.
+- `permissions: {}` at workflow level and grant each job only what it needs.
+- `actions/checkout` with `persist-credentials: false`, unless the job pushes with git (mark it
+  `# zizmor: ignore[artipacked]` with the reason).
+- Actions are pinned by tag (`.github/zizmor.yml`), kept current by Dependabot.
 
 ## Repo conventions
 - Issue templates use GitHub's default labels only (`bug`, `enhancement`, `question`); don't introduce

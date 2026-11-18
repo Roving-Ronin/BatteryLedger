@@ -145,7 +145,7 @@
       },
       "detect_enable": {
         "title": "Turn on sensors?",
-        "description": "{count} sensor(s) that help identify your battery are turned off by default in their integration:\n{entities}\n\nBatteryLedger can turn them on now. The integration reloads about 30 seconds later, then BatteryLedger checks for their readings after 45 seconds, and again 45 seconds later if they haven't all reported, then carries on. You can turn them off again later in Settings → Entities.",
+        "description": "{count} sensor(s) that help identify your battery are turned off by default in their integration:\n{entities}\n\nBatteryLedger can turn them on now. The integration reloads about 30 seconds later, then BatteryLedger checks for their readings after 45 seconds, and again 45 seconds later if they haven't all reported, then carries on. They stay on afterwards, even if you remove BatteryLedger later: BatteryLedger doesn't turn them off again. To turn them off, use Settings → Entities.",
         "data": {
           "enable": "Turn these sensors on"
         }

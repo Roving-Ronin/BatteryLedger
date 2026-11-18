@@ -79,5 +79,6 @@ class SpecUpdateRepairFlow(RepairsFlow):
 
 
 async def async_create_fix_flow(hass: HomeAssistant, issue_id: str, data: dict | None) -> RepairsFlow:
-    assert data is not None
-    return SpecUpdateRepairFlow(data["entry_id"], data["spec_id"])
+    # An issue without its data (shouldn't happen) still opens a flow, which aborts as spec_gone.
+    data = data or {}
+    return SpecUpdateRepairFlow(data.get("entry_id", ""), data.get("spec_id", ""))

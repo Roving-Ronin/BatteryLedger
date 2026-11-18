@@ -4,7 +4,30 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
-## v0.1.11 (unreleased)
+## v0.1.12 (unreleased)
+
+### TL;DR
+- Detect now says that the sensors it turns on stay on, also after BatteryLedger is removed
+- README: Marketplace install button fixed, with the HACS button as a fallback
+- Automatic code and workflow security checks (Ruff, zizmor, CodeQL); workflows hardened
+
+### Changed
+- Detect: the step that offers to turn on sensors says they stay on afterwards, even if BatteryLedger is
+  removed, and how to turn them off (Settings → Entities). BatteryLedger never turns them off itself.
+- README: the Marketplace button names the repository's category (Integration), and the HACS button is
+  mentioned as working on Home Assistant 2026.11 and newer too.
+- Code: lists paired up in the warranty maths and setup must be the same length (`zip(..., strict=True)`), so a
+  mismatch raises an error instead of silently dropping a battery group.
+- Code is checked with [Ruff](https://docs.astral.sh/ruff/) on every push and pull request (`ruff.toml`),
+  including its security rules, so issues like that are flagged automatically. Two internal `assert`s became
+  explicit checks.
+- Security checks: a new Security workflow audits the GitHub workflows with
+  [zizmor](https://docs.zizmor.sh/) and scans the code with CodeQL (also weekly). The workflows were hardened
+  to match: values pass to scripts through environment variables, each job gets only the permissions it needs,
+  and checkouts don't keep the GitHub token unless they push. The card's JavaScript gets a syntax check, and
+  Dependabot also keeps the test requirements up to date.
+
+## v0.1.11 (2026-11-18)
 
 ### TL;DR
 - Card settings: show dates as day month year (18 Jul 2035) instead of your Home Assistant date format, and
