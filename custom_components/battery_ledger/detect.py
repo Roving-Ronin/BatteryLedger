@@ -8,9 +8,10 @@ parts that differ between installs.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Iterable, NamedTuple
+from typing import NamedTuple
 
 PLACEHOLDERS = {
     "entry": r"[A-Za-z0-9]+",

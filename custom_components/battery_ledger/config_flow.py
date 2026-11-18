@@ -379,8 +379,10 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_detect_result(self, user_input: dict | None = None) -> ConfigFlowResult:
         index = await async_get_store_index(self.hass)
-        assert self._system is not None
-        profile = next(p for p in index.profiles if p["id"] == self._system.profile_id)
+        profile = next((p for p in index.profiles if self._system and p["id"] == self._system.profile_id), None)
+        if self._system is None or profile is None:
+            # Nothing chosen (or its profile left the Store list): look the battery up instead.
+            return await self.async_step_store_search()
         # Detection ran over every entity, enabled or not; refresh it now the chosen ones may be on.
         refreshed = [s for s in detect(profile, _registry_entities(self.hass)) if s.key == self._system.key]
         if refreshed:
@@ -750,7 +752,8 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             return None
 
     async def async_step_modules(self, user_input: dict | None = None) -> ConfigFlowResult:
-        assert self._system is not None
+        if self._system is None:
+            return await self.async_step_system()
         mods = {mid: roles for mid, roles in self._system.modules.items() if "module_discharged_energy" in roles}
         rated = {mid: self._read_float(r.get("module_rated_capacity")) for mid, r in mods.items()}
         group_caps = [
@@ -778,7 +781,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             lines.append(f"- {mid}: {cap} → {self._groups[grp][CONF_SPEC]['model'] if grp is not None else '✗'}")
         per_group = "\n".join(
             f"- {g[CONF_SPEC]['model']}: {found} / {want} {'✓' if found == want else '✗'}"
-            for g, (found, want) in zip(self._groups, counts))
+            for g, (found, want) in zip(self._groups, counts, strict=True))
         return self.async_show_form(
             step_id="modules",
             data_schema=vol.Schema({vol.Required(CONF_USE_MODULES, default=not problems): sel.BooleanSelector()}),
@@ -856,7 +859,7 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
             self._cost_index += 1
             if self._cost_index >= len(groups):
                 new_groups = []
-                for g, cost in zip(groups, self._costs):
+                for g, cost in zip(groups, self._costs, strict=True):
                     g = {k: v for k, v in g.items() if k != CONF_COST}
                     if cost:
                         g[CONF_COST] = cost

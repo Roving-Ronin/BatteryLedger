@@ -9,11 +9,40 @@ permissions:
   contents: read
 
 jobs:
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Settings in ruff.toml. Each finding shows as an annotation on the line it's about.
+      - uses: astral-sh/ruff-action@v4
+        with:
+          version: "0.16.9"  # pinned so a new Ruff release can't fail a build by itself
+          args: check --output-format=github
+
+  card:
+    name: Card syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      # The card is plain JavaScript served as-is: a syntax error would break it on every dashboard.
+      - run: node --check custom_components/battery_ledger/www/battery-ledger-card.js
+
   pytest:
     name: Pytest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@v7
         with:
