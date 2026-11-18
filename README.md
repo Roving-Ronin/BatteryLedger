@@ -142,8 +142,9 @@ The card has four sections:
   Capacity, what the warranty allows at this age and usage), on a scale from the end-of-warranty capacity
   to 100%. The hardware capacity check and module figures are shown when available.
 
-Tap any figure to open its sensor. Admins see a cog at the bottom right of the card. It opens the card
-settings: decimal places for cost per kWh, and which sections to show. The settings are saved for each
+Tap any figure to open its sensor. The bottom right corner shows the BatteryLedger version; admins also see a cog just to its left. It opens the card
+settings: decimal places for cost per kWh (2 to 5), how dates are shown (your Home Assistant date format, or
+day month year such as 18 Jul 2035), and which sections to show. The settings are saved for each
 BatteryLedger setup, so the card looks the same on every dashboard and device.
 
 ## Sensors

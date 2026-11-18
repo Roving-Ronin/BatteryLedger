@@ -4,6 +4,28 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.1.11 (unreleased)
+
+### TL;DR
+- Card settings: show dates as day month year (18 Jul 2035) instead of your Home Assistant date format, and
+  5 decimal places for cost per kWh
+- Card: cost per kWh reads "by usage" and "by age", and the cost labels end with a colon
+
+### Added
+- Card settings (the cog): **Date display**, either Home Assistant format (the default: your profile's date
+  format, as before) or day month year, e.g. 18 Jul 2035, with the month's short name in your language.
+- Card settings: 5 decimal places for cost per kWh.
+- Card: the BatteryLedger version (e.g. v0.1.11) at the bottom right, with the settings cog just to its left.
+
+### Changed
+- Card: the cost per kWh figures are labelled "by usage" (cost ÷ warranted throughput, was "rated") and "by age"
+  (cost ÷ throughput projected by the end of the warranty, was "projected").
+- Card labels end with a colon: "Cost per kWh:", "Value used to date:", "Remaining Value:", and in the settings
+  "Cost per kWh decimal places:" and "Display Sections:" (was "Sections").
+- Card: the Value used to date, Remaining Value and Cost per kWh figures are centred vertically below their
+  labels, in tiles of equal height (the two cost per kWh lines a little apart), and the health
+  bar's floor reads "70% End of Warranty" (the battery's own end-of-warranty capacity, as before).
+
 ## v0.1.10 (2026-11-18)
 
 ### TL;DR

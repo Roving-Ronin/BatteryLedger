@@ -11,7 +11,8 @@ const LOGO_URL = `${new URL("battery-ledger-logo.png", import.meta.url).pathname
 const WS_SETUPS = "battery_ledger/card/setups";
 const WS_SAVE = "battery_ledger/card/save_settings";
 const SECTIONS = ["warranty", "throughput", "cost", "health"];
-const DECIMAL_CHOICES = [2, 3, 4];
+const DECIMAL_CHOICES = [2, 3, 4, 5];
+const DATE_STYLES = ["ha", "day_month_year"];
 
 const STRINGS = {
   en: {
@@ -33,26 +34,29 @@ const STRINGS = {
     left_at_end: "Left at warranty end (projected): {kwh} kWh",
     used: "{kwh} kWh used",
     no_throughput_limit: "This warranty has no throughput limit.",
-    cost_consumed: "Value used to date",
-    remaining_value: "Remaining Value",
-    cost_per_kwh: "Cost Per kWh",
-    rated: "rated",
-    projected: "projected",
+    cost_consumed: "Value used to date:",
+    remaining_value: "Remaining Value:",
+    cost_per_kwh: "Cost per kWh:",
+    rated: "by usage",
+    projected: "by age",
     health: "Health",
     actual_soh: "Actual SoH (battery)",
     warranty_allows: "Projected SoH (Today)",
     no_soh: "No SoH sensor chosen for this setup",
     above: "{pct}% above warranty",
     below: "{pct}% below warranty",
-    eol: "{pct}% end of warranty",
+    eol: "{pct}% End of Warranty",
     curve: "warranty curve {pct}%",
     hardware: "Hardware Capacity:",
     most_used_module: "Most Used Module:",
     soc_spread: "Module SoC Spread:",
     settings: "Card settings",
     settings_button: "Card settings",
-    cost_decimals: "Cost per kWh decimal places",
-    sections: "Sections",
+    cost_decimals: "Cost per kWh decimal places:",
+    date_style: "Date display:",
+    date_style_ha: "Home Assistant format",
+    date_style_day_month_year: "Day month year (18 Jul 2035)",
+    sections: "Display Sections:",
     section_warranty: "Warranty",
     section_throughput: "Throughput",
     section_cost: "Cost",
@@ -61,7 +65,7 @@ const STRINGS = {
     save: "Save",
     save_failed: "Couldn't save the settings.",
     editor_setup: "BatteryLedger setup",
-    editor_hint: "Decimal places and sections are set with the cog on the card.",
+    editor_hint: "Decimal places, date display and sections are set with the cog on the card.",
   },
 };
 
@@ -93,7 +97,7 @@ const STYLE = `
   .chip.warn { background: rgba(255,166,0,.15); color: var(--bl-warn); }
   .chip.bad { background: rgba(219,68,55,.15); color: var(--bl-bad); }
   .chip.muted { background: var(--bl-tile); color: var(--bl-muted); }
-  .cog { color: var(--bl-muted); flex: none; margin: -10px -10px -10px 0; }
+  .cog { color: var(--bl-muted); flex: none; margin: -10px 0; }
   section { margin-top: 16px; }
   section:first-of-type { margin-top: 0; }
   .ring-row { display: flex; align-items: center; gap: 18px; }
@@ -114,6 +118,14 @@ const STYLE = `
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
   .tile { background: var(--bl-tile); border-radius: 8px; padding: 10px 12px; min-width: 0; }
   .big { font-size: 22px; font-weight: 500; line-height: 1.3; }
+  /* Money tiles: the figure is centred in the space below its label (the cost per kWh tile is taller). */
+  .tile.value { display: flex; flex-direction: column; }
+  .tile.value .big { flex: 1; display: flex; align-items: center; }
+  /* Cost per kWh: its two lines centred together in the same space, a little apart. */
+  .tile.value .pair { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px;
+                      margin-top: 4px; }
+  .tiles { align-items: stretch; }
+  .tile.value { min-height: 84px; }
   .mid { font-size: 15px; font-weight: 500; }
   .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .section-head .t { font-size: 15px; font-weight: 500; }
@@ -121,6 +133,8 @@ const STYLE = `
           justify-content: space-between; align-items: flex-start; gap: 8px; }
   .foot.bare { border-top: none; padding-top: 0; margin-top: 4px; justify-content: flex-end; }
   .foot .lines { display: grid; gap: 4px; min-width: 0; }
+  .foot .end { display: flex; align-items: center; gap: 2px; flex: none; }
+  .ver { font-size: 11px; color: var(--bl-muted); }
   [data-entity] { cursor: pointer; }
   .msg { color: var(--bl-muted); padding: 8px 0; }
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center;
@@ -223,6 +237,13 @@ class BatteryLedgerCard extends HTMLElement {
     if (!m) return iso || "—";
     const date = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
     const locale = this._hass?.locale || {};
+    if (this._setup?.settings?.date_style === "day_month_year") {
+      // 18 Jul 2035: the month's short name in the user's language, always day first.
+      const named = new Intl.DateTimeFormat(locale.language || this._hass?.language || "en",
+        { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).formatToParts(date);
+      const part = (type) => named.find((p) => p.type === type)?.value ?? "";
+      return `${part("day").padStart(2, "0")} ${part("month").replace(/\.$/, "")} ${part("year")}`;
+    }
     const lang = locale.date_format === "system" ? undefined : (locale.language || this._hass?.language || "en");
     const fmt = new Intl.DateTimeFormat(lang, { year: "numeric", month: "numeric", day: "numeric", timeZone: "UTC" });
     const order = { DMY: ["day", "month", "year"], MDY: ["month", "day", "year"], YMD: ["year", "month", "day"] }[locale.date_format];
@@ -385,13 +406,14 @@ class BatteryLedgerCard extends HTMLElement {
   _cost(t, setup) {
     const d = setup.settings.cost_decimals;
     return `<section><div class="tiles">
-      <div class="tile"${this._ent("cost_consumed_to_date")}><div class="lbl">${esc(t.cost_consumed)}</div>
+      <div class="tile value"${this._ent("cost_consumed_to_date")}><div class="lbl">${esc(t.cost_consumed)}</div>
         <div class="big">${esc(this._money(this._num("cost_consumed_to_date"), 2))}</div></div>
-      <div class="tile"${this._ent("cost_consumed_to_date")}><div class="lbl">${esc(t.remaining_value)}</div>
+      <div class="tile value"${this._ent("cost_consumed_to_date")}><div class="lbl">${esc(t.remaining_value)}</div>
         <div class="big">${esc(this._money(parseFloat(this._attr("cost_consumed_to_date", "estimated_remaining_value")), 2))}</div></div>
-      <div class="tile"><div class="lbl">${esc(t.cost_per_kwh)}</div>
+      <div class="tile value"><div class="lbl">${esc(t.cost_per_kwh)}</div>
+        <div class="pair">
         <div class="mid"${this._ent("cost_per_kwh_rated")}>${esc(this._money(this._num("cost_per_kwh_rated"), d))} <span class="lbl">${esc(t.rated)}</span></div>
-        <div class="mid"${this._ent("cost_per_kwh_projected")}>${esc(this._money(this._num("cost_per_kwh_projected"), d))} <span class="lbl">${esc(t.projected)}</span></div></div>
+        <div class="mid"${this._ent("cost_per_kwh_projected")}>${esc(this._money(this._num("cost_per_kwh_projected"), d))} <span class="lbl">${esc(t.projected)}</span></div></div></div>
     </div></section>`;
   }
 
@@ -453,8 +475,10 @@ class BatteryLedgerCard extends HTMLElement {
     const cog = this._hass.user?.is_admin
       ? `<ha-icon-button class="cog" label="${esc(t.settings_button)}" title="${esc(t.settings_button)}"><ha-icon icon="mdi:cog"></ha-icon></ha-icon-button>`
       : "";
-    if (!extra.length && !cog) return "";
-    return `<div class="foot${extra.length ? "" : " bare"}">${extra.length ? `<div class="lines">${extra.join("")}</div>` : ""}${cog}</div>`;
+    // Bottom right: the cog (admins), then the integration version, e.g. v0.1.10.
+    const version = CARD_VERSION !== "dev" ? `<span class="ver">v${esc(CARD_VERSION)}</span>` : "";
+    if (!extra.length && !cog && !version) return "";
+    return `<div class="foot${extra.length ? "" : " bare"}">${extra.length ? `<div class="lines">${extra.join("")}</div>` : ""}<div class="end">${cog}${version}</div></div>`;
   }
 
   _onClick(ev) {
@@ -475,6 +499,8 @@ class BatteryLedgerCard extends HTMLElement {
       <h3>${esc(t.settings)}</h3>
       <label for="dec">${esc(t.cost_decimals)}</label>
       <select id="dec">${decimals.map((d) => `<option value="${d}"${d === s.cost_decimals ? " selected" : ""}>${d}</option>`).join("")}</select>
+      <label for="datefmt">${esc(t.date_style)}</label>
+      <select id="datefmt">${DATE_STYLES.map((k) => `<option value="${k}"${k === (s.date_style || "ha") ? " selected" : ""}>${esc(t[`date_style_${k}`])}</option>`).join("")}</select>
       <label>${esc(t.sections)}</label>
       ${SECTIONS.map((k) => `<div class="check"><input type="checkbox" id="sec-${k}"${s.sections[k] ? " checked" : ""}><span>${esc(t[`section_${k}`])}</span></div>`).join("")}
       <div class="err" id="err" hidden>${esc(t.save_failed)}</div>
@@ -487,6 +513,7 @@ class BatteryLedgerCard extends HTMLElement {
     modal.querySelector("#save").addEventListener("click", async () => {
       const settings = {
         cost_decimals: Number(modal.querySelector("#dec").value),
+        date_style: modal.querySelector("#datefmt").value,
         sections: Object.fromEntries(SECTIONS.map((k) => [k, modal.querySelector(`#sec-${k}`).checked])),
       };
       try {

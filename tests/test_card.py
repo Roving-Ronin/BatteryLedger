@@ -28,7 +28,16 @@ async def test_card_setups_and_settings(hass: HomeAssistant, hass_ws_client):
     assert setup["currency"] == "AUD"
     assert setup["settings"] == DEFAULT_SETTINGS
 
-    settings = {"cost_decimals": 2, "sections": {"warranty": True, "throughput": False, "cost": True, "health": True}}
+    assert setup["settings"]["date_style"] == "ha"  # Home Assistant's date format unless chosen otherwise
+
+    # Saved by a card from before the date option: it keeps the default
+    older = {"cost_decimals": 2, "sections": {"warranty": True, "throughput": False, "cost": True, "health": True}}
+    await client.send_json_auto_id({"type": "battery_ledger/card/save_settings",
+                                    "entry_id": entry.entry_id, "settings": older})
+    res = await client.receive_json()
+    assert res["success"] and res["result"]["settings"] == {**older, "date_style": "ha"}
+
+    settings = {**older, "cost_decimals": 5, "date_style": "day_month_year"}
     await client.send_json_auto_id({"type": "battery_ledger/card/save_settings",
                                     "entry_id": entry.entry_id, "settings": settings})
     res = await client.receive_json()
@@ -37,7 +46,10 @@ async def test_card_setups_and_settings(hass: HomeAssistant, hass_ws_client):
     await client.send_json_auto_id({"type": "battery_ledger/card/setups"})
     assert (await client.receive_json())["result"]["setups"][0]["settings"] == settings
 
-    # Out-of-range decimals and unknown setups are refused
+    # Out-of-range decimals, unknown date styles and unknown setups are refused
+    await client.send_json_auto_id({"type": "battery_ledger/card/save_settings", "entry_id": entry.entry_id,
+                                    "settings": {**settings, "date_style": "mm-dd"}})
+    assert not (await client.receive_json())["success"]
     await client.send_json_auto_id({"type": "battery_ledger/card/save_settings", "entry_id": entry.entry_id,
                                     "settings": {**settings, "cost_decimals": 9}})
     assert not (await client.receive_json())["success"]
