@@ -10,6 +10,8 @@ credit where there is one.
 - Detect now says that the sensors it turns on stay on, also after BatteryLedger is removed
 - README: Marketplace install button fixed, with the HACS button as a fallback
 - Automatic code and workflow security checks (Ruff, zizmor, CodeQL); workflows hardened
+- Fixed: the Release workflow couldn't attach `battery_ledger.zip` (its permission had landed in the wrong
+  place); actionlint now checks the workflows' syntax to catch that kind of mistake
 
 ### Changed
 - Detect: the step that offers to turn on sensors says they stay on afterwards, even if BatteryLedger is
@@ -26,6 +28,11 @@ credit where there is one.
   to match: values pass to scripts through environment variables, each job gets only the permissions it needs,
   and checkouts don't keep the GitHub token unless they push. The card's JavaScript gets a syntax check, and
   Dependabot also keeps the test requirements up to date.
+
+### Fixed
+- Release workflow: the `contents: write` permission for attaching `battery_ledger.zip` was under the
+  release trigger instead of the job, so publishing a release failed with HTTP 403. A new actionlint check in
+  the Security workflow catches misplaced keys like that.
 
 ## v0.1.11 (2026-11-18)
 
