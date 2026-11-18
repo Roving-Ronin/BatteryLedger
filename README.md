@@ -232,9 +232,11 @@ time and throughput is further through the warranty. Before 0.1.9 the second was
 
 ## Reporting problems
 
-Use the [issue templates](https://github.com/Roving-Ronin/BatteryLedger/issues/new/choose). Bug reports missing
-the BatteryLedger version, Home Assistant version or battery are labelled `question` and closed after 5 days if
-they're not updated. Comment `/reopen` on your own closed issue to reopen it.
+Questions, ideas and setup help go in [Discussions](https://github.com/Roving-Ronin/BatteryLedger/discussions).
+For a bug or a feature request, use the
+[issue templates](https://github.com/Roving-Ronin/BatteryLedger/issues/new/choose). Bug reports missing the
+BatteryLedger version, Home Assistant version or battery are labelled `question` and closed after 5 days if they're
+not updated. Comment `/reopen` on your own closed issue to reopen it.
 
 ## Development
 

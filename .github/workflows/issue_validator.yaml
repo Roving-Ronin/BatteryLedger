@@ -73,6 +73,8 @@ jobs:
                   '',
                   'The templates collect the details needed (versions, battery, logs, steps to reproduce) before anything can be investigated. Please open a new issue using one of them:',
                   ...links,
+                  '',
+                  `For a question or an idea, please use [Discussions](https://github.com/${owner}/${repo}/discussions) instead.`,
                 ].join('\n'),
               });
             }
