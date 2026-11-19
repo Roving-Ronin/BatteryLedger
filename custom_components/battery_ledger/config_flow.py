@@ -1042,7 +1042,7 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
 
     async def async_step_service_life(self, user_input: dict | None = None) -> ConfigFlowResult:
         """Estimated Service Life and what Cost Per kWh (Export) publishes (also the number / select entities)."""
-        from .number import default_esl_years
+        from .number import default_esl_years, warranty_years
 
         options = dict(self.config_entry.options)
         if user_input is not None:
@@ -1062,7 +1062,7 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
         return self.async_show_form(
             step_id="service_life", data_schema=self.add_suggested_values_to_schema(schema, current),
             description_placeholders={
-                "warranty_years": _num(default_esl_years(runtime)),
+                "warranty_years": _num(warranty_years(runtime)), "default_years": _num(default_esl_years(runtime)),
                 "groups": "\n".join(f"- {g.units} × {g.label} · {g.install_date.isoformat()} → "
                                      f"{g.eosl.isoformat() if g.eosl else DASH}" for g in (res.groups if res else []))
                 or DASH})

@@ -32,6 +32,12 @@ const STRINGS = {
     remaining_throughput: "Remaining Warrantied Usage:",
     esl: "Estimated Service Life (ESL):",
     battery_groups: "Battery group:",
+    all_groups: "All",
+    status_on_track: "On Track | Normal",
+    status_ahead_of_time: "Degrading Faster Than Time Curve",
+    status_expired: "Warranty Ended",
+    driver_age: "Age (Time Elapsed)",
+    driver_throughput: "Throughput (Cycles)",
     esl_years: "years",
     eosl: "End of Service Life (EoSL):",
     export_cost: "Export Cost:",
@@ -87,6 +93,14 @@ const STRINGS = {
     editor_setup: "BatteryLedger setup",
     editor_hint: "Decimal places, date display and sections are set with the cog on the card.",
   },
+};
+
+// The warranty_status attribute's text -> the ledger's status codes ("/" is the text before v0.1.18)
+const STATUS_CODES = {
+  "On Track | Normal": "on_track",
+  "On Track / Normal": "on_track",
+  "Degrading Faster Than Time Curve": "ahead_of_time",
+  "Warranty Ended": "expired",
 };
 
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
@@ -175,18 +189,19 @@ const STYLE = `
   .dialog button.primary { background: var(--primary-color); border-color: var(--primary-color);
                            color: var(--text-primary-color, #fff); }
   .dialog .err { color: var(--bl-bad); font-size: 13px; margin-top: 10px; }
-  input.esl { width: 64px; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--divider-color, #555);
+  input.esl { width: 3.2em; padding: 2px 4px; -moz-appearance: textfield; appearance: textfield; border-radius: 6px; border: 1px solid var(--divider-color, #555);
               background: var(--card-background-color); color: var(--primary-text-color); font: inherit; text-align: right; }
+  input.esl::-webkit-outer-spin-button, input.esl::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   select.basis { width: 100%; box-sizing: border-box; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--divider-color, #555);
                  background: var(--card-background-color); color: var(--primary-text-color); font: inherit; font-size: 13px; }
-  .group { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); }
+  section.switcher { padding-top: 0; }
   .group-head { font-size: 13px; font-weight: 500; margin: 10px 0 6px; }
   .gchips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .gchips .lbl { margin-right: 4px; }
   .gchip { font: inherit; font-size: 13px; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 14px; cursor: pointer;
            border: 1px solid var(--divider-color, #555); background: none; color: var(--primary-text-color); }
-  .gchip[aria-pressed="true"] { background: var(--primary-color); border-color: var(--primary-color);
-                                color: var(--text-primary-color, #fff); }
+  /* Lavender: clear of the card's blue (by age), green (by usage), orange (curve) and red (warranty end) */
+  .gchip[aria-pressed="true"] { background: #b39ddb; border-color: #b39ddb; color: #1c1c1c; font-weight: 500; }
   .group-grid { display: grid; gap: 6px; }
   .basis-row { margin-top: 8px; display: grid; gap: 4px; min-width: 0; }
   .tile { min-width: 0; }
@@ -337,6 +352,7 @@ class BatteryLedgerCard extends HTMLElement {
     const sec = setup.settings.sections;
     body.innerHTML = [
       this._header(t, setup),
+      this._switcher(t),
       sec.warranty ? this._warranty(t) : "",
       sec.throughput ? this._throughput(t) : "",
       sec.cost ? this._cost(t, setup) : "",
@@ -358,7 +374,7 @@ class BatteryLedgerCard extends HTMLElement {
     for (const chip of body.querySelectorAll(".gchip")) {
       chip.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        this._group = Number(chip.dataset.group);
+        this._group = chip.dataset.group === "all" ? null : Number(chip.dataset.group);
         this._lastKey = "";
         this._render();
       });
@@ -375,9 +391,12 @@ class BatteryLedgerCard extends HTMLElement {
     const models = setup.groups.map((g) => `${esc(g.model)}${g.units > 1 ? ` × ${g.units}` : ""}`).join(" + ");
     const usable = this._num("initial_usable_capacity");
     const sub = [models, usable !== null ? esc(fill(t.usable, { kwh: this._fmt(usable, 2) })) : ""].filter(Boolean).join(" · ");
-    const status = this._attr("estimated_usable_capacity", "warranty_status");
-    const cls = status === "On Track / Normal" ? "ok" : status === "Degrading Faster Than Time Curve" ? "warn" : "muted";
-    const chip = status ? `<span class="chip ${cls}"${this._ent("estimated_usable_capacity")}>${esc(status)}</span>` : "";
+    // Status of the whole setup, or of the group chosen with the switcher
+    const g = this._picked();
+    const code = g ? g.status : STATUS_CODES[this._attr("estimated_usable_capacity", "warranty_status")];
+    const text = code ? t[`status_${code}`] : this._attr("estimated_usable_capacity", "warranty_status");
+    const cls = code === "on_track" ? "ok" : code === "ahead_of_time" ? "warn" : "muted";
+    const chip = text ? `<span class="chip ${cls}"${this._ent("estimated_usable_capacity")}>${esc(text)}</span>` : "";
     return `<div class="head">
       <img class="logo" src="${LOGO_URL}" alt="">
       <div class="grow"><div class="title">${esc(setup.title)}</div><div class="sub">${sub}</div></div>
@@ -434,16 +453,32 @@ class BatteryLedgerCard extends HTMLElement {
       return `<span${first ? ' class="driver-end"' : ""}>${esc(this._date(e.date))}</span>`;
     };
     const row = (label, value, ent, dot, spaced) => `<div class="stat${spaced ? " spaced" : ""}"${ent || ""}><span class="lbl">${dot ? `<span class="dot" style="background:${dot}"></span>` : ""}${esc(label)}</span><span class="v">${value}</span></div>`;
-    const groups = this._attr("rated_throughput_used", "groups") || [];
+    const groups = this._groups();
+    const g = this._picked();
+    if (g) {
+      // One battery group of several: its own figures
+      const gEnd = g.warranty_end_date ? { date: g.warranty_end_date, years: g.warranty_years } : null;
+      const gUsage = g.throughput_end_date ? { date: g.throughput_end_date } : null;
+      const ent = this._ent("rated_throughput_used");
+      return `<section><div class="ring-row">${this._ring(g.time_elapsed_pct, g.throughput_used_pct)}<div class="stats">
+        ${row(t.driver, esc(t[`driver_${g.driver}`] || g.driver || "—"), ent)}
+        ${gEnd ? row(fill(t.warranty_ends, { years: this._fmt(gEnd.years, gEnd.years % 1 ? 1 : 0) }), endValue(gEnd, gUsage, true), "", null, true) : ""}
+        ${row(t.by_time, `${this._fmt(g.time_elapsed_pct, 2)}%`, ent, "var(--bl-time)")}
+        ${gUsage ? row(t.warranty_ends_usage, endValue(gUsage, gEnd), ent, null, true) : ""}
+        ${g.throughput_used_pct != null ? row(t.by_throughput, `${this._fmt(g.throughput_used_pct, 2)}%`, ent, "var(--bl-tp)") : ""}
+        ${this._serviceLife(t, row, false)}
+        ${g.end_of_service_life ? row(t.eosl, esc(this._date(g.end_of_service_life)), this._ent("end_of_service_life")) : ""}
+      </div></div></section>`;
+    }
     if (groups.length > 1) {
-      // Several battery groups: the setup's totals beside the ring, then each group's own dates and use
+      // All: the whole setup (end dates differ by group: choose one with the switcher)
       return `<section><div class="ring-row">${this._ring(timePct, tpPct)}<div class="stats">
         ${row(t.driver, esc(driver ?? "—"), this._ent("estimated_usable_capacity"))}
         ${row(t.cycles, this._fmt(this._num("cycles_per_day"), 4), this._ent("cycles_per_day"))}
         ${row(t.by_time, `${this._fmt(timePct, 2)}%`, this._ent("warranty_time_elapsed"), "var(--bl-time)", true)}
         ${row(t.by_throughput, `${this._fmt(tpPct, 2)}%`, this._ent("rated_throughput_used"), "var(--bl-tp)")}
-        ${this._serviceLife(t, row, false)}
-      </div></div>${this._groupSwitcher(t, groups, row, endValue)}</section>`;
+        ${this._serviceLife(t, row)}
+      </div></div></section>`;
     }
     return `<section><div class="ring-row">${this._ring(timePct, tpPct)}<div class="stats">
       ${row(t.driver, esc(driver ?? "—"), this._ent("estimated_usable_capacity"))}
@@ -456,28 +491,29 @@ class BatteryLedgerCard extends HTMLElement {
     </div></div></section>`;
   }
 
-  // Several battery groups: a chip per group (1, 2, 3 …) and the chosen group's rows below.
-  _groupSwitcher(t, groups, row, endValue) {
-    const pick = Math.min(this._group || 0, groups.length - 1);
-    const chips = groups.map((g, i) => `<button class="gchip" data-group="${i}" aria-pressed="${i === pick}"
-      title="${esc(`${g.units} × ${g.label} · ${this._date(g.install_date)}`)}">${i + 1}</button>`).join("");
-    return `<div class="group"><div class="gchips" role="group" aria-label="${esc(t.battery_groups)}">
-      <span class="lbl">${esc(t.battery_groups)}</span>${chips}</div>${this._groupBlock(t, groups[pick], row, endValue)}</div>`;
+  _groups() {
+    return this._attr("rated_throughput_used", "groups") || [];
   }
 
-  // One battery group: its warranty end dates (the first to come in red), use by age and usage, and EoSL.
-  _groupBlock(t, g, row, endValue) {
-    const end = g.warranty_end_date ? { date: g.warranty_end_date, years: g.warranty_years } : null;
-    const usageEnd = g.throughput_end_date ? { date: g.throughput_end_date } : null;
-    const head = `${g.units} × ${g.label} · ${this._date(g.install_date)}`;
-    const ent = this._ent("rated_throughput_used");
-    return `<div class="group-body"${ent}><div class="group-head">${esc(head)}</div><div class="group-grid">
-      ${end ? row(fill(t.warranty_ends, { years: this._fmt(end.years, end.years % 1 ? 1 : 0) }), endValue(end, usageEnd, true)) : ""}
-      ${row(t.by_time, `${this._fmt(g.time_elapsed_pct, 2)}%`, "", "var(--bl-time)")}
-      ${usageEnd ? row(t.warranty_ends_usage, endValue(usageEnd, end)) : ""}
-      ${g.throughput_used_pct != null ? row(t.by_throughput, `${this._fmt(g.throughput_used_pct, 2)}%`, "", "var(--bl-tp)") : ""}
-      ${g.end_of_service_life ? row(t.eosl, esc(this._date(g.end_of_service_life))) : ""}
-    </div></div>`;
+  // The battery group chosen with the switcher, or null for All (the whole setup)
+  _picked() {
+    const groups = this._groups();
+    return groups.length > 1 && this._group != null && this._group < groups.length ? groups[this._group] : null;
+  }
+
+  // Several battery groups: All and a chip per group (1, 2, 3 …). A group shows its own warranty, throughput
+  // and warranty-curve figures; cost stays for the whole setup.
+  _switcher(t) {
+    const groups = this._groups();
+    if (groups.length < 2) return "";
+    const pick = this._picked() ? this._group : null;
+    const chip = (value, text, title) => `<button class="gchip" data-group="${value}" aria-pressed="${value === (pick ?? "all")}"${title ? ` title="${esc(title)}"` : ""}>${esc(text)}</button>`;
+    const chips = [chip("all", t.all_groups),
+      ...groups.map((g, i) => chip(i, String(i + 1), `${g.units} × ${g.label} · ${this._date(g.install_date)}`))].join("");
+    const g = this._picked();
+    const head = g ? `<div class="group-head">${esc(`${g.units} × ${g.label} · ${this._date(g.install_date)}`)}</div>` : "";
+    return `<section class="switcher"><div class="gchips" role="group" aria-label="${esc(t.battery_groups)}">
+      <span class="lbl">${esc(t.battery_groups)}</span>${chips}</div>${head}</section>`;
   }
 
   // Estimated Service Life (a box admins can change) and each battery group's End of Service Life.
@@ -497,13 +533,15 @@ class BatteryLedgerCard extends HTMLElement {
   }
 
   _throughput(t) {
-    const total = this._num("total_rated_throughput");
-    const remaining = this._num("remaining_rated_throughput");
+    const g = this._picked();
+    const total = g ? g.throughput_limit_kwh : this._num("total_rated_throughput");
+    const used = g ? g.throughput_used_kwh : this._num("rated_throughput_used");
+    const remaining = g ? (total != null && used != null ? Math.max(0, total - used) : null)
+      : this._num("remaining_rated_throughput");
     if (!total || remaining === null) {
       return this._state("total_rated_throughput") ? `<section><div class="lbl">${esc(t.no_throughput_limit)}</div></section>` : "";
     }
-    const used = this._num("rated_throughput_used");
-    const projected = this._num("projected_warranted_throughput");
+    const projected = g ? g.projected_throughput_kwh ?? null : this._num("projected_warranted_throughput");
     const leftAtEnd = projected !== null ? Math.max(0, total - projected) : null;
     const pct = (v) => Math.max(0, Math.min(100, v / total * 100)).toFixed(2);
     return `<section>
@@ -581,16 +619,18 @@ class BatteryLedgerCard extends HTMLElement {
 
   _health(t, setup) {
     const initial = this._num("initial_usable_capacity");
-    const curve = this._num("estimated_usable_capacity");  // warranty-allowed SoH today (extrapolated)
-    const curveKwh = parseFloat(this._attr("estimated_usable_capacity", "remaining_usable_kwh"));
+    const g = this._picked();  // a chosen group: its warranty curve against the battery's reported SoH
+    const curve = g ? g.warranty_floor_pct : this._num("estimated_usable_capacity");  // warranty-allowed SoH today
+    const curveKwh = g ? g.warranty_floor_kwh : parseFloat(this._attr("estimated_usable_capacity", "remaining_usable_kwh"));
     const soh = parseFloat(this._attr("soh_above_warranty_floor", "reported_soh_pct"));
     const hasSoh = Number.isFinite(soh);
-    const margin = this._num("soh_above_warranty_floor");
-    const eols = setup.groups.map((g) => g.eol_capacity_pct).filter((v) => Number.isFinite(v));
-    const eol = eols.length ? Math.max(...eols) : 60;
+    const margin = g ? (hasSoh && curve != null ? soh - curve : null) : this._num("soh_above_warranty_floor");
+    const eols = g ? [g.end_of_warranty_capacity_pct] : setup.groups.map((x) => x.eol_capacity_pct);
+    const eolList = eols.filter((v) => Number.isFinite(v));
+    const eol = eolList.length ? Math.max(...eolList) : 60;
     const span = Math.max(1, 100 - eol);
     const pos = (v) => Math.max(0, Math.min(100, (v - eol) / span * 100)).toFixed(2);
-    const driver = this._attr("estimated_usable_capacity", "degradation_driver");
+    const driver = g ? t[`driver_${g.driver}`] || g.driver : this._attr("estimated_usable_capacity", "degradation_driver");
 
     let chip = "";
     if (margin !== null) {

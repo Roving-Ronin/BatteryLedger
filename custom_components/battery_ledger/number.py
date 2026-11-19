@@ -1,6 +1,7 @@
 """Estimated Service Life (ESL): how many years the battery is expected to be kept, one value per setup.
 
 Counted from each battery group's warranty start, so a stack added later has its own End of Service Life.
+Until set: 15 years, or the setup's longest warranty if that's longer.
 Changing it recalculates the sensors without reloading the setup.
 """
 
@@ -14,6 +15,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_ESL_YEARS, CONF_SPEC, ENTITY_ID_PREFIX, ESL_MAX_YEARS, ESL_MIN_YEARS, ESL_STEP_YEARS
+from .ledger import default_esl_years as ledger_default_esl
 from .runtime import LedgerRuntime
 from .sensor import device_info
 
@@ -21,7 +23,11 @@ KEY = "estimated_service_life"
 
 
 def default_esl_years(runtime: LedgerRuntime) -> float:
-    """Without a setting: the (longest) warranty period of the setup's batteries."""
+    """Without a setting: 15 years, or the setup's longest warranty if that's longer."""
+    return ledger_default_esl([g[CONF_SPEC] for g in runtime.groups])
+
+
+def warranty_years(runtime: LedgerRuntime) -> float:
     return float(max(g[CONF_SPEC]["warranty"]["years"] for g in runtime.groups))
 
 
