@@ -22,6 +22,11 @@ async def test_card_setups_and_settings(hass: HomeAssistant, hass_ws_client):
     # Found by unique ID, so a renamed entity is still found
     assert setup["entities"]["total_rated_throughput"] == "sensor.battery_ledger_total_rated_throughput"
     assert setup["entities"]["cost_consumed_to_date"] == "sensor.battery_ledger_cost_consumed_to_date"
+    # The settings the card can change, and the sensors for them
+    assert setup["entities"]["estimated_service_life"] == "number.battery_ledger_estimated_service_life"
+    assert setup["entities"]["export_cost_basis"] == "select.battery_ledger_export_cost_basis"
+    assert setup["entities"]["cost_per_kwh_export"] == "sensor.battery_ledger_cost_per_kwh_export"
+    assert setup["entities"]["end_of_service_life"] == "sensor.battery_ledger_end_of_service_life"
     [group] = setup["groups"]
     assert group["model"] == "SigenStor BAT 8.0" and group["units"] == 6
     assert group["install_date"] == "2025-01-01" and group["warranty_years"] == 10

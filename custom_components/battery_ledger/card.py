@@ -51,7 +51,10 @@ CARD_SENSOR_KEYS = (
     "cost_per_kwh_rated", "cost_per_kwh_projected", "cost_consumed_to_date",
     "initial_usable_capacity", "estimated_usable_capacity", "soh_above_warranty_floor",
     "hardware_capacity_validation", "most_used_module_throughput", "module_soc_spread",
+    "cost_per_kwh_export", "end_of_service_life",
 )
+# Settings the card can change (number / select entities)
+CARD_CONTROL_KEYS = (("number", "estimated_service_life"), ("select", "export_cost_basis"))
 
 SETTINGS_SCHEMA = vol.Schema({
     vol.Required("cost_decimals"): vol.All(vol.Coerce(int), vol.Range(min=0, max=6)),
@@ -138,6 +141,9 @@ def _setup_info(hass: HomeAssistant, entry, settings: dict, index: StoreIndex) -
         key: entity_id for key in CARD_SENSOR_KEYS
         if (entity_id := registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{key}"))
     }
+    for domain, key in CARD_CONTROL_KEYS:
+        if entity_id := registry.async_get_entity_id(domain, DOMAIN, f"{entry.entry_id}_{key}"):
+            entities[key] = entity_id
     runtime = entry.runtime_data
     groups = []
     for group in entry.data.get(CONF_GROUPS, []):

@@ -193,11 +193,14 @@ The card has four sections:
   The larger one is the warranty driver, shown first with cycles per day. Below are two warranty end dates, each
   above its share: by age, labelled with your battery's warranty period (e.g. **Warranty Ends (10 years)**:
   warranty start + 10 years), and **Warranty Ends (by usage)**, when the throughput limit would be reached at your
-  average daily use so far. The warranty ends at whichever comes first, shown in red.
+  average daily use so far. The warranty ends at whichever comes first, shown in red. Then **Estimated Service
+  Life (ESL)**, which admins can change in its box, and **End of Service Life (EoSL)**. With more than one battery
+  group, the rows beside the rings are for the whole setup, and a **Battery group** switcher (1, 2, 3 …) shows the
+  chosen group's end dates, use and EoSL.
 - **Throughput:** remaining warrantied usage (rated throughput) counts down, with a marker for what's projected
   to be left when the warranty ends.
-- **Cost:** value used to date (the `cost_consumed_to_date` sensor), remaining value, and cost per kWh, rated and
-  projected.
+- **Cost:** value used to date (the `cost_consumed_to_date` sensor), remaining value, cost per kWh (by usage and
+  by age), and **Export Cost** with its basis; admins choose the **Export Cost Basis** there.
 - **Health:** your battery's reported state of health against the warranty curve (Estimated Usable
   Capacity, what the warranty allows at this age and usage), on a scale from the end-of-warranty capacity
   to 100%. The hardware capacity check and module figures are shown when available.

@@ -4,6 +4,24 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.1.17 (2026-11-20)
+
+### TL;DR
+- Card: **Estimated Service Life (ESL)**, **End of Service Life (EoSL)**, **Export Cost** and its basis
+- Card: with more than one battery group, a **Battery group** switcher shows each group's end dates and use
+
+### Added
+- Card, Warranty section: **Estimated Service Life (ESL)** (a box admins can change; text for other users) and
+  **End of Service Life (EoSL)**.
+- Card, Cost section: **Export Cost** (Cost Per kWh (Export) and its basis: by age, by usage, ESL or SoH trend) and
+  **Export Cost Basis** (a dropdown for admins: Warranty, Warranty by age, Warranty by usage, ESL, Cheapest).
+
+### Fixed
+- Card, with more than one battery group: the warranty end dates were the newest group's only. The rows beside the
+  rings now show the whole setup (warranty driver, cycles per day, warranty used by age and by usage, ESL), and a
+  **Battery group** switcher (1, 2, 3 …) shows the chosen group's warranty end dates, use by age and usage, and
+  EoSL. One group: unchanged.
+
 ## v0.1.16 (2026-11-20)
 
 ### TL;DR
