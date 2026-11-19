@@ -42,7 +42,12 @@ const STRINGS = {
     health: "Health",
     actual_soh: "Actual SoH (battery)",
     warranty_allows: "Projected SoH (Today)",
-    no_soh: "No SoH sensor chosen for this setup",
+    // Actual SoH tile without a reading: why, from the setup's integration (its Store profile)
+    soh_no_reading: "No SoH reading from {source}",
+    soh_no_reading_unknown: "No SoH reading from the SoH sensor",
+    soh_not_set_up: "Not Configured",
+    soh_unavailable: "Not available for {brand}",
+    soh_not_configured: "No SoH sensor configured",
     above: "{pct}% above warranty",
     below: "{pct}% below warranty",
     eol: "{pct}% End of Warranty",
@@ -105,6 +110,9 @@ const STYLE = `
   .stat { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   .stat .v { font-size: 14px; font-weight: 500; text-align: right; }
   .driver-end { color: var(--bl-bad); }
+  .setup-link { color: var(--primary-color); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+  .setup-link ha-icon { --mdc-icon-size: 18px; }
+  .setup-link:hover { text-decoration: underline; }
   /* A thin line above each end date, starting its group. */
   .stat.spaced { border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); padding-top: 8px; }
   /* The dot hangs in the gap left of the label, so every label's words start in line. */
@@ -405,16 +413,45 @@ class BatteryLedgerCard extends HTMLElement {
 
   _cost(t, setup) {
     const d = setup.settings.cost_decimals;
+    // When both cost per kWh figures read the same (e.g. the throughput allowance will all be used before the
+    // date end), show the one figure at the size of the others; otherwise both, labelled.
+    const byUsage = this._money(this._num("cost_per_kwh_rated"), d);
+    const byAge = this._money(this._num("cost_per_kwh_projected"), d);
+    const costTile = byUsage === byAge
+      ? `<div class="tile value"${this._ent("cost_per_kwh_rated")}><div class="lbl">${esc(t.cost_per_kwh)}</div>
+        <div class="big">${esc(byUsage)}</div></div>`
+      : `<div class="tile value"><div class="lbl">${esc(t.cost_per_kwh)}</div>
+        <div class="pair">
+        <div class="mid"${this._ent("cost_per_kwh_rated")}>${esc(byUsage)} <span class="lbl">${esc(t.rated)}</span></div>
+        <div class="mid"${this._ent("cost_per_kwh_projected")}>${esc(byAge)} <span class="lbl">${esc(t.projected)}</span></div></div></div>`;
     return `<section><div class="tiles">
       <div class="tile value"${this._ent("cost_consumed_to_date")}><div class="lbl">${esc(t.cost_consumed)}</div>
         <div class="big">${esc(this._money(this._num("cost_consumed_to_date"), 2))}</div></div>
       <div class="tile value"${this._ent("cost_consumed_to_date")}><div class="lbl">${esc(t.remaining_value)}</div>
         <div class="big">${esc(this._money(parseFloat(this._attr("cost_consumed_to_date", "estimated_remaining_value")), 2))}</div></div>
-      <div class="tile value"><div class="lbl">${esc(t.cost_per_kwh)}</div>
-        <div class="pair">
-        <div class="mid"${this._ent("cost_per_kwh_rated")}>${esc(this._money(this._num("cost_per_kwh_rated"), d))} <span class="lbl">${esc(t.rated)}</span></div>
-        <div class="mid"${this._ent("cost_per_kwh_projected")}>${esc(this._money(this._num("cost_per_kwh_projected"), d))} <span class="lbl">${esc(t.projected)}</span></div></div></div>
+      ${costTile}
     </div></section>`;
+  }
+
+  // "Not Configured" with a cog: for admins, a link to this setup on BatteryLedger's integration page,
+  // where Configure → Sensors and currency chooses the SoH sensor.
+  _noSohHtml(t, src, setup) {
+    const text = esc(this._noSohText(t, src, setup));
+    if (!(!src.configured && src.available === true)) return text;
+    if (!this._hass?.user?.is_admin) return text;
+    const href = `/config/integrations/integration/battery_ledger#config_entry=${encodeURIComponent(setup.entry_id)}`;
+    return `<a class="setup-link" href="${href}">${text} <ha-icon icon="mdi:cog"></ha-icon></a>`;
+  }
+
+  _noSohText(t, src, setup) {
+    const brand = [...new Set((setup.groups || []).map((g) => g.brand).filter(Boolean))].join(" / ");
+    // The battery doesn't provide SoH through this integration (from its Store profile, e.g. Huawei on Huawei
+    // Solar or Energy Manager): say so for the brand. A chosen sensor that's empty for a battery that does
+    // provide it is a setup problem with that integration: "No SoH reading from <integration>".
+    if (src.available === false && brand) return fill(t.soh_unavailable, { brand });
+    if (src.configured) return src.source ? fill(t.soh_no_reading, { source: src.source }) : t.soh_no_reading_unknown;
+    if (src.available === true) return t.soh_not_set_up;
+    return t.soh_not_configured;
   }
 
   _health(t, setup) {
@@ -439,7 +476,7 @@ class BatteryLedgerCard extends HTMLElement {
       ? `<div class="tile"${this._ent("soh_above_warranty_floor")}><div class="lbl">${esc(t.actual_soh)}</div>
           <div class="big">${this._fmt(soh, 1)}%</div>
           <div class="lbl">${initial !== null ? esc(fill(t.usable, { kwh: this._fmt(initial * soh / 100, 1) })) : ""}</div></div>`
-      : `<div class="tile"><div class="lbl">${esc(t.actual_soh)}</div><div class="lbl" style="margin-top:6px">${esc(t.no_soh)}</div></div>`;
+      : `<div class="tile"><div class="lbl">${esc(t.actual_soh)}</div><div class="lbl" style="margin-top:6px">${this._noSohHtml(t, setup.soh || {}, setup)}</div></div>`;
     const curveTile = `<div class="tile"${this._ent("estimated_usable_capacity")}><div class="lbl">${esc(t.warranty_allows)}</div>
           <div class="big">${this._fmt(curve, 1)}%</div>
           <div class="lbl">${Number.isFinite(curveKwh) ? `${this._fmt(curveKwh, 1)} kWh` : ""}${driver ? ` · ${esc(driver)}` : ""}</div></div>`;
@@ -482,6 +519,14 @@ class BatteryLedgerCard extends HTMLElement {
   }
 
   _onClick(ev) {
+    const link = ev.composedPath().find((n) => n.classList && n.classList.contains("setup-link"));
+    if (link) {
+      // Navigate inside Home Assistant (no page reload), as the frontend's own links do
+      ev.preventDefault();
+      history.pushState(null, "", link.getAttribute("href"));
+      window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+      return;
+    }
     const el = ev.composedPath().find((n) => n.dataset && n.dataset.entity);
     if (!el) return;
     this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: el.dataset.entity }, bubbles: true, composed: true }));

@@ -89,3 +89,35 @@ def test_logo_ships_with_the_card():
     from custom_components.battery_ledger.card import CARD_FILE, LOGO_FILE
     assert LOGO_FILE.is_file() and LOGO_FILE.parent == CARD_FILE.parent
     assert "battery-ledger-logo.png" in CARD_FILE.read_text()
+
+
+async def test_soh_source_explains_a_missing_reading(hass):
+    """Why the Actual SoH tile has no figure: not set up, not available from that integration, no reading."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.battery_ledger.card import _soh_source
+    from custom_components.battery_ledger.store_client import async_get_store_index
+
+    index = await async_get_store_index(hass)
+
+    def src(profile, brands, **extra):
+        return _soh_source(MockConfigEntry(domain="battery_ledger", data={"sensor_profile": profile, **extra}),
+                           index, brands)
+
+    sigen = src("sigen-local-modbus", ["Sigenergy"])
+    assert sigen == {"configured": False, "available": True, "source": sigen["source"]} and sigen["source"]
+    # Huawei Solar has SoH only from a SmartLogger: not available for a LUNA2000 / IS-BATT
+    assert src("huawei-solar-wlcrs", ["Huawei"])["available"] is False
+    assert src("huawei-solar-wlcrs", ["iStore"])["available"] is False
+    # Energy Manager: available when the battery reports it (Sungrow), not for Huawei / iStore
+    assert src("energy-manager", ["Sungrow"])["available"] is True
+    assert src("energy-manager", ["Huawei"])["available"] is False
+    # No SoH rule at all (Deye via Solarman)
+    assert src("deye-solarman-davidrapan", ["Deye"])["available"] is False
+    # Manual setup: the integration isn't known
+    assert src(None, ["Sigenergy"]) == {"configured": False, "available": None, "source": None}
+    # A sensor chosen (reading or not)
+    # Energy Manager with a Sungrow battery (which provides SoH): an empty reading is an Energy Manager issue;
+    # with a Huawei battery it's not available for the brand
+    em = src("energy-manager", ["Sungrow"], soh_entity="sensor.inverter_battery_soh")
+    assert em["configured"] is True and em["available"] is True and em["source"] == "Energy Manager"
+    assert src("energy-manager", ["Huawei"], soh_entity="sensor.inverter_battery_soh")["available"] is False

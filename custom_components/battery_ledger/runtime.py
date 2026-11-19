@@ -215,6 +215,8 @@ class LedgerRuntime:
         discharged = self._read_kwh(cfg.get(CONF_DISCHARGED_ENTITY))
         capacity = self._read_kwh(cfg.get(CONF_CAPACITY_ENTITY))
         soh = self._read_number(cfg.get(CONF_SOH_ENTITY))
+        if soh is not None and soh <= 0:
+            soh = None  # 0% is a source that doesn't report SoH (e.g. publishing 0), not a dead battery
 
         module_kwh: dict[int, dict[str, float]] = {}
         module_soc: dict[str, float] = {}

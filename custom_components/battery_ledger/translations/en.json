@@ -97,7 +97,7 @@
         "data_description": {
           "reported_capacity_entity": "The battery capacity your inverter reports, used to check the configured units match the hardware.",
           "soh_entity": "The health % your inverter reports, compared against the warranty floor.",
-          "currency_style": "Symbol: {symbol} and {symbol}/kWh, as in the original YAML package. Code: {currency} and {currency}/kWh, shown as money in each user's own currency format."
+          "currency_style": "Currency code: {currency} and {currency}/kWh, shown as money in each user's own currency format. Currency symbol: {symbol} and {symbol}/kWh, as in the original YAML package."
         }
       },
       "sensors": {
@@ -192,7 +192,7 @@
         },
         "description": "Costs use your Home Assistant currency, **{currency}**.",
         "data_description": {
-          "currency_style": "Symbol: {symbol} and {symbol}/kWh, as in the original YAML package. Code: {currency} and {currency}/kWh, shown as money in each user's own currency format."
+          "currency_style": "Currency code: {currency} and {currency}/kWh, shown as money in each user's own currency format. Currency symbol: {symbol} and {symbol}/kWh, as in the original YAML package."
         }
       },
       "costs": {
