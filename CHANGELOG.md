@@ -4,7 +4,34 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
-## v0.1.13 (unreleased)
+## v0.1.14 (2026-11-19)
+
+### TL;DR
+- Configure → **Battery groups**: fix a wrong unit count or warranty start date, remove a group, or add
+  batteries installed later (more modules in a stack, or another stack), without deleting and re-creating the
+  setup
+- README: what a battery group is, with examples
+
+### Added
+- Configure → Battery groups, for a setup that's already running:
+  - **Change or remove a group:** its number of units (checked against the battery's warranty, as in setup) and
+    warranty start date. Removing a group also removes its cost and its battery modules; the only group can't
+    be removed.
+  - **Add a battery group:** choose the battery from the Store list (your setup's brands first), then the number
+    of units, warranty start date and cost. The battery's spec is copied into the setup, as in setup. With Energy
+    Manager, the second group's warranty start and cost are filled in from `input_datetime.battery_install_date_2`
+    and `input_number.battery_install_cost_2`.
+  - **Battery modules:** with per-module tracking (sigenergy2mqtt with the Sigen Cloud API), adding a group or
+    adding units to one offers the module sensors your integration now reports that aren't tracked yet, matched
+    to that group's model by rated capacity.
+
+  Every sensor is recalculated after a change.
+- README: a **Battery groups** section on what a group is (batteries of one model with the same warranty start
+  date and cost, not a stack), with examples, and how unit limits, warranty limits and shared counters work.
+- Setup and Configure: the units field says which unit counts are allowed and that batteries added on another
+  date go in their own group.
+
+## v0.1.13 (2026-11-19)
 
 ### TL;DR
 - An SoH reading of 0% counts as no reading, and energy counters stuck at 0 get a note, so a source that

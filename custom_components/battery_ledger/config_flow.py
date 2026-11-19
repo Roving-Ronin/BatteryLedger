@@ -159,10 +159,57 @@ def _currency_placeholders(code: str) -> dict[str, str]:
     return {"currency": code, "symbol": CURRENCY_SYMBOLS.get(code, code)}
 
 
+def _read_float(hass, entity_id: str | None) -> float | None:
+    state = hass.states.get(entity_id) if entity_id else None
+    try:
+        return float(state.state) if state else None
+    except ValueError:
+        return None
+
+
 def _registry_entities(hass, *, include_disabled: bool = False) -> list[RegistryEntity]:
     registry = er.async_get(hass)
     return [RegistryEntity(e.entity_id, e.platform, e.unique_id)
             for e in registry.entities.values() if include_disabled or not e.disabled]
+
+
+async def _async_helper_value(hass, brand: str, role: str) -> str | None:
+    """State of a system role (e.g. an install-date helper) from a profile for this brand."""
+    index = await async_get_store_index(hass)
+    profiles = [p for p in index.profiles_for_brands({brand}) if role in p.get("roles", {})]
+    if not profiles:
+        return None
+    entities = _registry_entities(hass)
+    for profile in profiles:
+        for system in detect(profile, entities):
+            if role in system.roles:
+                state = hass.states.get(system.roles[role][1])
+                if state and state.state not in ("unknown", "unavailable", ""):
+                    return state.state
+    return None
+
+
+async def _async_group_prefill(hass, spec: dict, n: int, units: int | None = None) -> dict[str, Any]:
+    """Units, warranty start and cost for battery group number n (0-based), from detection or helpers.
+
+    The first group takes an integration's install date and cost (e.g. Energy Manager's
+    battery_install_date / battery_install_cost), the second its "_2" pair, and so on where they exist.
+    """
+    suffix = "" if n == 0 else f"_{n + 1}"
+    out: dict[str, Any] = {CONF_UNITS: units}
+    install = await _async_helper_value(hass, spec["brand"], f"install_date{suffix}")
+    try:
+        found = date.fromisoformat(install[:10]) if install else None
+    except ValueError:
+        found = None
+    if found and found <= dt_util.now().date():
+        out[CONF_INSTALL_DATE] = found.isoformat()
+    cost = await _async_helper_value(hass, spec["brand"], f"install_cost{suffix}")
+    try:
+        out[CONF_COST] = float(cost) if cost and float(cost) > 0 else None
+    except ValueError:
+        pass
+    return out
 
 
 def _cost_box() -> sel.NumberSelector:
@@ -636,42 +683,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                                     description_placeholders=placeholders)
 
     async def _group_prefill(self, spec: dict) -> dict[str, Any]:
-        """Units, warranty start and cost for the group being added, from detection or helpers.
-
-        The first group takes an integration's install date and cost (e.g. Energy Manager's
-        battery_install_date / battery_install_cost), the second its "_2" pair.
-        """
-        n = len(self._groups)
-        suffix = "" if n == 0 else f"_{n + 1}"
-        out: dict[str, Any] = {CONF_UNITS: self._pending_units}
-        install = await self._helper_value(spec["brand"], f"install_date{suffix}")
-        try:
-            found = date.fromisoformat(install[:10]) if install else None
-        except ValueError:
-            found = None
-        if found and found <= dt_util.now().date():
-            out[CONF_INSTALL_DATE] = found.isoformat()
-        cost = await self._helper_value(spec["brand"], f"install_cost{suffix}")
-        try:
-            out[CONF_COST] = float(cost) if cost and float(cost) > 0 else None
-        except ValueError:
-            pass
-        return out
-
-    async def _helper_value(self, brand: str, role: str) -> str | None:
-        """State of a system role (e.g. an install-date helper) from a profile for this brand."""
-        index = await async_get_store_index(self.hass)
-        profiles = [p for p in index.profiles_for_brands({brand}) if role in p.get("roles", {})]
-        if not profiles:
-            return None
-        entities = _registry_entities(self.hass)
-        for profile in profiles:
-            for system in detect(profile, entities):
-                if role in system.roles:
-                    state = self.hass.states.get(system.roles[role][1])
-                    if state and state.state not in ("unknown", "unavailable", ""):
-                        return state.state
-        return None
+        return await _async_group_prefill(self.hass, spec, len(self._groups), self._pending_units)
 
     async def async_step_add_more(self, user_input: dict | None = None) -> ConfigFlowResult:
         summary = "\n".join(
@@ -744,18 +756,11 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
 
-    def _read_float(self, entity_id: str | None) -> float | None:
-        state = self.hass.states.get(entity_id) if entity_id else None
-        try:
-            return float(state.state) if state else None
-        except ValueError:
-            return None
-
     async def async_step_modules(self, user_input: dict | None = None) -> ConfigFlowResult:
         if self._system is None:
             return await self.async_step_system()
         mods = {mid: roles for mid, roles in self._system.modules.items() if "module_discharged_energy" in roles}
-        rated = {mid: self._read_float(r.get("module_rated_capacity")) for mid, r in mods.items()}
+        rated = {mid: _read_float(self.hass, r.get("module_rated_capacity")) for mid, r in mods.items()}
         group_caps = [
             (g[CONF_SPEC]["capacity"].get("reported_kwh", g[CONF_SPEC]["capacity"].get("nominal_kwh")), g[CONF_UNITS])
             for g in self._groups
@@ -823,15 +828,204 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         })
 
 
+def _group_label(g: dict) -> str:
+    """Data only: '6 × Sigenergy SigenStor BAT 8.0 · 2025-07-18'."""
+    return f"{g[CONF_UNITS]} × {g[CONF_SPEC]['brand']} {g[CONF_SPEC]['model']} · {g[CONF_INSTALL_DATE]}"
+
+
+def _check_group(spec: dict, units: int, install: date) -> dict[str, str]:
+    errors: dict[str, str] = {}
+    try:
+        validate_units(spec, units)
+    except SpecError:
+        errors[CONF_UNITS] = "bad_units"
+    if install > dt_util.now().date():
+        errors[CONF_INSTALL_DATE] = "future_date"
+    return errors
+
+
 class BatteryLedgerOptionsFlow(OptionsFlow):
-    """Change sensors, currency style and each battery group's cost after setup."""
+    """Change sensors, currency style, battery groups and each group's cost after setup."""
 
     def __init__(self) -> None:
         self._cost_index = 0
         self._costs: list[float | None] = []
+        self._edit_index: int | None = None
+        self._add_spec: dict | None = None
+        self._pending_groups: list[dict] = []
+        self._module_target = 0
+        self._new_modules: dict[str, dict] = {}
 
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
-        return self.async_show_menu(step_id="init", menu_options=["system", "costs"])
+        return self.async_show_menu(step_id="init", menu_options=["system", "groups", "costs"])
+
+    # --- Battery groups: change units / warranty start, remove, or add one --------------------
+
+    def _save_groups(self, groups: list[dict], modules: list[dict] | None = None) -> ConfigFlowResult:
+        """Store the groups (and module assignments) with the entry; the reload recalculates everything."""
+        data = {**self.config_entry.data, CONF_GROUPS: groups}
+        if modules is not None:
+            data[CONF_MODULES] = modules
+        self.hass.config_entries.async_update_entry(self.config_entry, data=data)
+        return self.async_create_entry(data=dict(self.config_entry.options))
+
+    async def _async_new_modules(self) -> dict[str, dict]:
+        """Battery modules the setup's integration now reports that aren't tracked yet (e.g. modules added to a
+        stack), when this setup tracks modules individually. Module ID -> its roles."""
+        data = self.config_entry.data
+        tracked = {m.get(MOD_DISCHARGED) for m in data.get(CONF_MODULES) or []} - {None}
+        if not tracked or not data.get(CONF_PROFILE):
+            return {}
+        index = await async_get_store_index(self.hass)
+        profile = next((p for p in index.profiles if p["id"] == data[CONF_PROFILE]), None)
+        if profile is None:
+            return {}
+        for system in detect(profile, _registry_entities(self.hass)):
+            mods = {mid: r for mid, r in system.modules.items() if "module_discharged_energy" in r}
+            if tracked & {r["module_discharged_energy"] for r in mods.values()}:  # the system this setup tracks
+                return {mid: r for mid, r in mods.items() if r["module_discharged_energy"] not in tracked}
+        return {}
+
+    async def _async_finish_groups(self, groups: list[dict], target: int) -> ConfigFlowResult:
+        """Save, first offering any untracked battery modules to the added or enlarged group."""
+        self._new_modules = await self._async_new_modules()
+        if not self._new_modules:
+            return self._save_groups(groups)
+        self._pending_groups, self._module_target = groups, target
+        return await self.async_step_group_modules()
+
+    async def async_step_group_modules(self, user_input: dict | None = None) -> ConfigFlowResult:
+        groups, target = self._pending_groups, self._module_target
+        spec = groups[target][CONF_SPEC]
+        rated = {mid: _read_float(self.hass, r.get("module_rated_capacity")) for mid, r in self._new_modules.items()}
+        cap = spec["capacity"].get("reported_kwh", spec["capacity"].get("nominal_kwh"))
+        # Only modules matching this group's battery model (by rated capacity) can join it
+        fits = {mid for mid, kwh in rated.items() if kwh is not None and cap and abs(kwh - cap) <= cap * 0.03}
+        existing = [m for m in self.config_entry.data.get(CONF_MODULES) or [] if int(m[MOD_GROUP]) == target]
+        found, want = len(existing) + len(fits), groups[target][CONF_UNITS]
+        if user_input is not None:
+            modules = list(self.config_entry.data.get(CONF_MODULES) or [])
+            if user_input[CONF_USE_MODULES]:
+                modules += [{MOD_ID: mid, MOD_GROUP: target,
+                             MOD_DISCHARGED: self._new_modules[mid]["module_discharged_energy"],
+                             MOD_SOC: self._new_modules[mid].get("module_soc")} for mid in sorted(fits)]
+            return self._save_groups(groups, modules)
+        lines = [f"- {mid}: {f'{_num(rated[mid])} kWh' if rated[mid] is not None else '?'} {'✓' if mid in fits else '✗'}"
+                 for mid in sorted(self._new_modules)]
+        return self.async_show_form(
+            step_id="group_modules",
+            data_schema=vol.Schema({vol.Required(CONF_USE_MODULES, default=bool(fits) and found == want):
+                                    sel.BooleanSelector()}),
+            description_placeholders={"count": str(len(self._new_modules)), "modules": "\n".join(lines),
+                                      "model": spec["model"], "found": str(found), "units": str(want)})
+
+    async def async_step_groups(self, user_input: dict | None = None) -> ConfigFlowResult:
+        groups = self.config_entry.data[CONF_GROUPS]
+        return self.async_show_menu(step_id="groups", menu_options=["group_pick", "group_add"],
+                                    description_placeholders={"groups": "\n".join(f"- {_group_label(g)}" for g in groups)})
+
+    async def async_step_group_pick(self, user_input: dict | None = None) -> ConfigFlowResult:
+        groups = self.config_entry.data[CONF_GROUPS]
+        if user_input is not None:
+            self._edit_index = int(user_input["group"])
+            return await self.async_step_group_edit()
+        if len(groups) == 1:
+            self._edit_index = 0
+            return await self.async_step_group_edit()
+        options = [sel.SelectOptionDict(value=str(i), label=_group_label(g)) for i, g in enumerate(groups)]
+        return self.async_show_form(step_id="group_pick", data_schema=vol.Schema({
+            vol.Required("group", default="0"): sel.SelectSelector(
+                sel.SelectSelectorConfig(options=options, mode=sel.SelectSelectorMode.LIST)),
+        }))
+
+    async def async_step_group_edit(self, user_input: dict | None = None) -> ConfigFlowResult:
+        groups = [dict(g) for g in self.config_entry.data[CONF_GROUPS]]
+        i = self._edit_index or 0
+        g = groups[i]
+        spec = g[CONF_SPEC]
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if user_input.get("remove"):
+                if len(groups) == 1:
+                    errors["base"] = "last_group"
+                else:
+                    # Drop the group and its modules; modules of later groups move down one place.
+                    del groups[i]
+                    modules = []
+                    for m in self.config_entry.data.get(CONF_MODULES) or []:
+                        grp = int(m[MOD_GROUP])
+                        if grp != i:
+                            modules.append({**m, MOD_GROUP: grp - 1 if grp > i else grp})
+                    return self._save_groups(groups, modules)
+            else:
+                units = int(user_input[CONF_UNITS])
+                install = date.fromisoformat(user_input[CONF_INSTALL_DATE])
+                errors = _check_group(spec, units, install)
+                if not errors:
+                    groups[i] = {**g, CONF_UNITS: units, CONF_INSTALL_DATE: install.isoformat()}
+                    if units > g[CONF_UNITS]:  # modules added to this group: offer any new module sensors
+                        return await self._async_finish_groups(groups, i)
+                    return self._save_groups(groups)
+        cap = spec["capacity"]
+        schema = vol.Schema({
+            vol.Required(CONF_UNITS): _num_box(min=cap.get("min_units", 1),
+                                               max=cap.get("max_units", 100 if cap["unit"] == "module" else 20), step=1),
+            vol.Required(CONF_INSTALL_DATE): sel.DateSelector(),
+            vol.Optional("remove", default=False): sel.BooleanSelector(),
+        })
+        schema = self.add_suggested_values_to_schema(
+            schema, user_input or {CONF_UNITS: g[CONF_UNITS], CONF_INSTALL_DATE: g[CONF_INSTALL_DATE]})
+        return self.async_show_form(step_id="group_edit", data_schema=schema, errors=errors,
+                                    description_placeholders={**_spec_summary(spec), "allowed": _allowed_units(spec),
+                                                              "number": str(i + 1), "total": str(len(groups))})
+
+    async def async_step_group_add(self, user_input: dict | None = None) -> ConfigFlowResult:
+        index = await async_get_store_index(self.hass)
+        await index.async_refresh_if_stale()
+        if user_input is not None:
+            self._add_spec = index.get(user_input[CONF_SPEC])
+            if self._add_spec is not None:
+                return await self.async_step_group_add_details()
+        # The setup's brands first (e.g. a second stack of the same battery), then the rest of the Store
+        mine = {g[CONF_SPEC]["brand"] for g in self.config_entry.data[CONF_GROUPS]}
+        specs = sorted(index.specs, key=lambda sp: sp["brand"] not in mine)
+        options = [sel.SelectOptionDict(value=sp["id"], label=spec_label(sp)) for sp in specs]
+        return self.async_show_form(step_id="group_add", data_schema=vol.Schema({
+            vol.Required(CONF_SPEC): sel.SelectSelector(
+                sel.SelectSelectorConfig(options=options, mode=sel.SelectSelectorMode.DROPDOWN)),
+        }))
+
+    async def async_step_group_add_details(self, user_input: dict | None = None) -> ConfigFlowResult:
+        spec = self._add_spec
+        if spec is None:
+            return await self.async_step_group_add()
+        groups = [dict(g) for g in self.config_entry.data[CONF_GROUPS]]
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            units = int(user_input[CONF_UNITS])
+            install = date.fromisoformat(user_input[CONF_INSTALL_DATE])
+            errors = _check_group(spec, units, install)
+            if not errors:
+                group = {CONF_SPEC: spec, CONF_UNITS: units, CONF_INSTALL_DATE: install.isoformat()}
+                if user_input.get(CONF_COST):
+                    group[CONF_COST] = float(user_input[CONF_COST])
+                return await self._async_finish_groups([*groups, group], len(groups))
+        cap = spec["capacity"]
+        schema = vol.Schema({
+            vol.Required(CONF_UNITS, default=cap.get("min_units", 1)): _num_box(
+                min=cap.get("min_units", 1), max=cap.get("max_units", 100 if cap["unit"] == "module" else 20), step=1),
+            vol.Required(CONF_INSTALL_DATE): sel.DateSelector(),
+            vol.Optional(CONF_COST): _cost_box(),
+        })
+        # Batteries added later: e.g. Energy Manager's battery_install_date_2 / battery_install_cost_2
+        suggested = user_input or {k: v for k, v in (await _async_group_prefill(self.hass, spec, len(groups))).items()
+                                   if v is not None}
+        if suggested:
+            schema = self.add_suggested_values_to_schema(schema, suggested)
+        code = self.config_entry.data.get(CONF_CURRENCY) or self.hass.config.currency
+        return self.async_show_form(step_id="group_add_details", data_schema=schema, errors=errors,
+                                    description_placeholders={**_spec_summary(spec), "allowed": _allowed_units(spec),
+                                                              **_currency_placeholders(code)})
 
     async def async_step_system(self, user_input: dict | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}

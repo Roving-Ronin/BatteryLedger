@@ -584,3 +584,112 @@ async def test_nothing_detected_goes_to_store_search(hass: HomeAssistant):
     assert r["step_id"] == "detect_none"
     r = await flow.async_configure(r["flow_id"], {})
     assert r["step_id"] == "store_search"
+
+
+async def test_options_add_group_prefills_energy_manager_second_battery(hass: HomeAssistant):
+    """Options → Battery groups → Add: the second group is pre-filled from Energy Manager's
+    battery_install_date_2 / battery_install_cost_2 helpers, and the spec is copied into the group."""
+    from custom_components.battery_ledger.const import CONFIG_ENTRY_MINOR_VERSION, CONFIG_ENTRY_VERSION
+    from custom_components.battery_ledger.store_client import async_get_store_index
+    ents = em_entities() + [
+        RegistryEntity("input_datetime.battery_install_date_2", "input_datetime", "battery_install_date_2"),
+        RegistryEntity("input_number.battery_install_cost_2", "input_number", "battery_install_cost_2"),
+    ]
+    _register(hass, [e for e in ents if e.platform == "mqtt"], owner_domain="mqtt")
+    _register(hass, [e for e in ents if e.platform != "mqtt"])
+    hass.states.async_set("input_datetime.battery_install_date_2", "2025-06-01")
+    hass.states.async_set("input_number.battery_install_cost_2", "2400.0")
+    charged = "sensor.inverter_total_battery_charge"
+    hass.states.async_set(charged, "500", {"unit_of_measurement": "kWh"})
+
+    index = await async_get_store_index(hass)
+    spec_id = "sungrow-sbr-battery-module-3-2-kwh-au"
+    spec = index.get(spec_id)
+    entry = MockConfigEntry(domain=DOMAIN, title="Sungrow", version=CONFIG_ENTRY_VERSION,
+                            minor_version=CONFIG_ENTRY_MINOR_VERSION,
+                            data={"name": "Sungrow", "charged_energy_entity": charged,
+                                  "groups": [{"spec": spec, "units": 3, "install_date": "2024-11-02"}]})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    opts = hass.config_entries.options
+    r = await opts.async_init(entry.entry_id)
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "groups"})
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "group_add"})
+    assert r["step_id"] == "group_add"
+    [key] = list(r["data_schema"].schema)
+    first = key and r["data_schema"].schema[key].config["options"][0]["label"]
+    assert first.startswith("Sungrow")  # the setup's brand first
+    r = await opts.async_configure(r["flow_id"], {"spec": spec_id})
+    assert r["step_id"] == "group_add_details"
+    suggested = {str(k): k.description["suggested_value"] for k in r["data_schema"].schema
+                 if k.description and "suggested_value" in k.description}
+    assert suggested == {"install_date": "2025-06-01", "cost": 2400.0}
+    r = await opts.async_configure(r["flow_id"], {"units": 2, "install_date": "2025-06-01", "cost": 2400})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    new = entry.data["groups"][1]
+    assert (new["units"], new["install_date"], new["cost"], new["spec"]["id"]) == (2, "2025-06-01", 2400, spec_id)
+
+
+async def _module_entry(hass: HomeAssistant):
+    """sigenergy2mqtt setup tracking SERIALS[0] individually; SERIALS[1] has since been added to the stack."""
+    from custom_components.battery_ledger.const import CONFIG_ENTRY_MINOR_VERSION, CONFIG_ENTRY_VERSION
+    from custom_components.battery_ledger.store_client import async_get_store_index
+    _register(hass, mqtt_entities(), owner_domain="mqtt")
+    for sn in SERIALS:
+        hass.states.async_set(f"sensor.sigen_0_cloud_4_{sn}_rated_battery_capacity", "8.06", {"unit_of_measurement": "kWh"})
+        hass.states.async_set(f"sensor.sigen_0_cloud_4_{sn}_total_discharge_amount", "100", {"unit_of_measurement": "kWh"})
+    hass.states.async_set("sensor.sigen_0_accumulated_discharge_energy", "300", {"unit_of_measurement": "kWh"})
+    spec = (await async_get_store_index(hass)).get("sigenergy-sigenstor-bat-8-0-anz")
+    sn = SERIALS[0]
+    entry = MockConfigEntry(domain=DOMAIN, title="Sigen", version=CONFIG_ENTRY_VERSION,
+                            minor_version=CONFIG_ENTRY_MINOR_VERSION, data={
+        "name": "Sigen", "sensor_profile": "sigenergy2mqtt",
+        "discharged_energy_entity": "sensor.sigen_0_accumulated_discharge_energy",
+        "groups": [{"spec": spec, "units": 1, "install_date": "2024-01-01"}],
+        "modules": [{"id": sn, "group": 0, "discharged_entity": f"sensor.sigen_0_cloud_4_{sn}_total_discharge_amount",
+                     "soc_entity": f"sensor.sigen_0_cloud_4_{sn}_battery_soc"}]})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    return entry
+
+
+async def test_options_more_units_offers_new_modules(hass: HomeAssistant):
+    """Modules added to a stack: raising the group's units offers the newly reported module sensors."""
+    entry = await _module_entry(hass)
+    opts = hass.config_entries.options
+    r = await opts.async_init(entry.entry_id)
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "groups"})
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "group_pick"})
+    r = await opts.async_configure(r["flow_id"], {"units": 2, "install_date": "2024-01-01"})
+    assert r["step_id"] == "group_modules"
+    ph = r["description_placeholders"]
+    assert (ph["count"], ph["found"], ph["units"]) == ("1", "2", "2") and f"{SERIALS[1]}: 8.06 kWh ✓" in ph["modules"]
+    [key] = list(r["data_schema"].schema)
+    assert key.default() is True
+    r = await opts.async_configure(r["flow_id"], {"use_modules": True})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert sorted((m["id"], m["group"]) for m in entry.data["modules"]) == [(SERIALS[0], 0), (SERIALS[1], 0)]
+    assert entry.data["groups"][0]["units"] == 2
+
+
+async def test_options_add_group_new_module_other_model(hass: HomeAssistant):
+    """A module whose rated capacity doesn't match the added group's model isn't assigned to it."""
+    entry = await _module_entry(hass)
+    opts = hass.config_entries.options
+    r = await opts.async_init(entry.entry_id)
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "groups"})
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "group_add"})
+    r = await opts.async_configure(r["flow_id"], {"spec": "sigenergy-sigenstor-bat-10-0-anz"})
+    r = await opts.async_configure(r["flow_id"], {"units": 1, "install_date": "2025-01-01"})
+    assert r["step_id"] == "group_modules" and f"{SERIALS[1]}: 8.06 kWh ✗" in r["description_placeholders"]["modules"]
+    [key] = list(r["data_schema"].schema)
+    assert key.default() is False
+    r = await opts.async_configure(r["flow_id"], {"use_modules": True})
+    await hass.async_block_till_done()
+    assert [(m["id"], m["group"]) for m in entry.data["modules"]] == [(SERIALS[0], 0)]
+    assert len(entry.data["groups"]) == 2

@@ -99,6 +99,8 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
   version back. Don't edit the manifest version by hand.
 - Refresh `data/index_snapshot.json` from the published Store index before a release.
 - `CHANGELOG.md`: every release opens with a `### TL;DR`, rewritten as a whole when entries are added.
+- A PR that adds a CHANGELOG section is followed by its release: head the section `## vX.Y.Z (YYYY-MM-DD)` with
+  the date it's prepared, never "(unreleased)".
 
 ## Workflow security
 - Never put `${{ ... }}` expressions inside `run:` scripts: pass them through `env:` and use `"$VAR"`.
