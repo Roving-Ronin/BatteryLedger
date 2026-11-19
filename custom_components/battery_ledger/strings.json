@@ -173,7 +173,7 @@
       },
       "import_setup": {
         "title": "Import a saved setup",
-        "description": "Choose a setup file saved with Export setup (Configure, or the card's Backup tab), for example from your old Home Assistant server. Its battery groups, warranty start dates, costs and card settings are imported. The next steps find the source sensors and battery modules here: the saved sensors are used where they exist, and modules keep their battery group by serial number.",
+        "description": "Choose a setup file saved with Configure → Export setup, for example from your old Home Assistant server. Its battery groups, warranty start dates, costs and card settings are imported. The next steps find the source sensors and battery modules here: the saved sensors are used where they exist, and modules keep their battery group by serial number.",
         "data": {
           "file": "Setup file (.json)"
         }

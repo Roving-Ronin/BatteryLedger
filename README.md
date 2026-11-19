@@ -135,8 +135,7 @@ BatteryLedger keeps no history of its own; throughput, warranty used and costs a
 inverter's lifetime counters, so they carry on once its integration is running.
 
 To set up again without restoring a backup, save a **setup file** on the old server: **Configure → Export
-setup**, or the card's settings (cog) → **Backup** → **Download setup file**. On the new server, add BatteryLedger,
-choose **Import a saved setup** and choose the file. It holds the battery groups (with their copied specs),
+setup** → **Download**. On the new server, add BatteryLedger, choose **Import a saved setup** and choose the file. It holds the battery groups (with their copied specs),
 warranty start dates and costs, the sensors chosen, which battery module (by serial number) is in which group,
 the name, currency style and card settings. On import, the saved sensors are used where they exist on the new
 server (otherwise Detect's), and modules keep their battery group by serial number, so two groups of the same

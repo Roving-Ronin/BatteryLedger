@@ -9,8 +9,7 @@ credit where there is one.
 ### TL;DR
 - New `sensor.battery_ledger_cost_per_kwh_export`: the battery's cost per kWh of whichever warranty limit ends
   first, to use as the battery cost or minimum export price in EMHASS, HAEO or Energy Manager
-- Setup file: **Export setup** (Configure, or the card's new **Backup** tab) and **Import a saved setup**, for a new
-  server without a backup restore
+- Setup file: Configure → **Export setup** and **Import a saved setup**, for a new server without a backup restore
 - **Download diagnostics**, with module serials and costs removed, to attach to issues
 
 ### Added
@@ -20,13 +19,12 @@ credit where there is one.
   as an early projection can be far too high for a minimum sell price. Warranties with no throughput limit use
   the uncapped projection. Attributes: `basis` (`projected`, `rated`, `time_only`), `driver`, `low_confidence`.
   See README → Battery cost for exports.
-- **Setup file:** Configure → **Export setup**, or the card settings' new **Backup** tab, downloads a `.json` file:
+- **Setup file:** Configure → **Export setup** downloads a `.json` file:
   the battery groups with their copied specs, warranty start dates and costs, the sensors chosen, which module
   (by serial number) is in which group, the name, currency style and card settings. **Import a saved setup**
   (when adding BatteryLedger) uploads it: saved sensors are used where they exist on the new server, and modules
   keep their battery group by serial, so two groups of the same model are restored correctly. A file from a
   newer BatteryLedger is refused. A Home Assistant backup restore still needs none of this.
-- Card settings: **Display** and **Backup** tabs.
 - **Download diagnostics**: the setup, source sensors' readings and the latest calculation, with module serials
   replaced by M1, M2… and costs removed.
 

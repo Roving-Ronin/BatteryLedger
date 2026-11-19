@@ -1,7 +1,7 @@
-"""Download a setup as a JSON file (Configure → Export setup, or the card's Backup tab).
+"""Download a setup as a JSON file (Configure → Export setup).
 
 The file is served by an authenticated view; the link handed out is signed for a few minutes, so a plain
-browser link (in a flow description or opened by the card) can download it. Admins only.
+browser link in the flow description can download it. Admins only.
 """
 
 from __future__ import annotations
