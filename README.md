@@ -57,13 +57,18 @@ Or add it manually:
      - **Sigenergy (Sigenergy Local Modbus):** each inverter's battery pack count and rated battery capacity give
        the capacity per module (48.36 kWh ÷ 6 = 8.06 kWh: BAT 8.0), and its model type tells SigenStor from Neo.
      - **sigenergy2mqtt (Sigen Cloud):** each module's rated capacity.
-     - **Huawei / iStore (wlcrs):** rated capacity ÷ battery packs with a serial number: 5.0 kWh is the S0, 6.9 kWh
-       the S1. The S1 is shown as detected (the Huawei and iStore warranties are the same); for the S0 you choose
+     - **Huawei / iStore (wlcrs):** rated capacity ÷ battery packs with a serial number, counted per tower: 5.0 kWh
+       is the S0, 6.9 kWh the S1. The S1 is shown as detected (the Huawei and iStore warranties are the same); for the S0 you choose
        Huawei or iStore, as their warranties differ.
      - **BYD Battery Box:** towers × modules and capacity per module (HVS or HVM).
      - **AlphaESS (senalse):** battery module count.
      - **Energy Manager and other integrations:** rated capacity alone, as a whole number of modules of one model
        (Energy Manager's inverter brand narrows the brand). When more than one model fits, you choose.
+
+     With batteries on more than one tower or inverter (e.g. a Huawei inverter with a second tower added later),
+     Detect lists each one (inverter, inverter model, tower, modules) and asks whether they were installed together.
+     Choose **Installed separately** for one battery group per tower, each with its own model (e.g. Huawei
+     LUNA2000-5-S0 for the first tower, iStore IS-BATT-5000-ES for a later one), warranty start date and cost.
 
      Some of these sensors are off by default in their integration. Detect lists them and, if you agree, turns them
      on, checks for their readings after 45 seconds (and again 45 seconds later if needed), then carries on; it

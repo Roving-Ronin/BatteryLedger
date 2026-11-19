@@ -4,6 +4,29 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.1.15 (2026-11-19)
+
+### TL;DR
+- Detect: batteries on more than one tower or inverter can be set up as one battery group per tower, each with
+  its own model, warranty start and cost (e.g. a Huawei tower and an iStore tower added later)
+- Huawei and iStore: up to 18 (S0) or 36 (S1) modules, per Huawei's tower and inverter limits
+
+### Added
+- Detect, with batteries on more than one tower or inverter: lists each (inverter, inverter model, tower,
+  modules) and asks whether they were installed together. **Installed separately** gives one battery group per
+  tower, with the units filled in; where more than one model fits a tower (e.g. Huawei LUNA2000-5-S0 or iStore
+  IS-BATT-5000-ES), you choose. **Installed together** works as before.
+- Huawei Solar: packs are counted per tower (storage unit 1 and 2), from the Store profile's new `tower` field.
+  The inverter model comes from Home Assistant's device information.
+
+### Changed
+- Detect: when capacity ÷ pack count fits no battery (e.g. a SUN2000-MB0 with more towers than Huawei Solar
+  has pack serial number sensors for), the rated capacity alone is used.
+- Setup → Choose your battery modules: the example of a mix comes from the batteries listed, then other models
+  of the same brand in the Store (was always "both BAT 8.0 and BAT 10.0").
+- Bundled Store list: Huawei and iStore unit limits raised from 9 to 18 (S0) and 36 (S1) modules, with notes on
+  tower and inverter limits; Huawei Solar's profile says which tower each pack position is in.
+
 ## v0.1.14 (2026-11-19)
 
 ### TL;DR

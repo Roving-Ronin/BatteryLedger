@@ -26,7 +26,7 @@
       },
       "store_select": {
         "title": "Choose your battery modules",
-        "description": "{matches} matching batteries (✓ = checked by a maintainer). Tick **every** model installed in this system, e.g. both BAT 8.0 and BAT 10.0 if you have a mix. You'll enter how many of each, and when their warranty started, next.",
+        "description": "{matches} matching batteries (✓ = checked by a maintainer). Tick **every** model installed in this system, e.g. both {example_a} and {example_b} if you have a mix. You'll enter how many of each, and when their warranty started, next.",
         "data": {
           "spec_ids": "Battery models"
         }
@@ -154,6 +154,21 @@
       "detect_wait": {
         "title": "Waiting for sensors",
         "description": "Waiting for the {count} sensor(s) to report. BatteryLedger checks after 45 seconds, and again 45 seconds later if needed."
+      },
+      "detect_towers": {
+        "title": "Batteries found on {count} battery towers",
+        "description": "Found (inverter · inverter model · battery tower: modules):\n{towers}\n\nWere these batteries installed together, as one model with one warranty start date and cost? Batteries added later, or of another brand (e.g. iStore beside Huawei), each need their own battery group.",
+        "menu_options": {
+          "detect_together": "Installed together: one battery group",
+          "detect_separate": "Installed separately: one battery group per tower"
+        }
+      },
+      "detect_tower": {
+        "title": "Battery tower {number} of {total}",
+        "description": "Inverter · inverter model · battery tower: **{place}**, with {units} modules.\n\nMore than one battery model fits these modules. Which is installed?",
+        "data": {
+          "spec": "Battery model"
+        }
       }
     },
     "error": {

@@ -20,6 +20,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import selector as sel
 from homeassistant.util import dt as dt_util
@@ -57,7 +58,7 @@ from .const import (
     STORE_SITE_URL,
 )
 from .detect import DetectedSystem, RegistryEntity, assign_modules, detect
-from .suggest import Reading, suggest
+from .suggest import Reading, reading_options, suggest
 from .ledger import SpecError, validate_spec, validate_units
 from .store_client import StoreIndexError, async_get_store_index, spec_label
 
@@ -159,6 +160,31 @@ def _currency_placeholders(code: str) -> dict[str, str]:
     return {"currency": code, "symbol": CURRENCY_SYMBOLS.get(code, code)}
 
 
+def _mix_example(matches: list[dict], specs: list[dict]) -> tuple[str, str]:
+    """Two battery models for the 'tick every model' example, from the batteries being shown (e.g. Huawei
+    LUNA2000-7-S1 and LUNA2000-5-S0), then the same brand in the Store, then any. Data only: model names."""
+    brands = {s["brand"] for s in matches}
+    names: list[str] = []
+    for spec in [*matches, *(s for s in specs if s["brand"] in brands), *specs]:
+        if spec["model"] not in names:
+            names.append(spec["model"])
+        if len(names) == 2:
+            break
+    names += [DASH] * (2 - len(names))
+    return names[0], names[1]
+
+
+def _device_model(hass, entity_id: str | None) -> str | None:
+    """Model of the device an entity belongs to, or of the device it's connected via (e.g. Huawei Solar's
+    Batteries device → its inverter, "SUN2000-5KTL-L1"). Data only, for labels."""
+    entry = er.async_get(hass).async_get(entity_id) if entity_id else None
+    devices = dr.async_get(hass)
+    device = devices.async_get(entry.device_id) if entry and entry.device_id else None
+    if device and device.via_device_id and (via := devices.async_get(device.via_device_id)) and via.model:
+        return via.model
+    return device.model if device else None
+
+
 def _read_float(hass, entity_id: str | None) -> float | None:
     state = hass.states.get(entity_id) if entity_id else None
     try:
@@ -244,6 +270,9 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         self._found: dict[str, tuple[dict, DetectedSystem]] = {}
         self._to_enable: list[str] = []
         self._wait_task: asyncio.Task | None = None
+        # Detection over several towers / inverters: each one's reading and the (spec, units) that fit it.
+        self._towers: list[tuple[Reading, list[tuple[dict, int]]]] = []
+        self._tower_index = 0
 
     @staticmethod
     @callback
@@ -394,15 +423,28 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             # One reading per module: modules of different models are each recognised.
             return [Reading(module_kwh=[k]) for k in mods]
         readings = []
-        for roles in system.inverters.values():
-            rated = self._kwh((roles.get("inverter_rated_capacity") or [None])[0])
+        for number, roles in enumerate(system.inverters.values(), start=1):
+            rated_entity = (roles.get("inverter_rated_capacity") or [None])[0]
+            rated = self._kwh(rated_entity)
             if rated is None:
                 continue
-            count = self._int((roles.get("inverter_pack_count") or [None])[0])
-            if count is None and roles.get("pack_serial"):
-                count = sum(1 for e in roles["pack_serial"] if (self._state(e) or "") not in _NO_VALUE) or None
             model = self._state((roles.get("inverter_model") or [None])[0])
-            readings.append(Reading(rated_kwh=rated, count=count, model_text=model))
+            label = model or _device_model(self.hass, rated_entity) or DASH
+            count = self._int((roles.get("inverter_pack_count") or [None])[0])
+            installed = [e for e in roles.get("pack_serial", []) if (self._state(e) or "") not in _NO_VALUE]
+            towers: dict[int, int] = {}
+            for e in installed:
+                towers[system.pack_towers.get(e, 1)] = towers.get(system.pack_towers.get(e, 1), 0) + 1
+            if count is None and len(towers) > 1:
+                # One reading per tower: rated capacity shared by pack count (towers can differ in model and age)
+                total = sum(towers.values())
+                for tower, packs in sorted(towers.items()):
+                    readings.append(Reading(rated_kwh=rated * packs / total, count=packs, model_text=model,
+                                            place=f"{number} · {label} · {tower}"))
+                continue
+            if count is None and installed:
+                count = len(installed)
+            readings.append(Reading(rated_kwh=rated, count=count, model_text=model, place=f"{number} · {label} · –"))
         if readings:
             return readings
         rated = self._kwh(system.roles.get("rated_capacity", (None, None))[1])
@@ -411,7 +453,8 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         modules = self._int(system.roles.get("module_count", (None, None))[1])
         towers = self._int(system.roles.get("tower_count", (None, None))[1])
         if towers and modules:
-            return [Reading(rated_kwh=rated / towers, count=modules) for _ in range(towers)]
+            return [Reading(rated_kwh=rated / towers, count=modules, place=f"{DASH} · {DASH} · {t}")
+                    for t in range(1, towers + 1)]
         return [Reading(rated_kwh=rated, count=modules)]
 
     def _brands(self, profile: dict, system: DetectedSystem) -> list[str]:
@@ -436,7 +479,16 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             self._system = refreshed[0]
         brands = self._brands(profile, self._system)
         specs = [s for s in index.specs if s["brand"] in brands]
-        result = suggest(specs, self._readings(self._system))
+        readings = self._readings(self._system)
+        # Several towers or inverters (not per-module readings): ask whether they went in together.
+        self._towers = [(r, opts) for r in readings if not r.module_kwh
+                        for opts in [reading_options(specs, r)] if opts]
+        if len(self._towers) > 1:
+            return await self.async_step_detect_towers()
+        return await self._async_suggested(specs, readings, brands)
+
+    async def _async_suggested(self, specs: list[dict], readings: list[Reading], brands: list[str]) -> ConfigFlowResult:
+        result = suggest(specs, readings)
         if result.decided:
             self._queue = [spec for spec, _ in result.groups]
             self._queue_units = [units for _, units in result.groups]
@@ -448,6 +500,47 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         if len(brands) == 1:
             self._filters["brand"] = brands[0]
         return await self.async_step_store_search()
+
+    async def async_step_detect_towers(self, user_input: dict | None = None) -> ConfigFlowResult:
+        lines = [f"- {r.place}: {units} × {_num(spec_kwh)} kWh"
+                 for r, opts in self._towers
+                 for units, spec_kwh in [(opts[0][1], (r.rated_kwh or 0) / opts[0][1])]]
+        return self.async_show_menu(step_id="detect_towers", menu_options=["detect_together", "detect_separate"],
+                                    description_placeholders={"count": str(len(self._towers)),
+                                                              "towers": "\n".join(lines)})
+
+    async def async_step_detect_together(self, user_input: dict | None = None) -> ConfigFlowResult:
+        index = await async_get_store_index(self.hass)
+        profile = next(p for p in index.profiles if p["id"] == self._system.profile_id)
+        brands = self._brands(profile, self._system)
+        specs = [s for s in index.specs if s["brand"] in brands]
+        return await self._async_suggested(specs, [r for r, _ in self._towers], brands)
+
+    async def async_step_detect_separate(self, user_input: dict | None = None) -> ConfigFlowResult:
+        self._queue, self._queue_units, self._tower_index = [], [], 0
+        return await self.async_step_detect_tower()
+
+    async def async_step_detect_tower(self, user_input: dict | None = None) -> ConfigFlowResult:
+        """One battery group per tower: where more than one model fits a tower, the user chooses."""
+        while self._tower_index < len(self._towers):
+            reading, opts = self._towers[self._tower_index]
+            if user_input is not None:
+                spec, units = next((o for o in opts if o[0]["id"] == user_input[CONF_SPEC]), opts[0])
+                user_input = None
+            elif len(opts) == 1:
+                spec, units = opts[0]
+            else:
+                options = [sel.SelectOptionDict(value=sp["id"], label=spec_label(sp)) for sp, _ in opts]
+                return self.async_show_form(
+                    step_id="detect_tower",
+                    data_schema=vol.Schema({vol.Required(CONF_SPEC): sel.SelectSelector(
+                        sel.SelectSelectorConfig(options=options, mode=sel.SelectSelectorMode.LIST))}),
+                    description_placeholders={"place": reading.place, "units": str(opts[0][1]),
+                                              "number": str(self._tower_index + 1), "total": str(len(self._towers))})
+            self._queue.append(spec)
+            self._queue_units.append(units)
+            self._tower_index += 1
+        return await self.async_step_group()
 
     # --- Store search ----------------------------------------------------------
 
@@ -523,6 +616,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         options = [sel.SelectOptionDict(value=s["id"], label=spec_label(s)) for s in self._matches]
         mode = sel.SelectSelectorMode.LIST if len(options) <= 10 else sel.SelectSelectorMode.DROPDOWN
         default = [options[0]["value"]] if len(options) == 1 else []
+        example_a, example_b = _mix_example(self._matches, (await async_get_store_index(self.hass)).specs)
         return self.async_show_form(
             step_id="store_select",
             data_schema=vol.Schema({
@@ -530,7 +624,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                     sel.SelectSelectorConfig(options=options, mode=mode, multiple=True)),
             }),
             errors=errors,
-            description_placeholders={"matches": str(len(options))},
+            description_placeholders={"matches": str(len(options)), "example_a": example_a, "example_b": example_b},
         )
 
     # --- Manual entry ----------------------------------------------------------

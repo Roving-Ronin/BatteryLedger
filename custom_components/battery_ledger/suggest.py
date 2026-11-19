@@ -32,6 +32,8 @@ class Reading:
     count: int | None = None
     model_text: str | None = None
     module_kwh: list[float] = field(default_factory=list)
+    # Data-only label for the tower / inverter, e.g. "1 · SUN2000-5KTL-L1 · 2" (inverter · model · tower)
+    place: str = ""
 
 
 @dataclass
@@ -109,6 +111,15 @@ def _fits_module(spec: dict, kwh: float) -> bool:
     return spec["capacity"]["unit"] == "module" and bool(ref) and abs(kwh - ref) <= ref * MODULE_TOLERANCE
 
 
+def reading_options(specs: list[dict], reading: Reading) -> list[tuple[dict, int]]:
+    """(spec, units) that fit one reading. When capacity ÷ module count fits nothing (e.g. an inverter with more
+    towers than the integration has serial number sensors for), fall back to the rated capacity alone."""
+    found = _options(specs, reading)
+    if not found and reading.count and reading.rated_kwh:
+        found = _options(specs, Reading(rated_kwh=reading.rated_kwh, model_text=reading.model_text))
+    return found
+
+
 def _options(specs: list[dict], reading: Reading) -> list[tuple[dict, int]]:
     """(spec, units) that fit one reading."""
     specs = narrow_by_model(specs, reading.model_text)
@@ -135,7 +146,7 @@ def _options(specs: list[dict], reading: Reading) -> list[tuple[dict, int]]:
 
 def suggest(specs: list[dict], readings: list[Reading]) -> Suggestion:
     """Specs (already narrowed to the system's brands, in Store order) that fit every reading."""
-    per_reading = [_options(specs, r) for r in readings]
+    per_reading = [reading_options(specs, r) for r in readings]
     per_reading = [o for o in per_reading if o]
     if not per_reading:
         return Suggestion()
