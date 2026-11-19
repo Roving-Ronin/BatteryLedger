@@ -70,6 +70,7 @@
           "cost": "Cost of these batteries"
         },
         "data_description": {
+          "units": "Units in this group (allowed: {allowed}). Batteries of the same model added on another date go in their own group.",
           "install_date": "The date picker shows dates in the format set in your Home Assistant user profile (Profile → Date format).",
           "cost": "What you paid for this group, in {currency}, for cost per kWh and remaining value. Batteries added later get their own cost. Leave empty to skip."
         }
@@ -178,6 +179,7 @@
         "title": "BatteryLedger settings",
         "menu_options": {
           "system": "Sensors and currency",
+          "groups": "Battery groups",
           "costs": "Battery costs"
         }
       },
@@ -195,6 +197,61 @@
           "currency_style": "Currency code: {currency} and {currency}/kWh, shown as money in each user's own currency format. Currency symbol: {symbol} and {symbol}/kWh, as in the original YAML package."
         }
       },
+      "groups": {
+        "title": "Battery groups",
+        "description": "Battery groups in this setup:\n{groups}\n\nEach group is batteries of one model with the same warranty start date and cost (not a stack). Change a group's units or warranty start date, remove a group, or add batteries installed later: more modules in a stack, or another stack.",
+        "menu_options": {
+          "group_pick": "Change or remove a group",
+          "group_add": "Add a battery group"
+        }
+      },
+      "group_pick": {
+        "title": "Choose a battery group",
+        "data": {
+          "group": "Battery group"
+        }
+      },
+      "group_edit": {
+        "title": "Battery group {number} of {total}: {name}",
+        "description": "**Regions:** {regions} · **Phases:** {phases} · **Chemistry:** {chemistry}\n**Usable capacity per unit:** {usable} kWh\n**Warranty:** {years} years, to {eol}% capacity\n**Allowed unit counts:** {allowed}\n\nChanging the unit count or warranty start date recalculates every sensor from the new figures.",
+        "data": {
+          "units": "Number of units",
+          "install_date": "Warranty start date",
+          "remove": "Remove this group"
+        },
+        "data_description": {
+          "install_date": "The date picker shows dates in the format set in your Home Assistant user profile (Profile → Date format).",
+          "remove": "Removes this group, its cost and its battery modules from the setup. Nothing else is changed.",
+          "units": "Units in this group (allowed: {allowed}). Batteries of the same model added on another date go in their own group."
+        }
+      },
+      "group_add": {
+        "title": "Add a battery group",
+        "description": "Choose the battery model that was added. Models from the brands already in this setup are listed first.",
+        "data": {
+          "spec": "Battery model"
+        }
+      },
+      "group_add_details": {
+        "title": "{name}",
+        "description": "**Regions:** {regions} · **Phases:** {phases} · **Chemistry:** {chemistry}\n**Usable capacity per unit:** {usable} kWh\n**Warranty:** {years} years, to {eol}% capacity\n**Allowed unit counts:** {allowed}\n\nHow many of these were added, when did their warranty start, and what did they cost?",
+        "data": {
+          "units": "Number of units",
+          "install_date": "Warranty start date",
+          "cost": "Cost of these batteries"
+        },
+        "data_description": {
+          "install_date": "The date picker shows dates in the format set in your Home Assistant user profile (Profile → Date format).",
+          "cost": "What you paid for these batteries, in {currency}, for cost per kWh and remaining value. Leave empty to skip."
+        }
+      },
+      "group_modules": {
+        "title": "Battery modules",
+        "description": "Found lifetime discharge sensors for {count} battery modules not tracked yet (module: rated capacity, ✓ = matches {model}):\n{modules}\n\n{model} modules found / in this group: {found} / {units}\n\nWith every module of a group found, each is measured against its own warranty limit. Otherwise the group uses the plant sensor.",
+        "data": {
+          "use_modules": "Track the matching modules individually"
+        }
+      },
       "costs": {
         "title": "Battery cost {number} of {total}",
         "description": "**{group}** · warranty start {install_date}\n\nWhat these batteries cost, in **{currency}**. Leave empty to leave them out of the cost sensors.",
@@ -204,7 +261,10 @@
       }
     },
     "error": {
-      "no_energy_entity": "Choose at least one of the charged or discharged energy sensors."
+      "no_energy_entity": "Choose at least one of the charged or discharged energy sensors.",
+      "bad_units": "That unit count isn't valid for this battery. Allowed: {allowed}.",
+      "future_date": "The warranty start date can't be in the future.",
+      "last_group": "This is the only battery group. To start again with another battery, delete this setup and add BatteryLedger again."
     }
   },
   "selector": {

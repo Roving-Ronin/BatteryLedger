@@ -111,8 +111,41 @@ Or add it manually:
    **charged** and/or **discharged** energy, and optionally rated capacity (hardware check) and battery state of
    health.
 
-The sensors, the currency display and each battery group's cost can be changed later under **Configure**.
-Costs use your Home Assistant currency (Settings → System → General).
+Later, under **Configure**:
+- **Sensors and currency:** the source sensors and the currency display.
+- **Battery groups:** correct a group's number of units or warranty start date, remove a group (with its cost
+  and battery modules), or add batteries installed later, such as a second stack. The added group's warranty
+  start and cost are filled in from Energy Manager's `input_datetime.battery_install_date_2` and
+  `input_number.battery_install_cost_2` when you use them. See [Battery groups](#battery-groups).
+- **Battery costs:** what each battery group cost.
+
+Changes recalculate every sensor. Costs use your Home Assistant currency (Settings → System → General).
+
+### Battery groups
+
+A battery group is batteries of one model with the same warranty start date and cost. It isn't a stack: one
+stack can hold several groups, and one group can't have more units than the model allows.
+
+| Example system | Battery groups |
+|---|---|
+| One Sigen stack of 4 × BAT 8.0 | 4 × BAT 8.0, install date |
+| 2 × BAT 8.0 added to that stack later | + 2 × BAT 8.0, the date they were added, their cost |
+| A second stack of 6 × BAT 10.0 | + 6 × BAT 10.0, its date, its cost |
+| Two full stacks of 6 × BAT 8.0 installed together | 6 × BAT 8.0 and 6 × BAT 8.0, same date, cost split between them |
+
+- **Unit limits** come from the Store spec and apply to each group (Sigen: 1–6 modules per energy controller).
+- **Warranty limits** are worked out per group from its units (per unit × units, a per-system figure, or the
+  warranty's table row for that many units), and each group's warranty time runs from its own start date.
+- **Warranty start:** use the date the manufacturer's warranty counts from for those batteries. That's usually
+  the date they were installed or commissioned, but check whether added modules carry the original stack's
+  warranty date instead.
+- **Shared counters:** with one plant-level counter, energy is split between groups by usable capacity × days in
+  service (see [What the numbers mean](#what-the-numbers-mean-and-dont)).
+- **Per-module tracking:** when you add a group, or add units to one, under Configure → Battery groups, any module
+  sensors your integration now reports that aren't tracked yet are offered for that group (matched by rated
+  capacity). A group is tracked per module only when every one of its modules is found; otherwise it uses the
+  plant counter.
+- Groups can be changed, removed or added later under Configure → Battery groups.
 
 **Dates:** the warranty start date picker and the card show dates in the format set in each user's Home Assistant profile
 (your name at the bottom of the sidebar → Profile → **Date format**). It defaults to your profile language's

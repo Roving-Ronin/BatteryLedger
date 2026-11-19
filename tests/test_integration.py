@@ -409,3 +409,97 @@ async def test_soh_of_zero_is_not_reported(hass: HomeAssistant):
     await hass.async_block_till_done()
     margin = hass.states.get("sensor.battery_ledger_soh_above_warranty_floor")
     assert margin.attributes["reported_soh_pct"] == 98.5 and float(margin.state) > 0
+
+
+async def _two_group_entry(hass: HomeAssistant):
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.battery_ledger.const import CONFIG_ENTRY_MINOR_VERSION, CONFIG_ENTRY_VERSION
+    index = await async_get_store_index(hass)
+    spec = index.get("sigenergy-sigenstor-bat-8-0-anz")
+    groups = [{"spec": spec, "units": 4, "install_date": "2024-01-01", "cost": 20000},
+              {"spec": spec, "units": 2, "install_date": "2025-06-01", "cost": 8000}]
+    modules = [{"id": m, "group": g, "discharged_entity": f"sensor.{m.lower()}_discharged", "soc_entity": None}
+               for m, g in (("A1", 0), ("B1", 1), ("B2", 1))]
+    entry = MockConfigEntry(domain=DOMAIN, title="Sigen", version=CONFIG_ENTRY_VERSION,
+                            minor_version=CONFIG_ENTRY_MINOR_VERSION,
+                            data={"name": "Sigen", "groups": groups, "modules": modules,
+                                  "charged_energy_entity": CHARGED})
+    entry.add_to_hass(hass)
+    hass.states.async_set(CHARGED, "1000", {"unit_of_measurement": "kWh"})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    return entry
+
+
+async def _open_group(hass: HomeAssistant, entry, index: str):
+    opts = hass.config_entries.options
+    r = await opts.async_init(entry.entry_id)
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "groups"})
+    assert r["type"] is FlowResultType.MENU and "4 × Sigenergy" in r["description_placeholders"]["groups"]
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "group_pick"})
+    assert r["step_id"] == "group_pick"
+    return await opts.async_configure(r["flow_id"], {"group": index})
+
+
+async def test_options_group_edit_units_and_date(hass: HomeAssistant):
+    """Options → Battery groups: a wrong unit count or warranty start can be corrected."""
+    entry = await _two_group_entry(hass)
+    r = await _open_group(hass, entry, "1")
+    assert r["step_id"] == "group_edit" and r["description_placeholders"]["number"] == "2"
+    suggested = {str(k): k.description["suggested_value"] for k in r["data_schema"].schema
+                 if k.description and "suggested_value" in k.description}
+    assert suggested == {"units": 2, "install_date": "2025-06-01"}
+
+    opts = hass.config_entries.options
+    future = (dt_util.now().date() + timedelta(days=3)).isoformat()
+    r = await opts.async_configure(r["flow_id"], {"units": 3, "install_date": future})
+    assert r["errors"] == {"install_date": "future_date"}
+    r = await opts.async_configure(r["flow_id"], {"units": 3, "install_date": "2025-05-20"})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    g = entry.data["groups"][1]
+    assert (g["units"], g["install_date"], g["cost"]) == (3, "2025-05-20", 8000)
+    assert entry.data["groups"][0]["units"] == 4
+
+
+async def test_options_group_bad_units(hass: HomeAssistant):
+    """A unit count the warranty table doesn't cover is refused, listing the allowed counts."""
+    entry = await _two_group_entry(hass)
+    spec = copy.deepcopy(entry.data["groups"][0]["spec"])
+    spec["warranty"]["throughput"] = {**spec["warranty"]["throughput"], "scope": "table",
+                                        "table": [{"units": 2, "kwh": 1}, {"units": 4, "kwh": 2}]}
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, "groups": [{**entry.data["groups"][0], "spec": spec}, entry.data["groups"][1]]})
+    await hass.async_block_till_done()
+    r = await _open_group(hass, entry, "0")
+    assert r["description_placeholders"]["allowed"] == "2, 4"
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"units": 3, "install_date": "2024-01-01"})
+    assert r["errors"] == {"units": "bad_units"}
+
+
+async def test_options_group_remove_reindexes_modules(hass: HomeAssistant):
+    """Removing a group drops its cost and modules; modules of later groups move down."""
+    entry = await _two_group_entry(hass)
+    r = await _open_group(hass, entry, "0")
+    r = await hass.config_entries.options.async_configure(
+        r["flow_id"], {"units": 4, "install_date": "2024-01-01", "remove": True})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert [(g["units"], g["cost"]) for g in entry.data["groups"]] == [(2, 8000)]
+    assert [(m["id"], m["group"]) for m in entry.data["modules"]] == [("B1", 0), ("B2", 0)]
+
+
+async def test_options_group_remove_last_refused(hass: HomeAssistant):
+    """The only group can't be removed; with one group the pick step is skipped."""
+    entry = await _two_group_entry(hass)
+    hass.config_entries.async_update_entry(entry, data={**entry.data, "groups": entry.data["groups"][:1],
+                                                        "modules": entry.data["modules"][:1]})
+    await hass.async_block_till_done()
+    opts = hass.config_entries.options
+    r = await opts.async_init(entry.entry_id)
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "groups"})
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "group_pick"})
+    assert r["step_id"] == "group_edit"
+    r = await opts.async_configure(r["flow_id"], {"units": 4, "install_date": "2024-01-01", "remove": True})
+    assert r["errors"] == {"base": "last_group"}
+    assert len(entry.data["groups"]) == 1
