@@ -52,7 +52,7 @@ CONF_PROFILE = "sensor_profile"
 CONF_MODULES = "modules"
 CONF_USE_MODULES = "use_modules"
 # Options (entry 1.5+), changed from Configure or the number / select entities without a reload
-CONF_ESL_YEARS = "esl_years"  # Estimated Service Life in years; None = each group's warranty period
+CONF_ESL_YEARS = "esl_years"  # Estimated Service Life in years; None = ledger.default_esl_years (15 years)
 CONF_EXPORT_SETTING = "export_cost_basis"  # ledger.EXPORT_* ("warranty", "esl", "cheapest")
 LIVE_OPTIONS = (CONF_ESL_YEARS, CONF_EXPORT_SETTING)
 ESL_MIN_YEARS, ESL_MAX_YEARS, ESL_STEP_YEARS = 1, 30, 0.5
@@ -103,7 +103,7 @@ SENSOR_KEY_RENAMES_1_2 = {
 # "Throughput (Cycles)" was the YAML package's "Throughput (Cycle Abuse)" until 0.1.9 (changed on purpose).
 YAML_DRIVER_TEXT = {"age": "Age (Time Elapsed)", "throughput": "Throughput (Cycles)"}
 YAML_STATUS_TEXT = {
-    "on_track": "On Track / Normal",
+    "on_track": "On Track | Normal",
     "ahead_of_time": "Degrading Faster Than Time Curve",
     "expired": "Warranty Ended",  # not in the YAML package (it had no end-of-warranty state)
 }

@@ -112,7 +112,7 @@ Or add it manually:
    discharge counters are assigned to your battery groups by each module's rated capacity, and each module is
    tracked against its own warranty limit.
 5. **System:** whether cost per
-   kWh and cost sensors show the currency symbol (`$`, `$/kWh`, the default, as in the YAML package) or code
+   kWh and cost sensors show the currency symbol (`$`, `$/kWh`, the default) or code
    (`AUD`, `AUD/kWh`, which Home Assistant formats as money in each user's locale), and the sensors (filled in from step 3 if detected): lifetime
    **charged** and/or **discharged** energy, and optionally rated capacity (hardware check) and battery state of
    health.
@@ -188,15 +188,17 @@ type: custom:battery-ledger-card
 entry_id: <optional; the first setup is used if left out>
 ```
 
+With more than one battery group, a **Battery group** switcher under the title shows **All** (the whole setup)
+or one group (1, 2, 3 …). A group shows its own status, warranty rings, end dates, EoSL, remaining warrantied usage
+and warranty curve (against the battery's reported state of health); cost stays for the whole setup.
+
 The card has four sections:
 - **Warranty:** two rings show how much of the warranty is used by age (time elapsed) and by usage (throughput).
   The larger one is the warranty driver, shown first with cycles per day. Below are two warranty end dates, each
   above its share: by age, labelled with your battery's warranty period (e.g. **Warranty Ends (10 years)**:
   warranty start + 10 years), and **Warranty Ends (by usage)**, when the throughput limit would be reached at your
   average daily use so far. The warranty ends at whichever comes first, shown in red. Then **Estimated Service
-  Life (ESL)**, which admins can change in its box, and **End of Service Life (EoSL)**. With more than one battery
-  group, the rows beside the rings are for the whole setup, and a **Battery group** switcher (1, 2, 3 …) shows the
-  chosen group's end dates, use and EoSL.
+  Life (ESL)**, which admins can change in its box, and **End of Service Life (EoSL)**.
 - **Throughput:** remaining warrantied usage (rated throughput) counts down, with a marker for what's projected
   to be left when the warranty ends.
 - **Cost:** value used to date (the `cost_consumed_to_date` sensor), remaining value, cost per kWh (by usage and
@@ -224,7 +226,7 @@ If a source drops out later, its last reading is used until it's back.
 | `total_rated_throughput` | Total warranted energy throughput for the configured units | `total_pack_count` |
 | `remaining_rated_throughput` | Warranted throughput still left | |
 | `rated_throughput_used` | Energy counted against the warranty so far | `groups`, `notes` |
-| `cycles_per_day` | Full equivalent cycles per day: energy counted ÷ days since warranty start ÷ rated capacity (the inverter's rated capacity sensor, else the spec's figure × units). Replaces the YAML package's `battery_cycles_per_day` | |
+| `cycles_per_day` | Full equivalent cycles per day: energy counted ÷ days since warranty start ÷ rated capacity (the inverter's rated capacity sensor, else the spec's figure × units) | |
 | `warranty_time_elapsed` | Time since warranty start as % of the warranty period | |
 | `projected_warranted_throughput` | Throughput by the end of the warranty at the average rate so far (capped at the limit) | `average_daily_kwh`, `low_confidence` |
 | `cost_per_kwh_rated` | Battery cost ÷ warranted throughput (battery groups with a cost) | |
@@ -239,13 +241,8 @@ If a source drops out later, its last reading is used until it's back.
 | `most_used_module_throughput` | Highest per-module share of its warranted throughput (module tracking) | `worst_module`, `modules`, `module_total_vs_plant_pct` |
 | `module_soc_spread` | Highest minus lowest module state of charge right now (module tracking) | `module_soc` |
 
-Coming from the original YAML package: its nine sensors are reproduced exactly (states, units, icons, attribute
-names and values, friendly names), with `sigen_battery_` replaced by `battery_ledger_`. Remove the YAML package
-before setting up BatteryLedger in the same Home Assistant. BatteryLedger adds only sensors with new information: `rated_throughput_used`, `warranty_time_elapsed`,
-`cycles_per_day`, and the module and SoH sensors. *Projected Warranted Throughput* is the package's
-formula (cycles per day × capacity × warranty days, i.e. average daily throughput × warranty days) with the
-days taken from the warranty start date, so no separate age or cycles sensors are needed; it's capped at the
-warranted total. `cycles_per_day` replaces the package's `battery_cycles_per_day`. Friendly names start with "Battery" for every brand.
+*Projected Warranted Throughput* is average daily throughput × warranty days, with the days counted from the
+warranty start date, capped at the warranted total. Friendly names start with "Battery" for every brand.
 
 ### Battery cost for exports
 
@@ -282,8 +279,8 @@ your energy manager to allow for), and battery groups without a cost aren't incl
 
 **Estimated Service Life** (`number.battery_ledger_estimated_service_life`, or Configure → Service life and export
 cost) is how many years you expect to keep the batteries: one value per setup, counted from each battery group's
-warranty start, and the warranty period until you set it. With 15 years, a stack from 2020 reaches its **End of
-Service Life** in 2035 and one added in 2025 in 2040. `sensor.battery_ledger_end_of_service_life` is the earliest;
+warranty start. Until you set it, it's **15 years** (or the warranty period, if a battery's is longer). With 15
+years, a stack from 2020 reaches its **End of Service Life** in 2035 and one added in 2025 in 2040. `sensor.battery_ledger_end_of_service_life` is the earliest;
 each group's is in its `groups` attribute. Changing ESL or the export cost basis recalculates straight away, so
 both can be set from a dashboard or an automation.
 

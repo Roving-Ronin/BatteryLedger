@@ -4,6 +4,31 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.1.18 (2026-11-20)
+
+### TL;DR
+- Estimated Service Life (ESL) defaults to **15 years** (was the warranty period)
+- Card: the **Battery group** switcher moves under the title, with **All**, and a chosen group's figures fill the
+  warranty, throughput and health sections
+- `warranty_status` text: **On Track | Normal** (was "On Track / Normal")
+
+### Changed
+- **Estimated Service Life** until you set it: 15 years, or the setup's longest warranty period if that's longer
+  (was the warranty period). Setups that haven't set it see End of Service Life move to 15 years after each
+  group's warranty start, and the `esl` cost per kWh drop to match. Cost Per kWh (Export) only changes if Export
+  Cost Basis is ESL or Cheapest; the default (Warranty) is unaffected. A value you've set is kept.
+- Card, with more than one battery group: the **Battery group** switcher is under the title, with **All** (the
+  whole setup, the default) and 1, 2, 3 …. A chosen group shows its own warranty rings, driver, end dates, use by
+  age and usage, EoSL, **Remaining Warrantied Usage** bar and **Projected SoH** / warranty curve (with the chip
+  comparing the battery's reported SoH to that group's curve), and the status chip shows that group's status. Cost
+  stays for the whole setup. The chosen chip is lavender, clear of the blue of the by-age ring. In
+  v0.1.17 the switcher only changed the warranty rows.
+- `warranty_status` (on Estimated Usable Capacity) reads **On Track | Normal** (was "On Track / Normal"), in the
+  sensor and on the card. If an automation or template compares that text, update it.
+- Card: the Estimated Service Life box is narrower, without spin arrows.
+- Battery group attributes: `projected_throughput_kwh` (throughput by the warranty end date at the average rate),
+  for the card's group view.
+
 ## v0.1.17 (2026-11-20)
 
 ### TL;DR

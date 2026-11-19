@@ -107,7 +107,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         minor = 4
 
     if version == 1 and minor < 5:
-        # 0.1.16 (entry 1.5): Estimated Service Life (None = each group's warranty period) and the export cost
+        # 0.1.16 (entry 1.5): Estimated Service Life (None = the default, 15 years from 0.1.18) and the export cost
         # basis (warranty, as v0.1.16 published) are options that change without a reload.
         options.setdefault(CONF_ESL_YEARS, None)
         options.setdefault(CONF_EXPORT_SETTING, "warranty")

@@ -273,10 +273,15 @@ def test_cost_per_kwh_export_warranty_basis_is_whichever_ends_first():
 
 
 def test_cost_per_kwh_export_estimated_service_life_and_cheapest():
-    # ESL defaults to the warranty period; 15 years spreads the cost over more throughput
+    # ESL defaults to 15 years (this warranty is 10), spreading the cost over more throughput than by age
     default = _export_case(400, 10.0)
-    assert default.export_costs["esl"] == pytest.approx(default.export_costs["age"])
-    assert abs((default.groups[0].eosl - default.groups[0].warranty_end).days) <= 1
+    assert default.esl_years == 15
+    assert default.export_costs["esl"] == pytest.approx(default.export_costs["age"] * 10 / 15)
+    g0 = default.groups[0]
+    assert g0.as_attributes()["projected_throughput_kwh"] == round(g0.projected_kwh)  # for the card's group view
+    assert g0.eosl == g0.install_date.replace(year=g0.install_date.year + 15)
+    # A warranty longer than 15 years is the default instead; a set ESL wins either way
+    assert _export_case(400, 10.0, esl_years=12).esl_years == 12
     esl = _export_case(400, 10.0, esl_years=15, export_setting="esl")
     assert esl.export_basis == "esl"
     assert esl.cost_per_kwh_export == pytest.approx(esl.export_costs["age"] * 10 / 15)
@@ -288,9 +293,15 @@ def test_cost_per_kwh_export_estimated_service_life_and_cheapest():
     soh = _export_case(400, 10.0, esl_years=15, export_setting="cheapest", soh_trend_years=25)
     assert soh.export_basis == "soh_trend" and soh.cost_per_kwh_export < cheap.cost_per_kwh_export
     # Heavy use, cheapest: the warranty's binding limit (usage) vs ESL; never the non-binding age figure
-    heavy = _export_case(400, 60.0, export_setting="cheapest")
+    heavy = _export_case(400, 60.0, export_setting="cheapest", esl_years=10)
     assert heavy.export_basis == "esl"  # 10 years uncapped < rated
     assert heavy.cost_per_kwh_export == pytest.approx(heavy.export_costs["age"])
+
+
+def test_default_esl_years():
+    from custom_components.battery_ledger.ledger import default_esl_years
+    assert default_esl_years([{"warranty": {"years": 10}}]) == 15
+    assert default_esl_years([{"warranty": {"years": 10}}, {"warranty": {"years": 20}}]) == 20
 
 
 def test_cost_per_kwh_export_by_age_or_by_usage():

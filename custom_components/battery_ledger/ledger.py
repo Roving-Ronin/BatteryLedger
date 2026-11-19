@@ -140,7 +140,7 @@ class LedgerInput:
     reported_capacity_kwh: float | None = None
     reported_soh_pct: float | None = None
     module_soc: dict[str, float] = field(default_factory=dict)
-    # Estimated Service Life in years, counted from each group's warranty start; None = its warranty period
+    # Estimated Service Life in years, counted from each group's warranty start; None = default_esl_years
     esl_years: float | None = None
     export_setting: str = EXPORT_WARRANTY
     # Years the SoH trend suggests until the warranty capacity is reached (None: not enough history)
@@ -207,6 +207,7 @@ class GroupResult:
             "cost": _r(self.cost, 2),
             "cost_consumed": _r(self.cost_consumed, 2),
             "end_of_service_life": self.eosl.isoformat() if self.eosl else None,
+            "projected_throughput_kwh": _r(self.projected_kwh, 0),
         }
 
 
@@ -296,6 +297,14 @@ def _module_mode(g: GroupInput) -> bool:
     )
 
 
+ESL_DEFAULT_YEARS = 15  # Estimated Service Life until the user sets one
+
+
+def default_esl_years(specs: list[dict]) -> float:
+    """Estimated Service Life until the user sets one: 15 years, or the longest warranty if that's longer."""
+    return float(max([ESL_DEFAULT_YEARS, *(s["warranty"]["years"] for s in specs)]))
+
+
 def _add_years(start: date, years: float) -> date:
     """Calendar years (15 years from 2020-03-01 is 2035-03-01), then any fraction in days."""
     whole = int(years)
@@ -309,6 +318,7 @@ def _add_years(start: date, years: float) -> date:
 def compute(inp: LedgerInput) -> LedgerResult:
     if not inp.groups:
         raise SpecError("no battery groups configured")
+    esl_years = inp.esl_years or default_esl_years([g.spec for g in inp.groups])
 
     days = [max((inp.today - g.install_date).days, 0) for g in inp.groups]
     caps = [g.spec["capacity"]["usable_kwh"] * g.units for g in inp.groups]
@@ -346,7 +356,7 @@ def compute(inp: LedgerInput) -> LedgerResult:
             used = max(system_kwh, 0.0) * share
             tp_frac = (used / limit) if limit else None
         warranty_days = w["years"] * DAYS_PER_YEAR
-        esl_days = (inp.esl_years or w["years"]) * DAYS_PER_YEAR
+        esl_days = esl_years * DAYS_PER_YEAR
         time_frac = d / warranty_days
         life = max(time_frac, tp_frac or 0.0)
         eol = w["eol_capacity_pct"]
@@ -373,7 +383,7 @@ def compute(inp: LedgerInput) -> LedgerResult:
             driver=driver, status=status, source="modules" if by_module else "plant",
             modules=modules, module_kwh=dict(g.module_kwh) if by_module else {},
             warranty_years=w["years"], eol_pct=eol, projected_uncapped_kwh=uncapped,
-            eosl=_add_years(g.install_date, inp.esl_years or w["years"]),
+            eosl=_add_years(g.install_date, esl_years),
             projected_esl_kwh=used / d * esl_days if d > 0 else None,
             projected_soh_kwh=used / d * inp.soh_trend_years * DAYS_PER_YEAR
             if d > 0 and inp.soh_trend_years else None,
@@ -498,4 +508,4 @@ def compute(inp: LedgerInput) -> LedgerResult:
         reported_capacity_kwh=inp.reported_capacity_kwh, total_units=sum(g.units for g in inp.groups),
         cycles_per_day=cycles, cost_per_kwh_export=cpk_export, export_basis=export_basis,
         export_costs=costs,
-        esl_years=inp.esl_years or (max(r.warranty_years for r in results) if results else None), soh_trend_years=inp.soh_trend_years, eosl=min(r.eosl for r in results) if results else None)
+        esl_years=esl_years, soh_trend_years=inp.soh_trend_years, eosl=min(r.eosl for r in results) if results else None)

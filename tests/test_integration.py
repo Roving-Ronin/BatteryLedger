@@ -102,7 +102,7 @@ async def test_flow_and_sensors(hass: HomeAssistant):
     assert cost["percent_of_rated_life_used"] == pytest.approx(10.44, abs=0.01)
     usable = val("estimated_usable_capacity").attributes
     assert usable["degradation_driver"] == "Age (Time Elapsed)"
-    assert usable["warranty_status"] == "On Track / Normal"
+    assert usable["warranty_status"] == "On Track | Normal"
     # Same attributes as the YAML package, nothing extra
     assert set(usable) == {"remaining_usable_kwh", "degradation_driver", "warranty_status",
                            "unit_of_measurement", "icon", "friendly_name"}
@@ -615,20 +615,20 @@ async def test_estimated_service_life_and_export_basis_entities(hass: HomeAssist
     await hass.async_block_till_done()
     esl = hass.states.get("number.battery_ledger_estimated_service_life")
     basis = hass.states.get("select.battery_ledger_export_cost_basis")
-    assert float(esl.state) == 10 and esl.attributes["unit_of_measurement"] == "y"
+    assert float(esl.state) == 15 and esl.attributes["unit_of_measurement"] == "y"  # the default
     assert basis.state == "warranty" and basis.attributes["options"] == ["warranty", "age", "usage", "esl", "cheapest"]
     eosl = hass.states.get("sensor.battery_ledger_end_of_service_life")
-    assert eosl.state == "2034-01-01"  # the 2024 group + 10 years; the 2025 group's is in `groups`
-    assert [g["end_of_service_life"] for g in eosl.attributes["groups"]] == ["2034-01-01", "2035-06-01"]
+    assert eosl.state == "2039-01-01"  # the 2024 group + 15 years; the 2025 group's is in `groups`
+    assert [g["end_of_service_life"] for g in eosl.attributes["groups"]] == ["2039-01-01", "2040-06-01"]
 
     runtime = entry.runtime_data
-    await hass.services.async_call("number", "set_value", {"entity_id": esl.entity_id, "value": 15}, blocking=True)
+    await hass.services.async_call("number", "set_value", {"entity_id": esl.entity_id, "value": 20}, blocking=True)
     await hass.services.async_call("select", "select_option", {"entity_id": basis.entity_id, "option": "esl"},
                                    blocking=True)
     await hass.async_block_till_done()
     assert entry.runtime_data is runtime  # recalculated, not reloaded
-    assert entry.options["esl_years"] == 15 and entry.options["export_cost_basis"] == "esl"
-    assert hass.states.get("sensor.battery_ledger_end_of_service_life").state == "2039-01-01"
+    assert entry.options["esl_years"] == 20 and entry.options["export_cost_basis"] == "esl"
+    assert hass.states.get("sensor.battery_ledger_end_of_service_life").state == "2044-01-01"
     export = hass.states.get("sensor.battery_ledger_cost_per_kwh_export")
     assert export.attributes["basis"] == "esl"
     assert float(export.state) == pytest.approx(export.attributes["esl"])
@@ -639,7 +639,7 @@ async def test_estimated_service_life_and_export_basis_entities(hass: HomeAssist
     opts = hass.config_entries.options
     r = await opts.async_init(entry.entry_id)
     r = await opts.async_configure(r["flow_id"], {"next_step_id": "service_life"})
-    assert r["step_id"] == "service_life" and "2039-01-01" in r["description_placeholders"]["groups"]
+    assert r["step_id"] == "service_life" and "2044-01-01" in r["description_placeholders"]["groups"]
     r = await opts.async_configure(r["flow_id"], {"esl_years": 12, "export_cost_basis": "cheapest"})
     assert r["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
