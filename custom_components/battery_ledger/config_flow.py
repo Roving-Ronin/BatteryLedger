@@ -58,7 +58,7 @@ from .const import (
     STORE_SITE_URL,
 )
 from .detect import DetectedSystem, RegistryEntity, assign_modules, detect
-from .suggest import Reading, reading_options, suggest
+from .suggest import Reading, fits_any_module, reading_options, suggest
 from .ledger import SpecError, validate_spec, validate_units
 from .store_client import StoreIndexError, async_get_store_index, spec_label
 
@@ -422,6 +422,10 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         if mods and all(k for k in mods):
             # One reading per module: modules of different models are each recognised.
             return [Reading(module_kwh=[k]) for k in mods]
+        return self._inverter_readings(system) or self._system_readings(system)
+
+    def _inverter_readings(self, system: DetectedSystem) -> list[Reading]:
+        """One reading per inverter, or per tower where the profile says which tower each pack is in."""
         readings = []
         for number, roles in enumerate(system.inverters.values(), start=1):
             rated_entity = (roles.get("inverter_rated_capacity") or [None])[0]
@@ -445,8 +449,9 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             if count is None and installed:
                 count = len(installed)
             readings.append(Reading(rated_kwh=rated, count=count, model_text=model, place=f"{number} · {label} · –"))
-        if readings:
-            return readings
+        return readings
+
+    def _system_readings(self, system: DetectedSystem) -> list[Reading]:
         rated = self._kwh(system.roles.get("rated_capacity", (None, None))[1])
         if rated is None:
             return []
@@ -480,9 +485,12 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         brands = self._brands(profile, self._system)
         specs = [s for s in index.specs if s["brand"] in brands]
         readings = self._readings(self._system)
-        # Several towers or inverters (not per-module readings): ask whether they went in together.
-        self._towers = [(r, opts) for r in readings if not r.module_kwh
-                        for opts in [reading_options(specs, r)] if opts]
+        # Several towers or inverters: ask whether they went in together. Per-inverter readings are used for this
+        # even where per-module ones exist (e.g. Sigen Cloud modules, which don't say which inverter they're on).
+        towers = [r for r in readings if not r.module_kwh] or self._inverter_readings(self._system)
+        modules = [k for r in readings for k in r.module_kwh]  # narrows each tower to the models of its modules
+        self._towers = [(r, opts) for r in towers
+                        for opts in [[o for o in reading_options(specs, r) if fits_any_module(o[0], modules)]] if opts]
         if len(self._towers) > 1:
             return await self.async_step_detect_towers()
         return await self._async_suggested(specs, readings, brands)

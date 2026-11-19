@@ -56,7 +56,8 @@ Or add it manually:
      batteries to suggest the model and number of modules, which you confirm on the next step:
      - **Sigenergy (Sigenergy Local Modbus):** each inverter's battery pack count and rated battery capacity give
        the capacity per module (48.36 kWh ÷ 6 = 8.06 kWh: BAT 8.0), and its model type tells SigenStor from Neo.
-     - **sigenergy2mqtt (Sigen Cloud):** each module's rated capacity.
+     - **sigenergy2mqtt (Sigen Cloud):** each module's rated capacity, and with more than one inverter each
+       inverter's rated battery capacity (the Cloud modules don't say which inverter they're on).
      - **Huawei / iStore (wlcrs):** rated capacity ÷ battery packs with a serial number, counted per tower: 5.0 kWh
        is the S0, 6.9 kWh the S1. The S1 is shown as detected (the Huawei and iStore warranties are the same); for the S0 you choose
        Huawei or iStore, as their warranties differ.
