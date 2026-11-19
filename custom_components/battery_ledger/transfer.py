@@ -20,6 +20,8 @@ from .const import (
     CONF_CHARGED_ENTITY,
     CONF_CURRENCY_STYLE,
     CONF_DISCHARGED_ENTITY,
+    CONF_ESL_YEARS,
+    CONF_EXPORT_SETTING,
     CONF_GROUPS,
     CONF_INSTALL_DATE,
     CONF_MODULES,
@@ -69,6 +71,8 @@ def build_export(title: str, data: dict[str, Any], options: dict[str, Any], toda
         "sensors": {k: current[k] for k in SENSOR_KEYS if current.get(k)},
         CONF_MODULES: [{MOD_ID: m[MOD_ID], MOD_GROUP: m[MOD_GROUP]} for m in data.get(CONF_MODULES) or []],
         "card_settings": card_settings,
+        CONF_ESL_YEARS: current.get(CONF_ESL_YEARS),
+        CONF_EXPORT_SETTING: current.get(CONF_EXPORT_SETTING),
     }
 
 
@@ -128,4 +132,15 @@ def parse_export(text: str) -> dict[str, Any]:
         "sensors": {k: v for k, v in sensors.items() if k in SENSOR_KEYS and isinstance(v, str)},
         CONF_MODULES: modules,  # module serial -> group index
         "card_settings": card if isinstance(card, dict) else None,
+        CONF_ESL_YEARS: _esl(export.get(CONF_ESL_YEARS)),
+        CONF_EXPORT_SETTING: export.get(CONF_EXPORT_SETTING)
+        if export.get(CONF_EXPORT_SETTING) in ("warranty", "age", "usage", "esl", "cheapest") else None,
     }
+
+
+def _esl(value: Any) -> float | None:
+    try:
+        years = float(value)
+    except (TypeError, ValueError):
+        return None
+    return years if 1 <= years <= 30 else None

@@ -18,6 +18,8 @@ from .const import (
     CONF_GROUPS,
     CURRENCY_STYLE_CODE,
     CONF_SPEC,
+    CONF_ESL_YEARS,
+    CONF_EXPORT_SETTING,
     CONFIG_ENTRY_MINOR_VERSION,
     CONFIG_ENTRY_VERSION,
     DOMAIN,
@@ -33,7 +35,7 @@ from .store_client import StoreIndex, async_get_store_index
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.NUMBER, Platform.SELECT, Platform.SENSOR]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -104,6 +106,13 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         data[CONF_GROUPS] = groups
         minor = 4
 
+    if version == 1 and minor < 5:
+        # 0.1.16 (entry 1.5): Estimated Service Life (None = each group's warranty period) and the export cost
+        # basis (warranty, as v0.1.16 published) are options that change without a reload.
+        options.setdefault(CONF_ESL_YEARS, None)
+        options.setdefault(CONF_EXPORT_SETTING, "warranty")
+        minor = 5
+
     # Future steps go here, oldest first.
 
     if (version, minor) != (entry.version, entry.minor_version):
@@ -164,6 +173,12 @@ def _loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:
 
 
 async def _async_reload(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    runtime = getattr(entry, "runtime_data", None)
+    if runtime is not None and runtime.only_live_options_changed():
+        # ESL / export basis (number and select entities): recalculate, no reload
+        runtime.remember_entry()
+        runtime.recalculate()
+        return
     await hass.config_entries.async_reload(entry.entry_id)
 
 

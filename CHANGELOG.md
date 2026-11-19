@@ -4,29 +4,44 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
-## v0.1.16 (2026-11-19)
+## v0.1.16 (2026-11-20)
 
 ### TL;DR
-- New `sensor.battery_ledger_cost_per_kwh_export`: the battery's cost per kWh of whichever warranty limit ends
-  first, to use as the battery cost or minimum export price in EMHASS, HAEO or Energy Manager
+- **Cost Per kWh (Export)** (`sensor.battery_ledger_cost_per_kwh_export`): the battery's cost per kWh for the
+  battery cost or minimum export price in EMHASS, HAEO or Energy Manager, with each basis as an attribute
+- **Estimated Service Life (ESL)** and **End of Service Life (EoSL)**: how long you expect to keep the batteries,
+  set in Configure or from a dashboard; **Export Cost Basis** chooses what the export cost publishes
 - Setup file: Configure → **Export setup** and **Import a saved setup**, for a new server without a backup restore
 - **Download diagnostics**, with module serials and costs removed, to attach to issues
 
 ### Added
-- **Cost Per kWh (Export)** (`sensor.battery_ledger_cost_per_kwh_export`): battery cost ÷ projected throughput by
-  the warranty end date, capped at the warranted throughput, so it's the Rated figure when usage ends the
-  warranty first and higher when age does. For the first 30 days (or with no usage yet) it's the Rated figure,
-  as an early projection can be far too high for a minimum sell price. Warranties with no throughput limit use
-  the uncapped projection. Attributes: `basis` (`projected`, `rated`, `time_only`), `driver`, `low_confidence`.
-  See README → Battery cost for exports.
-- **Setup file:** Configure → **Export setup** downloads a `.json` file:
-  the battery groups with their copied specs, warranty start dates and costs, the sensors chosen, which module
-  (by serial number) is in which group, the name, currency style and card settings. **Import a saved setup**
+- **Cost Per kWh (Export)** (`sensor.battery_ledger_cost_per_kwh_export`). Attributes give the cost per kWh on
+  each basis: `age` (battery cost ÷ throughput projected by the warranty end date), `usage` (÷ warranted
+  throughput), `esl` (÷ throughput projected to the End of Service Life) and `soh_trend` / `soh_trend_years`
+  (empty until the SoH trend is added); `basis` names the one published, `driver` and `low_confidence` as on
+  the other sensors. For the first 30 days (or with no usage yet) it's `usage`, as an early projection can be
+  far too high for a minimum sell price. See README → Battery cost for exports.
+- **Export Cost Basis** (`select.battery_ledger_export_cost_basis`): **Warranty (whichever ends first)**, the
+  default and the higher of by age and by usage; **Warranty by age**; **Warranty by usage**; **Estimated Service
+  Life (ESL)**; or **Cheapest** (the lowest of the warranty figure, ESL and SoH trend).
+- **Estimated Service Life** (`number.battery_ledger_estimated_service_life`): years you expect to keep the
+  batteries (1–30), one per setup, counted from each battery group's warranty start; the warranty period until
+  set. **End of Service Life** (`sensor.battery_ledger_end_of_service_life`): the earliest group's, in calendar
+  years from its warranty start; each group's in `groups`.
+- Configure → **Service life and export cost**, for both settings. Changing them (there, or with the number and
+  select entities) recalculates straight away, without reloading the setup.
+- **Setup file:** Configure → **Export setup** downloads a `.json` file: the battery groups with their copied
+  specs, warranty start dates and costs, the sensors chosen, which module (by serial number) is in which group,
+  the name, currency style, card settings, Estimated Service Life and export cost basis. **Import a saved setup**
   (when adding BatteryLedger) uploads it: saved sensors are used where they exist on the new server, and modules
   keep their battery group by serial, so two groups of the same model are restored correctly. A file from a
   newer BatteryLedger is refused. A Home Assistant backup restore still needs none of this.
 - **Download diagnostics**: the setup, source sensors' readings and the latest calculation, with module serials
   replaced by M1, M2… and costs removed.
+
+### Changed
+- Setup format 1.5: Estimated Service Life and the export cost basis are stored as options (migrated: ESL unset,
+  basis Warranty).
 
 ## v0.1.15 (2026-11-19)
 

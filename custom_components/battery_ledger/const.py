@@ -8,7 +8,7 @@ DOMAIN = "battery_ledger"
 # the copied battery specs) bumps one of these and adds one step to async_migrate_entry
 # in __init__.py, with a test feeding it an entry in the old format.
 CONFIG_ENTRY_VERSION = 1
-CONFIG_ENTRY_MINOR_VERSION = 4
+CONFIG_ENTRY_MINOR_VERSION = 5
 NAME = "BatteryLedger"
 
 STORE_INDEX_URL = "https://roving-ronin.github.io/BatteryLedger-Store/index.json"
@@ -51,6 +51,11 @@ CONF_SOH_ENTITY = "soh_entity"
 CONF_PROFILE = "sensor_profile"
 CONF_MODULES = "modules"
 CONF_USE_MODULES = "use_modules"
+# Options (entry 1.5+), changed from Configure or the number / select entities without a reload
+CONF_ESL_YEARS = "esl_years"  # Estimated Service Life in years; None = each group's warranty period
+CONF_EXPORT_SETTING = "export_cost_basis"  # ledger.EXPORT_* ("warranty", "esl", "cheapest")
+LIVE_OPTIONS = (CONF_ESL_YEARS, CONF_EXPORT_SETTING)
+ESL_MIN_YEARS, ESL_MAX_YEARS, ESL_STEP_YEARS = 1, 30, 0.5
 # Keys inside each CONF_MODULES item
 MOD_ID = "id"
 MOD_GROUP = "group"

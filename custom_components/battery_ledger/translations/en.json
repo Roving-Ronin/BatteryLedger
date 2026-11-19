@@ -208,6 +208,7 @@
           "system": "Sensors and currency",
           "groups": "Battery groups",
           "costs": "Battery costs",
+          "service_life": "Service life and export cost",
           "export_setup": "Export setup"
         }
       },
@@ -287,6 +288,14 @@
           "cost": "Cost of these batteries"
         }
       },
+      "service_life": {
+        "title": "Service life and export cost",
+        "description": "**Estimated Service Life (ESL)** is how many years you expect to keep the batteries, counted from each battery group's warranty start date, so batteries added later have their own End of Service Life (EoSL). The warranty period is {warranty_years} years.\n\nEnd of Service Life with the current setting:\n{groups}\n\n**Export cost basis** is what Cost Per kWh (Export) publishes, the battery cost or minimum export price for a home energy manager:\n- **Warranty (whichever ends first):** the higher of by age and by usage; the conservative choice.\n- **Warranty by age:** the battery cost spread over the throughput projected to the warranty end date.\n- **Warranty by usage:** the battery cost spread over the warranted throughput.\n- **Estimated Service Life (ESL):** the battery cost spread over the throughput projected to the End of Service Life.\n- **Cheapest:** the lowest of the warranty, ESL and SoH trend figures.\n\nFor the first 30 days it's the warranty-by-usage figure whatever you choose. Both can also be changed from dashboards and automations: `number.battery_ledger_estimated_service_life` and `select.battery_ledger_export_cost_basis`.",
+        "data": {
+          "esl_years": "Estimated Service Life (years)",
+          "export_cost_basis": "Export cost basis"
+        }
+      },
       "export_setup": {
         "title": "Export setup",
         "description": "[Download {file}]({url}) (link valid for 5 minutes) and keep it somewhere safe. To set this battery up again on another Home Assistant server, add BatteryLedger there and choose **Import a saved setup**.\n\nThe file holds the {groups} battery group(s) with their copied specs, warranty start dates and costs, the sensors chosen, the battery group of each of the {modules} tracked modules (by serial number), the name, currency style and card settings. It's your own record: it includes serial numbers and costs, so don't post it publicly (for help, use Download diagnostics instead).\n\nA Home Assistant backup already includes BatteryLedger; this is for setting up without restoring one."
@@ -340,6 +349,15 @@
         "code": "Currency code",
         "symbol": "Currency symbol"
       }
+    },
+    "export_cost_basis": {
+      "options": {
+        "warranty": "Warranty (whichever ends first)",
+        "age": "Warranty by age",
+        "usage": "Warranty by usage",
+        "esl": "Estimated Service Life (ESL)",
+        "cheapest": "Cheapest"
+      }
     }
   },
   "entity": {
@@ -365,10 +383,26 @@
           "basis": {
             "name": "Basis",
             "state": {
-              "projected": "Projected",
-              "rated": "Rated",
-              "time_only": "Time-only warranty"
+              "age": "Warranty by age",
+              "usage": "Warranty by usage",
+              "esl": "Estimated Service Life (ESL)",
+              "soh_trend": "SoH trend"
             }
+          },
+          "age": {
+            "name": "Warranty by age"
+          },
+          "usage": {
+            "name": "Warranty by usage"
+          },
+          "esl": {
+            "name": "Estimated Service Life (ESL)"
+          },
+          "soh_trend": {
+            "name": "SoH trend"
+          },
+          "soh_trend_years": {
+            "name": "SoH trend (years)"
           },
           "driver": {
             "name": "Warranty driver",
@@ -379,6 +413,17 @@
           },
           "low_confidence": {
             "name": "Low confidence"
+          }
+        }
+      },
+      "end_of_service_life": {
+        "name": "End of Service Life (EoSL)",
+        "state_attributes": {
+          "estimated_service_life_years": {
+            "name": "Estimated Service Life (years)"
+          },
+          "groups": {
+            "name": "Battery groups"
           }
         }
       },
@@ -411,6 +456,23 @@
       },
       "cycles_per_day": {
         "name": "Cycles Per Day"
+      }
+    },
+    "number": {
+      "estimated_service_life": {
+        "name": "Estimated Service Life (ESL)"
+      }
+    },
+    "select": {
+      "export_cost_basis": {
+        "name": "Export Cost Basis",
+        "state": {
+          "warranty": "Warranty (whichever ends first)",
+          "age": "Warranty by age",
+          "usage": "Warranty by usage",
+          "esl": "Estimated Service Life (ESL)",
+          "cheapest": "Cheapest"
+        }
       }
     }
   },

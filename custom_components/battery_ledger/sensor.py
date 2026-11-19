@@ -123,7 +123,18 @@ EXTRA_SENSORS: tuple[LedgerSensorDescription, ...] = (
         key="cost_per_kwh_export", translation_key="cost_per_kwh_export", icon="mdi:cash-fast",
         suggested_display_precision=4, unit_fn=lambda code, label: f"{label}/kWh",
         value_fn=lambda r: _r(r.cost_per_kwh_export, 4),
-        attrs_fn=lambda r: {"basis": r.export_basis, "driver": r.driver, "low_confidence": r.low_confidence}),
+        attrs_fn=lambda r: {"basis": r.export_basis,
+                            **{b: _r(v, 4) for b, v in r.export_costs.items()},
+                            "soh_trend_years": _r(r.soh_trend_years, 1),
+                            "driver": r.driver, "low_confidence": r.low_confidence}),
+    # End of Service Life: the earliest group's warranty start + Estimated Service Life (each group's in `groups`)
+    LedgerSensorDescription(
+        key="end_of_service_life", translation_key="end_of_service_life", icon="mdi:calendar-end",
+        device_class=SensorDeviceClass.DATE, value_fn=lambda r: r.eosl,
+        attrs_fn=lambda r: {"estimated_service_life_years": r.esl_years,
+                            "groups": [{"label": g.label, "install_date": g.install_date.isoformat(),
+                                        "end_of_service_life": g.eosl.isoformat() if g.eosl else None}
+                                       for g in r.groups]}),
 )
 
 SENSORS = YAML_SENSORS + EXTRA_SENSORS
@@ -159,6 +170,20 @@ async def async_setup_entry(
     async_add_entities(LedgerSensor(runtime, d) for d in descriptions)
 
 
+def device_info(runtime: LedgerRuntime) -> DeviceInfo:
+    """The setup's device, shared by its sensor, number and select entities."""
+    specs = [g[CONF_SPEC] for g in runtime.groups]
+    # Device name is translated ("Battery"), so friendly names read "Battery Total Rated Throughput"
+    # whatever the brand, like the YAML package. The setup's own title stays in the integrations list.
+    return DeviceInfo(
+        identifiers={(DOMAIN, runtime.entry.entry_id)},
+        translation_key="battery",
+        manufacturer=", ".join(dict.fromkeys(s["brand"] for s in specs)),
+        model=", ".join(dict.fromkeys(s["model"] for s in specs)),
+        entry_type=DeviceEntryType.SERVICE,
+    )
+
+
 class LedgerSensor(SensorEntity):
     _attr_has_entity_name = True
     _attr_should_poll = False
@@ -182,16 +207,7 @@ class LedgerSensor(SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         # sensor.battery_ledger_<key>; Home Assistant adds _2, _3 ... if a second setup needs the same ID.
         self.entity_id = f"sensor.{ENTITY_ID_PREFIX}_{description.key}"
-        specs = [g[CONF_SPEC] for g in runtime.groups]
-        # Device name is translated ("Battery"), so friendly names read "Battery Total Rated Throughput"
-        # whatever the brand, like the YAML package. The setup's own title stays in the integrations list.
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            translation_key="battery",
-            manufacturer=", ".join(dict.fromkeys(s["brand"] for s in specs)),
-            model=", ".join(dict.fromkeys(s["model"] for s in specs)),
-            entry_type=DeviceEntryType.SERVICE,
-        )
+        self._attr_device_info = device_info(runtime)
         if description.unit_fn:
             self._attr_native_unit_of_measurement = description.unit_fn(runtime.currency, runtime.currency_label)
         if description.key in MONEY_KEYS and runtime.currency_label == runtime.currency:

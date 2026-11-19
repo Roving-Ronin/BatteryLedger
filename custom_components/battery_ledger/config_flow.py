@@ -28,6 +28,11 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     ANY,
+    CONF_ESL_YEARS,
+    CONF_EXPORT_SETTING,
+    ESL_MAX_YEARS,
+    ESL_MIN_YEARS,
+    ESL_STEP_YEARS,
     CONF_CAPACITY_ENTITY,
     CONF_CHARGED_ENTITY,
     CONF_COST,
@@ -61,7 +66,7 @@ from .const import (
 from .detect import DetectedSystem, RegistryEntity, assign_modules, detect
 from .suggest import Reading, fits_any_module, reading_options, suggest
 from .transfer import ERR_NOT_JSON, TransferError, parse_export
-from .ledger import SpecError, validate_spec, validate_units
+from .ledger import EXPORT_SETTINGS, EXPORT_WARRANTY, SpecError, validate_spec, validate_units
 from .store_client import StoreIndexError, async_get_store_index, spec_label
 
 _LOGGER = logging.getLogger(__name__)
@@ -968,7 +973,11 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                 name = user_input.pop("name").strip() or NAME
                 if self._imported and self._imported.get("card_settings"):
                     _restore_card_settings_when_added(self.hass, self._groups, self._imported["card_settings"])
-                return self.async_create_entry(title=name, data={
+                options = {}
+                if self._imported:
+                    options = {k: self._imported[k] for k in (CONF_ESL_YEARS, CONF_EXPORT_SETTING)
+                               if self._imported.get(k) is not None}
+                return self.async_create_entry(title=name, options=options, data={
                     **user_input,
                     CONF_GROUPS: self._groups,
                     CONF_PROFILE: self._system.profile_id if self._system else None,
@@ -1029,7 +1038,34 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
         self._new_modules: dict[str, dict] = {}
 
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
-        return self.async_show_menu(step_id="init", menu_options=["system", "groups", "costs", "export_setup"])
+        return self.async_show_menu(step_id="init", menu_options=["system", "groups", "costs", "service_life", "export_setup"])
+
+    async def async_step_service_life(self, user_input: dict | None = None) -> ConfigFlowResult:
+        """Estimated Service Life and what Cost Per kWh (Export) publishes (also the number / select entities)."""
+        from .number import default_esl_years
+
+        options = dict(self.config_entry.options)
+        if user_input is not None:
+            options[CONF_ESL_YEARS] = float(user_input[CONF_ESL_YEARS])
+            options[CONF_EXPORT_SETTING] = user_input[CONF_EXPORT_SETTING]
+            return self.async_create_entry(data=options)
+        runtime = self.config_entry.runtime_data
+        current = {CONF_ESL_YEARS: options.get(CONF_ESL_YEARS) or default_esl_years(runtime),
+                   CONF_EXPORT_SETTING: options.get(CONF_EXPORT_SETTING) or EXPORT_WARRANTY}
+        schema = vol.Schema({
+            vol.Required(CONF_ESL_YEARS): _num_box(min=ESL_MIN_YEARS, max=ESL_MAX_YEARS, step=ESL_STEP_YEARS),
+            vol.Required(CONF_EXPORT_SETTING): sel.SelectSelector(sel.SelectSelectorConfig(
+                options=list(EXPORT_SETTINGS), translation_key=CONF_EXPORT_SETTING,
+                mode=sel.SelectSelectorMode.LIST)),
+        })
+        res = runtime.result
+        return self.async_show_form(
+            step_id="service_life", data_schema=self.add_suggested_values_to_schema(schema, current),
+            description_placeholders={
+                "warranty_years": _num(default_esl_years(runtime)),
+                "groups": "\n".join(f"- {g.units} × {g.label} · {g.install_date.isoformat()} → "
+                                     f"{g.eosl.isoformat() if g.eosl else DASH}" for g in (res.groups if res else []))
+                or DASH})
 
     async def async_step_export_setup(self, user_input: dict | None = None) -> ConfigFlowResult:
         """A link to download the setup file, for Import a saved setup on another server."""

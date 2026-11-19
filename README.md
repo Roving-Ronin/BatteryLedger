@@ -124,6 +124,8 @@ Later, under **Configure**:
   start and cost are filled in from Energy Manager's `input_datetime.battery_install_date_2` and
   `input_number.battery_install_cost_2` when you use them. See [Battery groups](#battery-groups).
 - **Battery costs:** what each battery group cost.
+- **Service life and export cost:** Estimated Service Life and the export cost basis (also as the
+  `number.battery_ledger_estimated_service_life` and `select.battery_ledger_export_cost_basis` entities).
 - **Export setup:** download a setup file to keep (see [Moving to a new server](#moving-to-a-new-server)).
 
 Changes recalculate every sensor. Costs use your Home Assistant currency (Settings → System → General).
@@ -224,7 +226,8 @@ If a source drops out later, its last reading is used until it's back.
 | `projected_warranted_throughput` | Throughput by the end of the warranty at the average rate so far (capped at the limit) | `average_daily_kwh`, `low_confidence` |
 | `cost_per_kwh_rated` | Battery cost ÷ warranted throughput (battery groups with a cost) | |
 | `cost_per_kwh_projected` | Battery cost ÷ projected throughput (battery groups with a cost) | |
-| `cost_per_kwh_export` | Cost per kWh of whichever warranty limit ends first, for a home energy manager (see [Battery cost for exports](#battery-cost-for-exports)) | `basis`, `driver`, `low_confidence` |
+| `cost_per_kwh_export` | Battery cost per kWh for a home energy manager, on the basis chosen with Export Cost Basis (see [Battery cost for exports](#battery-cost-for-exports)) | `basis`, `age`, `usage`, `esl`, `soh_trend`, `soh_trend_years`, `driver`, `low_confidence` |
+| `end_of_service_life` | Earliest End of Service Life: a battery group's warranty start + Estimated Service Life (see [ESL and EoSL](#estimated-service-life-esl-and-end-of-service-life-eosl)) | `estimated_service_life_years`, `groups` |
 | `cost_consumed_to_date` | Cost apportioned to warranty life used: each battery group's cost by its own warranty driver (time elapsed or throughput used, whichever is further along), added up. `percent_of_rated_life_used` stays the throughput share. Each group's `cost` and `cost_consumed` are in the `groups` attribute | `percent_of_rated_life_used`, `estimated_remaining_value` |
 | `initial_usable_capacity` | Usable capacity at beginning of life | |
 | `estimated_usable_capacity` | Warranty floor health %: the minimum capacity the warranty guarantees today (see below) | `remaining_usable_kwh`, `degradation_driver`, `warranty_status`, `groups`, `notes` |
@@ -247,14 +250,39 @@ warranted total. `cycles_per_day` replaces the package's `battery_cycles_per_day
 minimum sell price for battery exports, in a home energy manager (EMHASS, HAEO, Energy Manager). Add your margin
 there.
 
-- It's the cost per kWh of whichever warranty limit ends first: battery cost ÷ the throughput you're projected to
-  put through by the warranty end date, capped at the warranted throughput. When usage ends the warranty first
-  that's the Rated figure; when age does, it's higher (`basis: projected`, `driver` says which).
-- For the first 30 days, and until there's any usage to project from, it's the Rated figure (`basis: rated`,
-  `low_confidence: true`): an early projection can be far too high and would stop battery exports.
-- With a warranty that has no throughput limit, it's cost ÷ projected throughput, not capped (`basis: time_only`).
-- It's per kWh discharged. Charging losses (round-trip efficiency) are for your energy manager to allow for.
-- Battery groups without a cost aren't included.
+Its attributes give the cost per kWh on each basis, and `basis` says which one is the state:
+
+| Attribute | Cost per kWh |
+|---|---|
+| `age` | Battery cost ÷ throughput projected by the warranty end date, at the average rate so far |
+| `usage` | Battery cost ÷ warranted throughput (Cost Per kWh (Rated)) |
+| `esl` | Battery cost ÷ throughput projected to the End of Service Life (see below) |
+| `soh_trend` | Battery cost ÷ throughput projected until the SoH trend reaches the warranty capacity (`soh_trend_years`), once there's enough SoH history |
+
+What the state is follows **Export Cost Basis** (`select.battery_ledger_export_cost_basis`, or Configure →
+Service life and export cost):
+
+- **Warranty (whichever ends first)** (default): the higher of `age` and `usage` (`driver` says which). The
+  conservative choice.
+- **Warranty by age** / **Warranty by usage:** always `age`, or always `usage`, regardless of which limit ends the warranty
+  first.
+- **Estimated Service Life (ESL):** `esl`.
+- **Cheapest:** the lowest of the warranty figure, `esl` and `soh_trend`. The warranty limit that doesn't end the
+  warranty isn't a candidate: its throughput isn't reached within the warranty.
+
+For the first 30 days, and until there's any usage to project from, it's `usage` whatever the setting
+(`low_confidence: true`): an early projection can be far too high and would stop battery exports. With a warranty
+that has no throughput limit, the warranty figure is `age`. Figures are per kWh discharged (charging losses are for
+your energy manager to allow for), and battery groups without a cost aren't included.
+
+### Estimated Service Life (ESL) and End of Service Life (EoSL)
+
+**Estimated Service Life** (`number.battery_ledger_estimated_service_life`, or Configure → Service life and export
+cost) is how many years you expect to keep the batteries: one value per setup, counted from each battery group's
+warranty start, and the warranty period until you set it. With 15 years, a stack from 2020 reaches its **End of
+Service Life** in 2035 and one added in 2025 in 2040. `sensor.battery_ledger_end_of_service_life` is the earliest;
+each group's is in its `groups` attribute. Changing ESL or the export cost basis recalculates straight away, so
+both can be set from a dashboard or an automation.
 
 ## What the numbers mean (and don't)
 
