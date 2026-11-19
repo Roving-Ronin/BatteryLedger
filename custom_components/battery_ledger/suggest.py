@@ -111,6 +111,11 @@ def _fits_module(spec: dict, kwh: float) -> bool:
     return spec["capacity"]["unit"] == "module" and bool(ref) and abs(kwh - ref) <= ref * MODULE_TOLERANCE
 
 
+def fits_any_module(spec: dict, module_kwh: list[float]) -> bool:
+    """The spec matches at least one module's reported capacity (or there are no module readings)."""
+    return not module_kwh or any(_fits_module(spec, k) for k in module_kwh)
+
+
 def reading_options(specs: list[dict], reading: Reading) -> list[tuple[dict, int]]:
     """(spec, units) that fit one reading. When capacity ÷ module count fits nothing (e.g. an inverter with more
     towers than the integration has serial number sensors for), fall back to the rated capacity alone."""

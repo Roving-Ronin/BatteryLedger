@@ -9,7 +9,7 @@ credit where there is one.
 ### TL;DR
 - Detect: batteries on more than one tower or inverter can be set up as one battery group per tower, each with
   its own model, warranty start and cost (e.g. a Huawei tower and an iStore tower added later)
-- Huawei and iStore: up to 18 (S0) or 36 (S1) modules, per Huawei's tower and inverter limits
+- Huawei and iStore: up to 18 (S0) or 36 (S1) modules; Sungrow SBR and SBH: up to 32 (4 stacks)
 
 ### Added
 - Detect, with batteries on more than one tower or inverter: lists each (inverter, inverter model, tower,
@@ -18,6 +18,8 @@ credit where there is one.
   IS-BATT-5000-ES), you choose. **Installed together** works as before.
 - Huawei Solar: packs are counted per tower (storage unit 1 and 2), from the Store profile's new `tower` field.
   The inverter model comes from Home Assistant's device information.
+- sigenergy2mqtt: with more than one inverter, each inverter's rated battery capacity and model are read (the
+  Cloud API's modules don't say which inverter they're on), narrowed to the models the modules report.
 
 ### Changed
 - Detect: when capacity ÷ pack count fits no battery (e.g. a SUN2000-MB0 with more towers than Huawei Solar
@@ -25,7 +27,10 @@ credit where there is one.
 - Setup → Choose your battery modules: the example of a mix comes from the batteries listed, then other models
   of the same brand in the Store (was always "both BAT 8.0 and BAT 10.0").
 - Bundled Store list: Huawei and iStore unit limits raised from 9 to 18 (S0) and 36 (S1) modules, with notes on
-  tower and inverter limits; Huawei Solar's profile says which tower each pack position is in.
+  tower and inverter limits; Huawei Solar's profile says which tower each pack position is in. Sungrow SBR and
+  SBH raised from 8 to 32 modules (up to 4 stacks in parallel), with modules per stack in the SBR notes; SBR's
+  minimum is 3 modules (was 2) and SBH's notes give 4–8 modules per stack, as in Sungrow's datasheets.
+  sigenergy2mqtt's profile reads each inverter's rated battery capacity and model.
 
 ## v0.1.14 (2026-11-19)
 

@@ -626,11 +626,11 @@ async def test_options_add_group_prefills_energy_manager_second_battery(hass: Ho
     suggested = {str(k): k.description["suggested_value"] for k in r["data_schema"].schema
                  if k.description and "suggested_value" in k.description}
     assert suggested == {"install_date": "2025-06-01", "cost": 2400.0}
-    r = await opts.async_configure(r["flow_id"], {"units": 2, "install_date": "2025-06-01", "cost": 2400})
+    r = await opts.async_configure(r["flow_id"], {"units": 3, "install_date": "2025-06-01", "cost": 2400})
     assert r["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     new = entry.data["groups"][1]
-    assert (new["units"], new["install_date"], new["cost"], new["spec"]["id"]) == (2, "2025-06-01", 2400, spec_id)
+    assert (new["units"], new["install_date"], new["cost"], new["spec"]["id"]) == (3, "2025-06-01", 2400, spec_id)
 
 
 async def _module_entry(hass: HomeAssistant):
@@ -754,3 +754,31 @@ async def test_detect_huawei_towers_installed_together(hass: HomeAssistant):
     assert r["step_id"] == "store_select"
     ids = {o["value"] for o in r["data_schema"].schema["spec_ids"].config["options"]}
     assert ids == {"huawei-luna2000-5-s0-au", "istore-is-batt-5000-es-au"}
+
+
+async def test_detect_sigenergy2mqtt_two_inverters(hass: HomeAssistant):
+    """sigenergy2mqtt with Cloud modules on two inverters: the modules don't say which inverter they're on, so
+    each inverter's rated battery capacity is used to ask whether the stacks went in together."""
+    ents = mqtt_entities() + [
+        RegistryEntity(f"sensor.sigen_0_inverter_{n}_{k}", "mqtt", f"sigen_0_00{n}_{reg}")
+        for n in (1, 2) for k, reg in (("rated_battery_capacity", 30548), ("model", 30500))]
+    _register(hass, ents, owner_domain="mqtt")
+    for n, kwh in ((1, "48.36"), (2, "32.24")):
+        hass.states.async_set(f"sensor.sigen_0_inverter_{n}_rated_battery_capacity", kwh, {"unit_of_measurement": "kWh"})
+        hass.states.async_set(f"sensor.sigen_0_inverter_{n}_model", "SigenStor EC 30.0 TP AU")
+    for sn in SERIALS:
+        hass.states.async_set(f"sensor.sigen_0_cloud_4_{sn}_rated_battery_capacity", "8.06", {"unit_of_measurement": "kWh"})
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "detect"})
+    r = await flow.async_configure(r["flow_id"], {"system": "sigenergy2mqtt|prefix=sigen|plant=0"})
+    assert r["step_id"] == "detect_towers"
+    assert r["description_placeholders"]["towers"] == (
+        "- 1 · SigenStor EC 30.0 TP AU · –: 6 × 8.06 kWh\n- 2 · SigenStor EC 30.0 TP AU · –: 4 × 8.06 kWh")
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "detect_separate"})
+    assert r["step_id"] == "group" and r["description_placeholders"]["name"] == "Sigenergy SigenStor BAT 8.0"
+    units_key = next(k for k in r["data_schema"].schema if str(k) == "units")
+    assert units_key.description["suggested_value"] == 6
+    r = await flow.async_configure(r["flow_id"], {"units": 6, "install_date": "2024-01-01"})
+    units_key = next(k for k in r["data_schema"].schema if str(k) == "units")
+    assert r["step_id"] == "group" and units_key.description["suggested_value"] == 4
