@@ -4,7 +4,7 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
-## v0.1.13 (unreleased)
+## v0.1.13 (2026-11-19)
 
 ### TL;DR
 - An SoH reading of 0% counts as no reading, and energy counters stuck at 0 get a note, so a source that
