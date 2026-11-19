@@ -28,7 +28,8 @@ credit where there is one.
   of the same brand in the Store (was always "both BAT 8.0 and BAT 10.0").
 - Bundled Store list: Huawei and iStore unit limits raised from 9 to 18 (S0) and 36 (S1) modules, with notes on
   tower and inverter limits; Huawei Solar's profile says which tower each pack position is in. Sungrow SBR and
-  SBH raised from 8 to 32 modules (up to 4 stacks in parallel), with modules per stack in the SBR notes.
+  SBH raised from 8 to 32 modules (up to 4 stacks in parallel), with modules per stack in the SBR notes; SBR's
+  minimum is 3 modules (was 2) and SBH's notes give 4–8 modules per stack, as in Sungrow's datasheets.
   sigenergy2mqtt's profile reads each inverter's rated battery capacity and model.
 
 ## v0.1.14 (2026-11-19)
