@@ -30,6 +30,21 @@ const STRINGS = {
     warranty_ends: "Warranty Ends ({years} years):",
     warranty_ends_usage: "Warranty Ends (by usage):",
     remaining_throughput: "Remaining Warrantied Usage:",
+    esl: "Estimated Service Life (ESL):",
+    battery_groups: "Battery group:",
+    esl_years: "years",
+    eosl: "End of Service Life (EoSL):",
+    export_cost: "Export Cost:",
+    export_basis: "Export Cost Basis:",
+    basis_age: "by age",
+    basis_usage: "by usage",
+    basis_esl: "ESL",
+    basis_soh_trend: "SoH trend",
+    option_warranty: "Warranty",
+    option_age: "Warranty by age",
+    option_usage: "Warranty by usage",
+    option_esl: "Estimated Service Life (ESL)",
+    option_cheapest: "Cheapest",
     of_total: "of {total} kWh",
     left_at_end: "Left at warranty end (projected): {kwh} kWh",
     used: "{kwh} kWh used",
@@ -160,6 +175,21 @@ const STYLE = `
   .dialog button.primary { background: var(--primary-color); border-color: var(--primary-color);
                            color: var(--text-primary-color, #fff); }
   .dialog .err { color: var(--bl-bad); font-size: 13px; margin-top: 10px; }
+  input.esl { width: 64px; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--divider-color, #555);
+              background: var(--card-background-color); color: var(--primary-text-color); font: inherit; text-align: right; }
+  select.basis { width: 100%; box-sizing: border-box; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--divider-color, #555);
+                 background: var(--card-background-color); color: var(--primary-text-color); font: inherit; font-size: 13px; }
+  .group { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); }
+  .group-head { font-size: 13px; font-weight: 500; margin: 10px 0 6px; }
+  .gchips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .gchips .lbl { margin-right: 4px; }
+  .gchip { font: inherit; font-size: 13px; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 14px; cursor: pointer;
+           border: 1px solid var(--divider-color, #555); background: none; color: var(--primary-text-color); }
+  .gchip[aria-pressed="true"] { background: var(--primary-color); border-color: var(--primary-color);
+                                color: var(--text-primary-color, #fff); }
+  .group-grid { display: grid; gap: 6px; }
+  .basis-row { margin-top: 8px; display: grid; gap: 4px; min-width: 0; }
+  .tile { min-width: 0; }
 `;
 
 class BatteryLedgerCard extends HTMLElement {
@@ -315,6 +345,30 @@ class BatteryLedgerCard extends HTMLElement {
     ].join("");
     const cog = body.querySelector(".cog");
     if (cog) cog.addEventListener("click", (ev) => { ev.stopPropagation(); this._openSettings(); });
+    const esl = body.querySelector("input.esl");
+    if (esl) {
+      for (const evt of ["click", "keydown"]) esl.addEventListener(evt, (ev) => ev.stopPropagation());
+      esl.addEventListener("change", () => {
+        const v = parseFloat(esl.value);
+        if (Number.isFinite(v)) {
+          this._hass.callService("number", "set_value", { entity_id: setup.entities.estimated_service_life, value: v });
+        }
+      });
+    }
+    for (const chip of body.querySelectorAll(".gchip")) {
+      chip.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        this._group = Number(chip.dataset.group);
+        this._lastKey = "";
+        this._render();
+      });
+    }
+    const basis = body.querySelector("select.basis");
+    if (basis) {
+      basis.addEventListener("click", (ev) => ev.stopPropagation());
+      basis.addEventListener("change", () => this._hass.callService("select", "select_option",
+        { entity_id: setup.entities.export_cost_basis, option: basis.value }));
+    }
   }
 
   _header(t, setup) {
@@ -380,6 +434,17 @@ class BatteryLedgerCard extends HTMLElement {
       return `<span${first ? ' class="driver-end"' : ""}>${esc(this._date(e.date))}</span>`;
     };
     const row = (label, value, ent, dot, spaced) => `<div class="stat${spaced ? " spaced" : ""}"${ent || ""}><span class="lbl">${dot ? `<span class="dot" style="background:${dot}"></span>` : ""}${esc(label)}</span><span class="v">${value}</span></div>`;
+    const groups = this._attr("rated_throughput_used", "groups") || [];
+    if (groups.length > 1) {
+      // Several battery groups: the setup's totals beside the ring, then each group's own dates and use
+      return `<section><div class="ring-row">${this._ring(timePct, tpPct)}<div class="stats">
+        ${row(t.driver, esc(driver ?? "—"), this._ent("estimated_usable_capacity"))}
+        ${row(t.cycles, this._fmt(this._num("cycles_per_day"), 4), this._ent("cycles_per_day"))}
+        ${row(t.by_time, `${this._fmt(timePct, 2)}%`, this._ent("warranty_time_elapsed"), "var(--bl-time)", true)}
+        ${row(t.by_throughput, `${this._fmt(tpPct, 2)}%`, this._ent("rated_throughput_used"), "var(--bl-tp)")}
+        ${this._serviceLife(t, row, false)}
+      </div></div>${this._groupSwitcher(t, groups, row, endValue)}</section>`;
+    }
     return `<section><div class="ring-row">${this._ring(timePct, tpPct)}<div class="stats">
       ${row(t.driver, esc(driver ?? "—"), this._ent("estimated_usable_capacity"))}
       ${row(t.cycles, this._fmt(this._num("cycles_per_day"), 4), this._ent("cycles_per_day"))}
@@ -387,7 +452,48 @@ class BatteryLedgerCard extends HTMLElement {
       ${row(t.by_time, `${this._fmt(timePct, 2)}%`, this._ent("warranty_time_elapsed"), "var(--bl-time)")}
       ${usageEnd ? row(t.warranty_ends_usage, endValue(usageEnd, end), this._ent("projected_warranted_throughput"), null, true) : ""}
       ${row(t.by_throughput, `${this._fmt(tpPct, 2)}%`, this._ent("rated_throughput_used"), "var(--bl-tp)")}
+      ${this._serviceLife(t, row)}
     </div></div></section>`;
+  }
+
+  // Several battery groups: a chip per group (1, 2, 3 …) and the chosen group's rows below.
+  _groupSwitcher(t, groups, row, endValue) {
+    const pick = Math.min(this._group || 0, groups.length - 1);
+    const chips = groups.map((g, i) => `<button class="gchip" data-group="${i}" aria-pressed="${i === pick}"
+      title="${esc(`${g.units} × ${g.label} · ${this._date(g.install_date)}`)}">${i + 1}</button>`).join("");
+    return `<div class="group"><div class="gchips" role="group" aria-label="${esc(t.battery_groups)}">
+      <span class="lbl">${esc(t.battery_groups)}</span>${chips}</div>${this._groupBlock(t, groups[pick], row, endValue)}</div>`;
+  }
+
+  // One battery group: its warranty end dates (the first to come in red), use by age and usage, and EoSL.
+  _groupBlock(t, g, row, endValue) {
+    const end = g.warranty_end_date ? { date: g.warranty_end_date, years: g.warranty_years } : null;
+    const usageEnd = g.throughput_end_date ? { date: g.throughput_end_date } : null;
+    const head = `${g.units} × ${g.label} · ${this._date(g.install_date)}`;
+    const ent = this._ent("rated_throughput_used");
+    return `<div class="group-body"${ent}><div class="group-head">${esc(head)}</div><div class="group-grid">
+      ${end ? row(fill(t.warranty_ends, { years: this._fmt(end.years, end.years % 1 ? 1 : 0) }), endValue(end, usageEnd, true)) : ""}
+      ${row(t.by_time, `${this._fmt(g.time_elapsed_pct, 2)}%`, "", "var(--bl-time)")}
+      ${usageEnd ? row(t.warranty_ends_usage, endValue(usageEnd, end)) : ""}
+      ${g.throughput_used_pct != null ? row(t.by_throughput, `${this._fmt(g.throughput_used_pct, 2)}%`, "", "var(--bl-tp)") : ""}
+      ${g.end_of_service_life ? row(t.eosl, esc(this._date(g.end_of_service_life))) : ""}
+    </div></div>`;
+  }
+
+  // Estimated Service Life (a box admins can change) and each battery group's End of Service Life.
+  _serviceLife(t, row, withEosl = true) {
+    const eslId = this._setup.entities.estimated_service_life;
+    const esl = eslId ? this._hass.states[eslId] : null;
+    if (!esl) return "";
+    const years = parseFloat(esl.state);
+    const value = this._hass.user?.is_admin
+      ? `<input class="esl" type="number" min="${esl.attributes.min ?? 1}" max="${esl.attributes.max ?? 30}" step="${esl.attributes.step ?? 0.5}" value="${Number.isFinite(years) ? years : ""}"> <span class="lbl">${esc(t.esl_years)}</span>`
+      : `${esc(this._fmt(years, years % 1 ? 1 : 0))} <span class="lbl">${esc(t.esl_years)}</span>`;
+    const groups = this._attr("end_of_service_life", "groups") || [];
+    const dates = groups.length > 1
+      ? groups.map((g) => esc(this._date(g.end_of_service_life))).join("<br>")
+      : esc(this._date(this._state("end_of_service_life")?.state));
+    return row(t.esl, value, "", null, true) + (withEosl ? row(t.eosl, dates, this._ent("end_of_service_life")) : "");
   }
 
   _throughput(t) {
@@ -430,7 +536,26 @@ class BatteryLedgerCard extends HTMLElement {
       <div class="tile value"${this._ent("cost_consumed_to_date")}><div class="lbl">${esc(t.remaining_value)}</div>
         <div class="big">${esc(this._money(parseFloat(this._attr("cost_consumed_to_date", "estimated_remaining_value")), 2))}</div></div>
       ${costTile}
+      ${this._export(t, d)}
     </div></section>`;
+  }
+
+  // Export Cost (what a home energy manager is given) and its basis, which admins can change.
+  _export(t, d) {
+    const cost = this._num("cost_per_kwh_export");
+    const selId = this._setup.entities.export_cost_basis;
+    const sel = selId ? this._hass.states[selId] : null;
+    if (cost === null && !sel) return "";
+    const basis = this._attr("cost_per_kwh_export", "basis");
+    const label = basis ? t[`basis_${basis}`] || basis : "";
+    const options = sel?.attributes.options || [];
+    const control = !sel ? "" : this._hass.user?.is_admin
+      ? `<select class="basis" aria-label="${esc(t.export_basis)}">${options.map((o) => `<option value="${esc(o)}"${o === sel.state ? " selected" : ""}>${esc(t[`option_${o}`] || o)}</option>`).join("")}</select>`
+      : `<span class="lbl">${esc(t[`option_${sel.state}`] || sel.state)}</span>`;
+    return `<div class="tile value"><div class="lbl"${this._ent("cost_per_kwh_export")}>${esc(t.export_cost)}</div>
+      <div class="mid"${this._ent("cost_per_kwh_export")}>${esc(this._money(cost, d))} <span class="lbl">${esc(label)}</span></div>
+      ${sel ? `<div class="basis-row"><div class="lbl">${esc(t.export_basis)}</div>${control}</div>` : ""}
+    </div>`;
   }
 
   // "Not Configured" with a cog: for admins, a link to this setup on BatteryLedger's integration page,
