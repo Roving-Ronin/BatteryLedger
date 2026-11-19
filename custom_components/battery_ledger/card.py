@@ -27,7 +27,8 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from homeassistant.loader import async_get_integration
 
-from .const import CONF_GROUPS, CONF_INSTALL_DATE, CONF_SPEC, CONF_UNITS, DOMAIN
+from .const import CONF_GROUPS, CONF_INSTALL_DATE, CONF_PROFILE, CONF_SOH_ENTITY, CONF_SPEC, CONF_UNITS, DOMAIN
+from .store_client import StoreIndex, async_get_store_index
 
 CARD_FILE = Path(__file__).parent / "www" / "battery-ledger-card.js"
 CARD_URL = f"/{DOMAIN}/battery-ledger-card.js"
@@ -93,7 +94,24 @@ def _with_defaults(saved: dict | None) -> dict[str, Any]:
 
 
 @callback
-def _setup_info(hass: HomeAssistant, entry, settings: dict) -> dict[str, Any]:
+def _soh_source(entry, index: StoreIndex, brands: list[str]) -> dict[str, Any]:
+    """Where an SoH reading would come from, so the card can say why there isn't one.
+
+    configured: a sensor is chosen. available: the setup's integration can provide SoH for these batteries
+    (True), can't (False: no SoH rule, or listed unavailable for every brand here), or is unknown (None:
+    manual setup, or its profile left the Store). source: the integration's name, when known.
+    """
+    current = {**entry.data, **entry.options}
+    profile = next((p for p in index.profiles if p["id"] == entry.data.get(CONF_PROFILE)), None)
+    available = None
+    if profile is not None:
+        missing = set(profile.get("unavailable", {}).get("soh", []))
+        available = "soh" in profile.get("roles", {}) and not (brands and set(brands) <= missing)
+    return {"configured": bool(current.get(CONF_SOH_ENTITY)), "available": available,
+            "source": profile["name"] if profile else None}
+
+
+def _setup_info(hass: HomeAssistant, entry, settings: dict, index: StoreIndex) -> dict[str, Any]:
     registry = er.async_get(hass)
     entities = {
         key: entity_id for key in CARD_SENSOR_KEYS
@@ -112,6 +130,7 @@ def _setup_info(hass: HomeAssistant, entry, settings: dict) -> dict[str, Any]:
     return {
         "entry_id": entry.entry_id, "title": entry.title, "entities": entities, "groups": groups,
         "currency": runtime.currency, "currency_label": runtime.currency_label,
+        "soh": _soh_source(entry, index, sorted({g["brand"] for g in groups if g["brand"]})),
         "settings": _with_defaults(settings.get(entry.entry_id)),
     }
 
@@ -121,7 +140,8 @@ def _setup_info(hass: HomeAssistant, entry, settings: dict) -> dict[str, Any]:
 async def ws_setups(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     """Every loaded BatteryLedger setup, for the card and its editor."""
     _, settings = await _settings_store(hass)
-    setups = [_setup_info(hass, entry, settings) for entry in hass.config_entries.async_entries(DOMAIN)
+    index = await async_get_store_index(hass)
+    setups = [_setup_info(hass, entry, settings, index) for entry in hass.config_entries.async_entries(DOMAIN)
               if entry.state is ConfigEntryState.LOADED]
     connection.send_result(msg["id"], {"setups": setups, "defaults": DEFAULT_SETTINGS})
 

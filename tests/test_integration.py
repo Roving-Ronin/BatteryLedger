@@ -386,3 +386,26 @@ async def test_options_cost_per_group(hass: HomeAssistant):
     assert "cost" not in entry.data["groups"][0] and entry.data["groups"][1]["cost"] == 8000
     attrs = hass.states.get("sensor.battery_ledger_cost_consumed_to_date")
     assert attrs is not None and float(attrs.state) > 0
+
+
+async def test_soh_of_zero_is_not_reported(hass: HomeAssistant):
+    """An SoH source publishing 0% (e.g. Energy Manager on an inverter without SoH) counts as no reading:
+    SoH Above Warranty Floor is unavailable rather than about -97%, and the projected SoH is unaffected."""
+    soh = "sensor.inverter_battery_soh"
+    hass.states.async_set(CHARGED, "12000", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(DISCHARGED, "11000", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(RATED, "48.36", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(soh, "0", {"unit_of_measurement": "%"})
+    entry = await _startup_entry(hass)
+    hass.config_entries.async_update_entry(entry, data={**entry.data, "soh_entity": soh})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    margin = hass.states.get("sensor.battery_ledger_soh_above_warranty_floor")
+    assert margin.state == "unavailable" or margin.attributes.get("reported_soh_pct") is None
+    assert float(hass.states.get("sensor.battery_ledger_estimated_usable_capacity").state) > 90
+
+    hass.states.async_set(soh, "98.5", {"unit_of_measurement": "%"})
+    entry.runtime_data.recalculate()
+    await hass.async_block_till_done()
+    margin = hass.states.get("sensor.battery_ledger_soh_above_warranty_floor")
+    assert margin.attributes["reported_soh_pct"] == 98.5 and float(margin.state) > 0

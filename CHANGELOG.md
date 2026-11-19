@@ -4,6 +4,38 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.1.13 (unreleased)
+
+### TL;DR
+- An SoH reading of 0% counts as no reading, and energy counters stuck at 0 get a note, so a source that
+  isn't reporting no longer gives misleading figures
+- Card: one cost per kWh figure when both are the same, and the Actual SoH tile says why there's no figure
+  (not set up, not available from your integration, or no reading)
+
+### Added
+- Note code `energy_counters_zero`: the energy counters read 0 on a battery in service for 30 days or more,
+  which usually means the source isn't reporting (seen with Energy Manager on a Sungrow inverter).
+
+### Changed
+- An SoH reading of 0% is treated as no reading. SoH Above Warranty Floor is then unavailable (it showed about
+  −97%), and the card's Actual SoH tile shows no figure. Projected SoH (Today) comes from the warranty curve and
+  is unaffected.
+- Card: when cost per kWh by usage and by age are the same (e.g. the throughput allowance will all be used before
+  the date end), the tile shows the one figure at the size of the other cost figures.
+- Setup and Configure → Sensors and currency: the currency style explanation describes Currency code first, in
+  the same order as the options.
+- Card: with no SoH reading, the Actual SoH tile says why (was "No SoH sensor chosen for this setup"), using the
+  setup's integration and what the Store says it provides for your battery:
+  - "Not Configured ⚙" when the integration has an SoH sensor that isn't chosen. For admins it's a link to this
+    setup on BatteryLedger's integration page (Configure → Sensors and currency)
+  - "Not available for Huawei" (for example) when the battery doesn't provide SoH through that integration,
+    including Energy Manager with a Huawei or iStore battery
+  - "No SoH reading from Energy Manager" (for example) when a sensor is chosen but reports nothing, or 0%, for a
+    battery that does provide SoH: a setup issue with that integration
+  - "No SoH sensor configured" for a manual setup
+- Bundled Store list: sensor profiles can list sensors they can't provide for some brands (`unavailable`).
+  Huawei Solar and Energy Manager list SoH for Huawei and iStore, as the LUNA2000 doesn't report it.
+
 ## v0.1.12 (2026-11-18)
 
 ### TL;DR

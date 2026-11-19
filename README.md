@@ -226,6 +226,12 @@ estimated or substituted:
 | `discharged_sensor_missing_using_charged` | The warranty counts discharged energy, but no discharged sensor is configured |
 | `charged_sensor_missing_using_discharged` | The warranty counts charged energy, but no charged sensor is configured |
 | `module_counters_not_used:<spec id>:<found>/<configured>` | Module sensors exist for that battery group but couldn't be used (not every module found, or the warranty isn't per unit on discharged energy) |
+| `energy_counters_zero` | The energy counters read 0 on a battery in service for 30 days or more. Usually the source isn't reporting (e.g. an integration publishing 0): check the charged / discharged sensors under Configure |
+
+An SoH reading of 0% is treated as no reading (some integrations publish 0 when the battery doesn't report SoH),
+so SoH Above Warranty Floor is unavailable instead of far below the floor.
+The card's Actual SoH tile then says why there's no figure: not set up yet, not available from your integration
+for your battery (from the Store's sensor profile), or no reading from the sensor that's chosen.
 
 `degradation_driver` (on *Warranty floor health*) is `Age (Time Elapsed)` or `Throughput (Cycles)`: whichever of
 time and throughput is further through the warranty. Before 0.1.9 the second was `Throughput (Cycle Abuse)`.

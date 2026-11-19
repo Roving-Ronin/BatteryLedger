@@ -224,3 +224,16 @@ def test_usage_end_needs_a_limit_and_use():
     slow = ledger.compute(ledger.LedgerInput(groups=[ledger.GroupInput(BAT8, 1, TODAY - timedelta(days=365))],
                                              today=TODAY, charged_kwh=365))
     assert slow.groups[0].usage_end > slow.groups[0].warranty_end  # 1 kWh a day: the date ends it first
+
+
+def test_energy_counters_stuck_at_zero_are_flagged():
+    """0 kWh after a month in service: a source that isn't reporting, flagged with a note code."""
+    old = ledger.compute(ledger.LedgerInput(groups=[ledger.GroupInput(BAT8, 6, TODAY - timedelta(days=365))],
+                                            today=TODAY, charged_kwh=0, discharged_kwh=0))
+    assert ledger.NOTE_ENERGY_ZERO in old.notes
+    new = ledger.compute(ledger.LedgerInput(groups=[ledger.GroupInput(BAT8, 6, TODAY - timedelta(days=10))],
+                                            today=TODAY, charged_kwh=0, discharged_kwh=0))
+    assert ledger.NOTE_ENERGY_ZERO not in new.notes  # just installed: 0 is plausible
+    used = ledger.compute(ledger.LedgerInput(groups=[ledger.GroupInput(BAT8, 6, TODAY - timedelta(days=365))],
+                                             today=TODAY, charged_kwh=5000, discharged_kwh=4800))
+    assert ledger.NOTE_ENERGY_ZERO not in used.notes

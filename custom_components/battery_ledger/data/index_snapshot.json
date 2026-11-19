@@ -1,7 +1,7 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-18T06:09:21+00:00",
+ "generated": "2026-11-19T01:56:29+00:00",
  "count": 34,
  "brands": [
   "AlphaESS",
@@ -2072,7 +2072,7 @@
   {
    "schema_version": 1,
    "id": "energy-manager",
-   "profile_version": 7,
+   "profile_version": 8,
    "name": "Energy Manager",
    "integration": {
     "platform": "mqtt",
@@ -2212,9 +2212,15 @@
      }
     ]
    },
+   "unavailable": {
+    "soh": [
+     "Huawei",
+     "iStore"
+    ]
+   },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-18"
+   "updated": "2026-11-19"
   },
   {
    "schema_version": 1,
@@ -2346,7 +2352,7 @@
   {
    "schema_version": 1,
    "id": "huawei-solar-wlcrs",
-   "profile_version": 3,
+   "profile_version": 4,
    "name": "Huawei Solar (wlcrs)",
    "integration": {
     "platform": "huawei_solar",
@@ -2464,9 +2470,15 @@
      }
     ]
    },
+   "unavailable": {
+    "soh": [
+     "Huawei",
+     "iStore"
+    ]
+   },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-18"
+   "updated": "2026-11-19"
   },
   {
    "schema_version": 1,

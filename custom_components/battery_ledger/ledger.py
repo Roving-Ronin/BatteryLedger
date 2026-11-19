@@ -48,6 +48,10 @@ NOTE_BASIS_UNSTATED_DISCHARGED = "basis_unstated_using_discharged"
 NOTE_NO_DISCHARGED_SENSOR = "discharged_sensor_missing_using_charged"
 NOTE_NO_CHARGED_SENSOR = "charged_sensor_missing_using_discharged"
 NOTE_MODULES_NOT_USED = "module_counters_not_used"
+# Energy counters read 0 on a battery in service for a while: almost always a source that isn't
+# reporting (e.g. an integration publishing 0), not a battery that hasn't been used.
+NOTE_ENERGY_ZERO = "energy_counters_zero"
+ENERGY_ZERO_DAYS = 30
 
 
 class SpecError(ValueError):
@@ -337,6 +341,8 @@ def compute(inp: LedgerInput) -> LedgerResult:
     used_pct = used_limited / limit_total * 100 if limit_total else None
 
     max_days = max(days)
+    if used_total == 0 and max_days >= ENERGY_ZERO_DAYS:
+        notes.append(NOTE_ENERGY_ZERO)
     avg_daily = used_total / max_days if max_days > 0 else None
     projected_total = None
     if limited and all(r.projected_kwh is not None for r in limited):
