@@ -67,6 +67,8 @@ class DetectedSystem:
     modules_usable: bool = False
     # inverter key -> role -> entity_ids (pack_serial has one per pack position)
     inverters: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    # pack_serial entity_id -> battery tower on its inverter, where the profile says (rule "tower")
+    pack_towers: dict[str, int] = field(default_factory=dict)
 
     @property
     def value(self) -> str:
@@ -112,6 +114,8 @@ def detect(profile: dict, entities: Iterable[RegistryEntity]) -> list[DetectedSy
                     found = system(key).inverters.setdefault(_inverter_key(groups), {}).setdefault(role, [])
                     if ent.entity_id not in found:
                         found.append(ent.entity_id)
+                    if role == "pack_serial" and "tower" in rule:
+                        system(key).pack_towers[ent.entity_id] = int(rule["tower"])
                 else:
                     system(key)
                     matches.setdefault((key, role), []).append((idx, rule["level"], ent.entity_id))

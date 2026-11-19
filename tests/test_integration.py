@@ -41,6 +41,7 @@ async def _setup_via_flow(hass: HomeAssistant, install_date: str) -> config_entr
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"series": "Sigenergy|SigenStor"})
     assert result["step_id"] == "store_select"
     assert result["description_placeholders"]["matches"] == "1"
+    assert result["description_placeholders"]["example_a"] == "SigenStor BAT 8.0"
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"spec_ids": ["sigenergy-sigenstor-bat-8-0-anz"]})
@@ -503,3 +504,16 @@ async def test_options_group_remove_last_refused(hass: HomeAssistant):
     r = await opts.async_configure(r["flow_id"], {"units": 4, "install_date": "2024-01-01", "remove": True})
     assert r["errors"] == {"base": "last_group"}
     assert len(entry.data["groups"]) == 1
+
+
+def test_mix_example_uses_the_batteries_shown():
+    """'Tick every model … e.g. both X and Y': X and Y come from the batteries on the form, then the same brand."""
+    from custom_components.battery_ledger.config_flow import _mix_example
+    luna7 = {"brand": "Huawei", "model": "LUNA2000-7-S1"}
+    luna5 = {"brand": "Huawei", "model": "LUNA2000-5-S0"}
+    bat8 = {"brand": "Sigenergy", "model": "SigenStor BAT 8.0"}
+    bat10 = {"brand": "Sigenergy", "model": "SigenStor BAT 10.0"}
+    store = [bat10, bat8, luna7, luna5]
+    assert _mix_example([luna7, luna5], store) == ("LUNA2000-7-S1", "LUNA2000-5-S0")
+    assert _mix_example([luna5], store) == ("LUNA2000-5-S0", "LUNA2000-7-S1")  # one shown: same brand next
+    assert _mix_example([bat8, bat8], store) == ("SigenStor BAT 8.0", "SigenStor BAT 10.0")

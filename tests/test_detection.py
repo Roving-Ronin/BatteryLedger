@@ -693,3 +693,64 @@ async def test_options_add_group_new_module_other_model(hass: HomeAssistant):
     await hass.async_block_till_done()
     assert [(m["id"], m["group"]) for m in entry.data["modules"]] == [(SERIALS[0], 0)]
     assert len(entry.data["groups"]) == 2
+
+
+async def _huawei_two_towers(hass: HomeAssistant):
+    """wlcrs: one SUN2000-5KTL-L1 with two towers of 3 × 5 kWh (storage units 1 and 2), 30 kWh in all."""
+    from homeassistant.helpers import device_registry as dr
+    sn = "HV2222222222"
+    owner = MockConfigEntry(domain="huawei_solar")
+    owner.add_to_hass(hass)
+    devices = dr.async_get(hass)
+    inverter = devices.async_get_or_create(config_entry_id=owner.entry_id, identifiers={("huawei_solar", sn)},
+                                           name="Inverter 1", model="SUN2000-5KTL-L1")
+    batteries = devices.async_get_or_create(config_entry_id=owner.entry_id, identifiers={("huawei_solar", f"{sn}_b")},
+                                            name="Batteries", model="Batteries", via_device=("huawei_solar", sn))
+    registry = er.async_get(hass)
+    for k in ("total_discharge", "total_charge", "rated_capacity"):
+        registry.async_get_or_create("sensor", "huawei_solar", f"{sn}_storage_{k}", suggested_object_id=f"batteries_{k}",
+                                     config_entry=owner, device_id=batteries.id)
+    for unit in (1, 2):
+        for n in (1, 2, 3):
+            oid = f"battery_{unit}_pack_{n}_serial_number"
+            registry.async_get_or_create("sensor", "huawei_solar", f"{sn}_storage_unit_{unit}_battery_pack_{n}_serial_number",
+                                         suggested_object_id=oid, config_entry=owner)
+            hass.states.async_set(f"sensor.{oid}", f"PACK{unit}{n}")
+    hass.states.async_set("sensor.batteries_rated_capacity", "30000", {"unit_of_measurement": "Wh"})
+    assert inverter.model == "SUN2000-5KTL-L1"
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "detect"})
+    return await flow.async_configure(r["flow_id"], {"system": "huawei-solar-wlcrs|default"})
+
+
+async def test_detect_huawei_towers_installed_separately(hass: HomeAssistant):
+    """A tower added later, of another brand: one battery group per tower, each model chosen."""
+    r = await _huawei_two_towers(hass)
+    assert r["type"] is FlowResultType.MENU and r["step_id"] == "detect_towers"
+    assert r["description_placeholders"]["towers"] == (
+        "- 1 · SUN2000-5KTL-L1 · 1: 3 × 5 kWh\n- 1 · SUN2000-5KTL-L1 · 2: 3 × 5 kWh")
+    flow = hass.config_entries.flow
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "detect_separate"})
+    assert r["step_id"] == "detect_tower" and r["description_placeholders"]["number"] == "1"
+    ids = [o["value"] for o in r["data_schema"].schema["spec"].config["options"]]
+    assert set(ids) == {"huawei-luna2000-5-s0-au", "istore-is-batt-5000-es-au"}
+    r = await flow.async_configure(r["flow_id"], {"spec": "huawei-luna2000-5-s0-au"})
+    assert r["step_id"] == "detect_tower" and r["description_placeholders"]["place"] == "1 · SUN2000-5KTL-L1 · 2"
+    r = await flow.async_configure(r["flow_id"], {"spec": "istore-is-batt-5000-es-au"})
+    assert r["step_id"] == "group" and r["description_placeholders"]["name"] == "Huawei LUNA2000-5-S0"
+    units_key = next(k for k in r["data_schema"].schema if str(k) == "units")
+    assert units_key.description["suggested_value"] == 3
+    r = await flow.async_configure(r["flow_id"], {"units": 3, "install_date": "2022-03-01"})
+    assert r["step_id"] == "group" and r["description_placeholders"]["name"].startswith("iStore")
+    units_key = next(k for k in r["data_schema"].schema if str(k) == "units")
+    assert units_key.description["suggested_value"] == 3
+
+
+async def test_detect_huawei_towers_installed_together(hass: HomeAssistant):
+    """Installed together: as before, the fitting models are listed for the user to tick."""
+    r = await _huawei_two_towers(hass)
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"next_step_id": "detect_together"})
+    assert r["step_id"] == "store_select"
+    ids = {o["value"] for o in r["data_schema"].schema["spec_ids"].config["options"]}
+    assert ids == {"huawei-luna2000-5-s0-au", "istore-is-batt-5000-es-au"}
