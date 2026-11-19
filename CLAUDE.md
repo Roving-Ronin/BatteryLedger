@@ -40,6 +40,9 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
 | `sensor.py` | Entities only: values come from the `LedgerResult` |
 | `config_flow.py` | Setup wizard and options flow |
 | `repairs.py` | Accepting revised Store specs |
+| `transfer.py` | Setup file contents (export / import). Pure. Holds serials and costs: the user's own file, never sent anywhere |
+| `backup.py` | Setup file download: signed-link view (admins), used by Configure → Export setup |
+| `diagnostics.py` | Download diagnostics: serials → M1, M2…, costs redacted |
 | `data/index_snapshot.json` | Copy of the Store index shipped with each release |
 
 ## Rules

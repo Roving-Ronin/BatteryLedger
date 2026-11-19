@@ -27,6 +27,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from homeassistant.loader import async_get_integration
 
+from .backup import ExportView
 from .const import CONF_GROUPS, CONF_INSTALL_DATE, CONF_PROFILE, CONF_SOH_ENTITY, CONF_SPEC, CONF_UNITS, DOMAIN
 from .store_client import StoreIndex, async_get_store_index
 
@@ -68,6 +69,7 @@ async def async_register_card(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_save_settings)
     if hass.http is None:  # no web server (e.g. some test setups)
         return
+    hass.http.register_view(ExportView())
     await hass.http.async_register_static_paths([
         StaticPathConfig(CARD_URL, str(CARD_FILE), True),
         StaticPathConfig(LOGO_URL, str(LOGO_FILE), True),
@@ -82,6 +84,25 @@ async def _settings_store(hass: HomeAssistant) -> tuple[Store, dict[str, dict]]:
         store: Store = Store(hass, 1, SETTINGS_STORE_KEY)
         hass.data[_SETTINGS] = (store, await store.async_load() or {})
     return hass.data[_SETTINGS]
+
+
+async def async_card_settings(hass: HomeAssistant, entry_id: str) -> dict[str, Any]:
+    """One setup's card settings, with defaults (for the setup file)."""
+    _store, settings = await _settings_store(hass)
+    return _with_defaults(settings.get(entry_id))
+
+
+async def async_restore_card_settings(hass: HomeAssistant, entry_id: str, saved: dict | None) -> None:
+    """Card settings from an imported setup file, if they're valid."""
+    if not saved:
+        return
+    try:
+        checked = SETTINGS_SCHEMA({k: v for k, v in saved.items() if k in ("cost_decimals", "date_style", "sections")})
+    except vol.Invalid:
+        return
+    store, settings = await _settings_store(hass)
+    settings[entry_id] = _with_defaults(checked)
+    await store.async_save(settings)
 
 
 def _with_defaults(saved: dict | None) -> dict[str, Any]:

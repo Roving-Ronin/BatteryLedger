@@ -237,3 +237,37 @@ def test_energy_counters_stuck_at_zero_are_flagged():
     used = ledger.compute(ledger.LedgerInput(groups=[ledger.GroupInput(BAT8, 6, TODAY - timedelta(days=365))],
                                              today=TODAY, charged_kwh=5000, discharged_kwh=4800))
     assert ledger.NOTE_ENERGY_ZERO not in used.notes
+
+
+def _export_case(days: int, daily_kwh: float, scope_kwh: float | None = 23770.0):
+    from datetime import date, timedelta
+    from custom_components.battery_ledger.ledger import GroupInput, LedgerInput, compute
+    spec = {"brand": "X", "model": "Y", "capacity": {"unit": "module", "usable_kwh": 8.0, "nominal_kwh": 8.0},
+            "warranty": {"years": 10, "eol_capacity_pct": 70,
+                         "throughput": ({"scope": "per_unit", "kwh": scope_kwh, "basis": "discharged"}
+                                        if scope_kwh else {"scope": "none", "basis": "discharged"})}}
+    today = date(2026, 11, 19)
+    return compute(LedgerInput(
+        groups=[GroupInput(spec=spec, units=6, install_date=today - timedelta(days=days), cost=20000)],
+        charged_kwh=None, discharged_kwh=days * daily_kwh, today=today))
+
+
+def test_cost_per_kwh_export_follows_the_warranty_driver():
+    from custom_components.battery_ledger.ledger import (
+        EXPORT_BASIS_PROJECTED, EXPORT_BASIS_RATED, EXPORT_BASIS_TIME_ONLY)
+    # Age-driven (light use): the projected figure, higher than rated
+    age = _export_case(400, 10.0)
+    assert age.export_basis == EXPORT_BASIS_PROJECTED and age.driver == "age"
+    assert age.cost_per_kwh_export == pytest.approx(age.cost_per_kwh_projected)
+    assert age.cost_per_kwh_export > age.cost_per_kwh_rated
+    # Usage-driven (heavy use): projection is capped at the limit, so it equals rated
+    use = _export_case(400, 60.0)
+    assert use.driver == "throughput" and use.cost_per_kwh_export == pytest.approx(use.cost_per_kwh_rated)
+    # Under 30 days: rated, flagged low confidence
+    early = _export_case(5, 2.0)
+    assert early.export_basis == EXPORT_BASIS_RATED and early.low_confidence
+    assert early.cost_per_kwh_export == pytest.approx(early.cost_per_kwh_rated)
+    # Time-only warranty: no rated figure; cost ÷ projected throughput, not capped
+    t = _export_case(400, 10.0, scope_kwh=None)
+    assert t.cost_per_kwh_rated is None and t.export_basis == EXPORT_BASIS_TIME_ONLY
+    assert t.cost_per_kwh_export == pytest.approx(20000 / (10.0 * 3652.5), rel=0.01)

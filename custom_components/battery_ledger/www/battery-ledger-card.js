@@ -542,14 +542,16 @@ class BatteryLedgerCard extends HTMLElement {
     const decimals = DECIMAL_CHOICES.includes(s.cost_decimals) ? DECIMAL_CHOICES : [...DECIMAL_CHOICES, s.cost_decimals].sort();
     modal.innerHTML = `<div class="overlay"><div class="dialog" role="dialog" aria-modal="true" aria-label="${esc(t.settings)}">
       <h3>${esc(t.settings)}</h3>
-      <label for="dec">${esc(t.cost_decimals)}</label>
-      <select id="dec">${decimals.map((d) => `<option value="${d}"${d === s.cost_decimals ? " selected" : ""}>${d}</option>`).join("")}</select>
-      <label for="datefmt">${esc(t.date_style)}</label>
-      <select id="datefmt">${DATE_STYLES.map((k) => `<option value="${k}"${k === (s.date_style || "ha") ? " selected" : ""}>${esc(t[`date_style_${k}`])}</option>`).join("")}</select>
-      <label>${esc(t.sections)}</label>
-      ${SECTIONS.map((k) => `<div class="check"><input type="checkbox" id="sec-${k}"${s.sections[k] ? " checked" : ""}><span>${esc(t[`section_${k}`])}</span></div>`).join("")}
-      <div class="err" id="err" hidden>${esc(t.save_failed)}</div>
-      <div class="buttons"><button id="cancel">${esc(t.cancel)}</button><button class="primary" id="save">${esc(t.save)}</button></div>
+      <div class="pane" id="pane-display">
+        <label for="dec">${esc(t.cost_decimals)}</label>
+        <select id="dec">${decimals.map((d) => `<option value="${d}"${d === s.cost_decimals ? " selected" : ""}>${d}</option>`).join("")}</select>
+        <label for="datefmt">${esc(t.date_style)}</label>
+        <select id="datefmt">${DATE_STYLES.map((k) => `<option value="${k}"${k === (s.date_style || "ha") ? " selected" : ""}>${esc(t[`date_style_${k}`])}</option>`).join("")}</select>
+        <label>${esc(t.sections)}</label>
+        ${SECTIONS.map((k) => `<div class="check"><input type="checkbox" id="sec-${k}"${s.sections[k] ? " checked" : ""}><span>${esc(t[`section_${k}`])}</span></div>`).join("")}
+        <div class="err" id="err" hidden>${esc(t.save_failed)}</div>
+        <div class="buttons"><button id="cancel">${esc(t.cancel)}</button><button class="primary" id="save">${esc(t.save)}</button></div>
+      </div>
     </div></div>`;
     const close = () => { modal.innerHTML = ""; };
     modal.querySelector(".overlay").addEventListener("click", (ev) => { if (ev.target === ev.currentTarget) close(); });

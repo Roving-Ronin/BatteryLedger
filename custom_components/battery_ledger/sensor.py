@@ -118,6 +118,12 @@ EXTRA_SENSORS: tuple[LedgerSensorDescription, ...] = (
             lambda r: {**_groups_attr(r), "average_daily_kwh": _r(r.avg_daily_kwh, 2),
                        "low_confidence": r.low_confidence}),
     _pct("warranty_time_elapsed", "mdi:calendar-clock", lambda r: _r(r.time_elapsed_pct, 2)),
+    # For home energy managers (battery cost / minimum sell price): whichever warranty limit ends first.
+    LedgerSensorDescription(
+        key="cost_per_kwh_export", translation_key="cost_per_kwh_export", icon="mdi:cash-fast",
+        suggested_display_precision=4, unit_fn=lambda code, label: f"{label}/kWh",
+        value_fn=lambda r: _r(r.cost_per_kwh_export, 4),
+        attrs_fn=lambda r: {"basis": r.export_basis, "driver": r.driver, "low_confidence": r.low_confidence}),
 )
 
 SENSORS = YAML_SENSORS + EXTRA_SENSORS

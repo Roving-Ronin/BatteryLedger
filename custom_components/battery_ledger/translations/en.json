@@ -8,7 +8,8 @@
           "detect": "Detect from my battery's integration",
           "store_search": "Search the BatteryLedger Store",
           "store_refresh": "Update the Store list now",
-          "manual": "Enter details manually"
+          "manual": "Enter details manually",
+          "import_setup": "Import a saved setup"
         }
       },
       "store_search": {
@@ -169,6 +170,13 @@
         "data": {
           "spec": "Battery model"
         }
+      },
+      "import_setup": {
+        "title": "Import a saved setup",
+        "description": "Choose a setup file saved with Configure → Export setup, for example from your old Home Assistant server. Its battery groups, warranty start dates, costs and card settings are imported. The next steps find the source sensors and battery modules here: the saved sensors are used where they exist, and modules keep their battery group by serial number.",
+        "data": {
+          "file": "Setup file (.json)"
+        }
       }
     },
     "error": {
@@ -182,7 +190,11 @@
       "bad_units": "That unit count isn't valid for this battery. Allowed: {allowed}.",
       "future_date": "The warranty start date can't be in the future.",
       "not_detected": "This integration's sensors weren't found in Home Assistant. Choose another, or choose sensors yourself.",
-      "none_selected": "Tick at least one battery model."
+      "none_selected": "Tick at least one battery model.",
+      "import_not_json": "That file couldn't be read as a saved setup (JSON). Choose the file Export setup saved.",
+      "import_not_export": "That file isn't a BatteryLedger saved setup.",
+      "import_newer": "That setup was saved by a newer version of BatteryLedger. Update BatteryLedger, then import it.",
+      "import_invalid": "That saved setup has a battery group that can't be used (missing details, a unit count the battery doesn't allow, or a warranty start date in the future)."
     },
     "progress": {
       "wait_sensors": "Waiting for the sensors that were turned on to report."
@@ -195,7 +207,8 @@
         "menu_options": {
           "system": "Sensors and currency",
           "groups": "Battery groups",
-          "costs": "Battery costs"
+          "costs": "Battery costs",
+          "export_setup": "Export setup"
         }
       },
       "system": {
@@ -273,6 +286,10 @@
         "data": {
           "cost": "Cost of these batteries"
         }
+      },
+      "export_setup": {
+        "title": "Export setup",
+        "description": "[Download {file}]({url}) (link valid for 5 minutes) and keep it somewhere safe. To set this battery up again on another Home Assistant server, add BatteryLedger there and choose **Import a saved setup**.\n\nThe file holds the {groups} battery group(s) with their copied specs, warranty start dates and costs, the sensors chosen, the battery group of each of the {modules} tracked modules (by serial number), the name, currency style and card settings. It's your own record: it includes serial numbers and costs, so don't post it publicly (for help, use Download diagnostics instead).\n\nA Home Assistant backup already includes BatteryLedger; this is for setting up without restoring one."
       }
     },
     "error": {
@@ -280,6 +297,9 @@
       "bad_units": "That unit count isn't valid for this battery. Allowed: {allowed}.",
       "future_date": "The warranty start date can't be in the future.",
       "last_group": "This is the only battery group. To start again with another battery, delete this setup and add BatteryLedger again."
+    },
+    "abort": {
+      "export_done": "Nothing was changed."
     }
   },
   "selector": {
@@ -338,6 +358,29 @@
       },
       "cost_per_kwh_projected": {
         "name": "Cost Per kWh (10yr Projected)"
+      },
+      "cost_per_kwh_export": {
+        "name": "Cost Per kWh (Export)",
+        "state_attributes": {
+          "basis": {
+            "name": "Basis",
+            "state": {
+              "projected": "Projected",
+              "rated": "Rated",
+              "time_only": "Time-only warranty"
+            }
+          },
+          "driver": {
+            "name": "Warranty driver",
+            "state": {
+              "age": "Age",
+              "throughput": "Throughput"
+            }
+          },
+          "low_confidence": {
+            "name": "Low confidence"
+          }
+        }
       },
       "cost_consumed_to_date": {
         "name": "Cost Consumed To Date"
