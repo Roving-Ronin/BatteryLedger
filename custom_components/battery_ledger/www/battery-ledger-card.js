@@ -10,6 +10,7 @@ const CARD_VERSION = new URL(import.meta.url).searchParams.get("v") || "dev";  /
 const LOGO_URL = `${new URL("battery-ledger-logo.png", import.meta.url).pathname}?v=${encodeURIComponent(CARD_VERSION)}`;
 const WS_SETUPS = "battery_ledger/card/setups";
 const WS_SAVE = "battery_ledger/card/save_settings";
+const WS_EXPORT = "battery_ledger/card/export_link";
 const SECTIONS = ["warranty", "throughput", "cost", "health"];
 const DECIMAL_CHOICES = [2, 3, 4, 5];
 const DATE_STYLES = ["ha", "day_month_year"];
@@ -69,6 +70,13 @@ const STRINGS = {
     cancel: "Cancel",
     save: "Save",
     save_failed: "Couldn't save the settings.",
+    tab_display: "Display",
+    tab_backup: "Backup",
+    backup_download: "Download setup file",
+    backup_about: "A file with this setup's battery groups, warranty start dates, costs, sensors, module groups and card settings. It includes serial numbers and costs: keep it private.",
+    backup_restore: "To restore it on another Home Assistant server: Settings → Devices & services → Add integration → BatteryLedger → Import a saved setup.",
+    backup_failed: "Couldn't create the setup file.",
+    close: "Close",
     editor_setup: "BatteryLedger setup",
     editor_hint: "Decimal places, date display and sections are set with the cog on the card.",
   },
@@ -160,6 +168,10 @@ const STYLE = `
   .dialog button.primary { background: var(--primary-color); border-color: var(--primary-color);
                            color: var(--text-primary-color, #fff); }
   .dialog .err { color: var(--bl-bad); font-size: 13px; margin-top: 10px; }
+  .dialog .tabs { display: flex; gap: 4px; margin: -4px 0 8px; border-bottom: 1px solid var(--divider-color); }
+  .dialog .tabs button { border: none; border-radius: 8px 8px 0 0; padding: 6px 12px; color: var(--bl-muted); }
+  .dialog .tabs button[aria-selected="true"] { color: var(--primary-color); box-shadow: inset 0 -2px 0 var(--primary-color); }
+  .dialog .pane p { font-size: 13px; color: var(--bl-muted); margin: 12px 0; line-height: 1.4; }
 `;
 
 class BatteryLedgerCard extends HTMLElement {
@@ -542,19 +554,56 @@ class BatteryLedgerCard extends HTMLElement {
     const decimals = DECIMAL_CHOICES.includes(s.cost_decimals) ? DECIMAL_CHOICES : [...DECIMAL_CHOICES, s.cost_decimals].sort();
     modal.innerHTML = `<div class="overlay"><div class="dialog" role="dialog" aria-modal="true" aria-label="${esc(t.settings)}">
       <h3>${esc(t.settings)}</h3>
-      <label for="dec">${esc(t.cost_decimals)}</label>
-      <select id="dec">${decimals.map((d) => `<option value="${d}"${d === s.cost_decimals ? " selected" : ""}>${d}</option>`).join("")}</select>
-      <label for="datefmt">${esc(t.date_style)}</label>
-      <select id="datefmt">${DATE_STYLES.map((k) => `<option value="${k}"${k === (s.date_style || "ha") ? " selected" : ""}>${esc(t[`date_style_${k}`])}</option>`).join("")}</select>
-      <label>${esc(t.sections)}</label>
-      ${SECTIONS.map((k) => `<div class="check"><input type="checkbox" id="sec-${k}"${s.sections[k] ? " checked" : ""}><span>${esc(t[`section_${k}`])}</span></div>`).join("")}
-      <div class="err" id="err" hidden>${esc(t.save_failed)}</div>
-      <div class="buttons"><button id="cancel">${esc(t.cancel)}</button><button class="primary" id="save">${esc(t.save)}</button></div>
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-display" aria-selected="true">${esc(t.tab_display)}</button>
+        <button role="tab" id="tab-backup" aria-selected="false">${esc(t.tab_backup)}</button>
+      </div>
+      <div class="pane" id="pane-display">
+        <label for="dec">${esc(t.cost_decimals)}</label>
+        <select id="dec">${decimals.map((d) => `<option value="${d}"${d === s.cost_decimals ? " selected" : ""}>${d}</option>`).join("")}</select>
+        <label for="datefmt">${esc(t.date_style)}</label>
+        <select id="datefmt">${DATE_STYLES.map((k) => `<option value="${k}"${k === (s.date_style || "ha") ? " selected" : ""}>${esc(t[`date_style_${k}`])}</option>`).join("")}</select>
+        <label>${esc(t.sections)}</label>
+        ${SECTIONS.map((k) => `<div class="check"><input type="checkbox" id="sec-${k}"${s.sections[k] ? " checked" : ""}><span>${esc(t[`section_${k}`])}</span></div>`).join("")}
+        <div class="err" id="err" hidden>${esc(t.save_failed)}</div>
+        <div class="buttons"><button id="cancel">${esc(t.cancel)}</button><button class="primary" id="save">${esc(t.save)}</button></div>
+      </div>
+      <div class="pane" id="pane-backup" hidden>
+        <p>${esc(t.backup_about)}</p>
+        <button class="primary" id="download">${esc(t.backup_download)}</button>
+        <p>${esc(t.backup_restore)}</p>
+        <div class="err" id="err-backup" hidden>${esc(t.backup_failed)}</div>
+        <div class="buttons"><button id="close">${esc(t.close)}</button></div>
+      </div>
     </div></div>`;
     const close = () => { modal.innerHTML = ""; };
     modal.querySelector(".overlay").addEventListener("click", (ev) => { if (ev.target === ev.currentTarget) close(); });
     modal.querySelector("#cancel").addEventListener("click", close);
+    modal.querySelector("#close").addEventListener("click", close);
     modal.querySelector(".dialog").addEventListener("keydown", (ev) => { if (ev.key === "Escape") close(); });
+    const show = (tab) => {
+      for (const k of ["display", "backup"]) {
+        modal.querySelector(`#tab-${k}`).setAttribute("aria-selected", String(k === tab));
+        modal.querySelector(`#pane-${k}`).hidden = k !== tab;
+      }
+    };
+    modal.querySelector("#tab-display").addEventListener("click", () => show("display"));
+    modal.querySelector("#tab-backup").addEventListener("click", () => show("backup"));
+    modal.querySelector("#download").addEventListener("click", async () => {
+      try {
+        // A signed link (valid a few minutes); the server sends the file as a download.
+        const res = await this._hass.callWS({ type: WS_EXPORT, entry_id: setup.entry_id });
+        const a = document.createElement("a");
+        a.href = res.url;
+        a.download = "";
+        this.shadowRoot.appendChild(a);
+        a.click();
+        a.remove();
+        modal.querySelector("#err-backup").hidden = true;
+      } catch (err) {
+        modal.querySelector("#err-backup").hidden = false;
+      }
+    });
     modal.querySelector("#save").addEventListener("click", async () => {
       const settings = {
         cost_decimals: Number(modal.querySelector("#dec").value),

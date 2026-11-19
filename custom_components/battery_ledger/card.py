@@ -27,6 +27,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 from homeassistant.loader import async_get_integration
 
+from .backup import ExportView, async_export_link
 from .const import CONF_GROUPS, CONF_INSTALL_DATE, CONF_PROFILE, CONF_SOH_ENTITY, CONF_SPEC, CONF_UNITS, DOMAIN
 from .store_client import StoreIndex, async_get_store_index
 
@@ -66,8 +67,10 @@ async def async_register_card(hass: HomeAssistant) -> None:
     hass.data[_REGISTERED] = True
     websocket_api.async_register_command(hass, ws_setups)
     websocket_api.async_register_command(hass, ws_save_settings)
+    websocket_api.async_register_command(hass, ws_export_link)
     if hass.http is None:  # no web server (e.g. some test setups)
         return
+    hass.http.register_view(ExportView())
     await hass.http.async_register_static_paths([
         StaticPathConfig(CARD_URL, str(CARD_FILE), True),
         StaticPathConfig(LOGO_URL, str(LOGO_FILE), True),
@@ -82,6 +85,25 @@ async def _settings_store(hass: HomeAssistant) -> tuple[Store, dict[str, dict]]:
         store: Store = Store(hass, 1, SETTINGS_STORE_KEY)
         hass.data[_SETTINGS] = (store, await store.async_load() or {})
     return hass.data[_SETTINGS]
+
+
+async def async_card_settings(hass: HomeAssistant, entry_id: str) -> dict[str, Any]:
+    """One setup's card settings, with defaults (for the setup file)."""
+    _store, settings = await _settings_store(hass)
+    return _with_defaults(settings.get(entry_id))
+
+
+async def async_restore_card_settings(hass: HomeAssistant, entry_id: str, saved: dict | None) -> None:
+    """Card settings from an imported setup file, if they're valid."""
+    if not saved:
+        return
+    try:
+        checked = SETTINGS_SCHEMA({k: v for k, v in saved.items() if k in ("cost_decimals", "date_style", "sections")})
+    except vol.Invalid:
+        return
+    store, settings = await _settings_store(hass)
+    settings[entry_id] = _with_defaults(checked)
+    await store.async_save(settings)
 
 
 def _with_defaults(saved: dict | None) -> dict[str, Any]:
@@ -163,6 +185,18 @@ async def ws_save_settings(hass: HomeAssistant, connection: websocket_api.Active
     settings[entry.entry_id] = _with_defaults(msg["settings"])
     await store.async_save(settings)
     connection.send_result(msg["id"], {"settings": settings[entry.entry_id]})
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/card/export_link", vol.Required("entry_id"): str})
+@websocket_api.require_admin
+@callback
+def ws_export_link(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """A signed link to download the setup file (the card's Backup tab)."""
+    entry = hass.config_entries.async_get_entry(msg["entry_id"])
+    if entry is None or entry.domain != DOMAIN:
+        connection.send_error(msg["id"], websocket_api.ERR_NOT_FOUND, "Unknown BatteryLedger setup")
+        return
+    connection.send_result(msg["id"], {"url": async_export_link(hass, entry)})
 
 
 async def async_remove_card_settings(hass: HomeAssistant, entry_id: str) -> None:

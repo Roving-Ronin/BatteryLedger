@@ -20,6 +20,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
+from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import selector as sel
@@ -59,6 +60,7 @@ from .const import (
 )
 from .detect import DetectedSystem, RegistryEntity, assign_modules, detect
 from .suggest import Reading, fits_any_module, reading_options, suggest
+from .transfer import ERR_NOT_JSON, TransferError, parse_export
 from .ledger import SpecError, validate_spec, validate_units
 from .store_client import StoreIndexError, async_get_store_index, spec_label
 
@@ -174,6 +176,31 @@ def _mix_example(matches: list[dict], specs: list[dict]) -> tuple[str, str]:
     return names[0], names[1]
 
 
+def _restore_card_settings_when_added(hass, groups: list[dict], saved: dict) -> None:
+    """Card settings are kept by config entry ID, known once the flow has created the entry."""
+    from homeassistant.config_entries import SIGNAL_CONFIG_ENTRY_CHANGED, ConfigEntryChange
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+
+    from .card import async_restore_card_settings
+
+    @callback
+    def added(change: ConfigEntryChange, entry) -> None:
+        if change is ConfigEntryChange.ADDED and entry.domain == DOMAIN and entry.data.get(CONF_GROUPS) == groups:
+            unsub()
+            hass.async_create_task(async_restore_card_settings(hass, entry.entry_id, saved))
+
+    unsub = async_dispatcher_connect(hass, SIGNAL_CONFIG_ENTRY_CHANGED, added)
+
+
+def _read_upload(hass, file_id: str) -> str:
+    """Text of a file uploaded in a flow (runs in the executor: file I/O)."""
+    try:
+        with process_uploaded_file(hass, file_id) as path:
+            return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError, ValueError) as err:
+        raise TransferError(ERR_NOT_JSON) from err
+
+
 def _device_model(hass, entity_id: str | None) -> str | None:
     """Model of the device an entity belongs to, or of the device it's connected via (e.g. Huawei Solar's
     Batteries device → its inverter, "SUN2000-5KTL-L1"). Data only, for labels."""
@@ -273,6 +300,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         # Detection over several towers / inverters: each one's reading and the (spec, units) that fit it.
         self._towers: list[tuple[Reading, list[tuple[dict, int]]]] = []
         self._tower_index = 0
+        self._imported: dict[str, Any] | None = None  # a pasted export (import_setup)
 
     @staticmethod
     @callback
@@ -286,13 +314,34 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         await index.async_refresh_if_stale()
         return self.async_show_menu(
             step_id="user",
-            menu_options=["detect", "store_search", "store_refresh", "manual"],
+            menu_options=["detect", "store_search", "store_refresh", "manual", "import_setup"],
             description_placeholders={
                 "count": str(len(index.specs)),
                 "updated": (index.generated or DASH)[:10],
                 "store_url": STORE_SITE_URL,
             },
         )
+
+    async def async_step_import_setup(self, user_input: dict | None = None) -> ConfigFlowResult:
+        """Upload a setup file saved from Configure → Export setup (e.g. on a new Home Assistant server)."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                text = await self.hass.async_add_executor_job(_read_upload, self.hass, user_input["file"])
+                imported = parse_export(text)
+                for g in imported[CONF_GROUPS]:
+                    if _check_group(g[CONF_SPEC], g[CONF_UNITS], date.fromisoformat(g[CONF_INSTALL_DATE])):
+                        raise TransferError("import_invalid")
+            except TransferError as err:
+                errors["base"] = err.args[0]
+            else:
+                self._imported = imported
+                self._groups = imported[CONF_GROUPS]
+                return await self.async_step_sensors()
+        return self.async_show_form(
+            step_id="import_setup", errors=errors,
+            data_schema=vol.Schema({vol.Required("file"): sel.FileSelector(
+                sel.FileSelectorConfig(accept=".json,application/json"))}))
 
     async def async_step_store_refresh(self, user_input: dict | None = None) -> ConfigFlowResult:
         index = await async_get_store_index(self.hass)
@@ -842,6 +891,10 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         default = next(iter(self._detected), MANUAL)
         if self._system and self._system.value in self._detected:
             default = self._system.value  # the system chosen when detecting
+        elif self._imported and self._imported.get(CONF_PROFILE):
+            # The integration the exported setup used, if found here
+            default = next((v for v, sy in self._detected.items() if sy.profile_id == self._imported[CONF_PROFILE]),
+                           default)
         return self.async_show_form(
             step_id="sensors",
             data_schema=vol.Schema({
@@ -868,6 +921,14 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             for g in self._groups
         ]
         assignment, unassigned, counts = assign_modules(rated, group_caps)
+        if self._imported and self._imported[CONF_MODULES]:
+            # A restored setup: modules keep the group they had (by serial), e.g. two groups of the same model
+            saved = self._imported[CONF_MODULES]
+            assignment = {mid: saved.get(mid, assignment.get(mid)) for mid in mods}
+            assignment = {mid: grp for mid, grp in assignment.items() if grp is not None}
+            unassigned = [mid for mid in mods if mid not in assignment]
+            counts = [(sum(1 for g in assignment.values() if g == i), g[CONF_UNITS])
+                      for i, g in enumerate(self._groups)]
         problems = bool(unassigned) or any(found != want for found, want in counts)
 
         if user_input is not None:
@@ -905,6 +966,8 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             errors = _check_system(user_input)
             if not errors:
                 name = user_input.pop("name").strip() or NAME
+                if self._imported and self._imported.get("card_settings"):
+                    _restore_card_settings_when_added(self.hass, self._groups, self._imported["card_settings"])
                 return self.async_create_entry(title=name, data={
                     **user_input,
                     CONF_GROUPS: self._groups,
@@ -914,10 +977,17 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         first = self._groups[0][CONF_SPEC]
         # Brand in title form + "Battery": e.g. "Sigenergy Battery", "Sungrow Battery".
         defaults = {"name": f"{first['brand']} Battery"}
+        if self._imported:
+            defaults["name"] = self._imported.get("name") or defaults["name"]
+            if self._imported.get(CONF_CURRENCY_STYLE) in (CURRENCY_STYLE_CODE, CURRENCY_STYLE_SYMBOL):
+                defaults[CONF_CURRENCY_STYLE] = self._imported[CONF_CURRENCY_STYLE]
         schema = _system_schema(defaults, with_name=True)
         suggested = dict(user_input or {})
         if user_input is None and self._system:
             suggested = {ROLE_TO_CONF[r]: eid for r, (_lvl, eid) in self._system.roles.items() if r in ROLE_TO_CONF}
+        if user_input is None and self._imported:
+            # The sensors the saved setup used, where they exist on this server
+            suggested.update({k: eid for k, eid in self._imported["sensors"].items() if self.hass.states.get(eid)})
         if suggested:
             schema = self.add_suggested_values_to_schema(schema, suggested)
         sysd = self._system
@@ -959,7 +1029,19 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
         self._new_modules: dict[str, dict] = {}
 
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
-        return self.async_show_menu(step_id="init", menu_options=["system", "groups", "costs"])
+        return self.async_show_menu(step_id="init", menu_options=["system", "groups", "costs", "export_setup"])
+
+    async def async_step_export_setup(self, user_input: dict | None = None) -> ConfigFlowResult:
+        """A link to download the setup file, for Import a saved setup on another server."""
+        from .backup import async_export_file, async_export_link
+
+        if user_input is not None:
+            return self.async_abort(reason="export_done")
+        entry = self.config_entry
+        filename, _text = await async_export_file(self.hass, entry)
+        return self.async_show_form(step_id="export_setup", data_schema=vol.Schema({}), description_placeholders={
+            "url": async_export_link(self.hass, entry), "file": filename,
+            "groups": str(len(entry.data[CONF_GROUPS])), "modules": str(len(entry.data.get(CONF_MODULES) or []))})
 
     # --- Battery groups: change units / warranty start, remove, or add one --------------------
 

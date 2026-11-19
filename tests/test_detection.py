@@ -782,3 +782,49 @@ async def test_detect_sigenergy2mqtt_two_inverters(hass: HomeAssistant):
     r = await flow.async_configure(r["flow_id"], {"units": 6, "install_date": "2024-01-01"})
     units_key = next(k for k in r["data_schema"].schema if str(k) == "units")
     assert r["step_id"] == "group" and units_key.description["suggested_value"] == 4
+
+
+async def test_import_keeps_module_groups_by_serial(hass: HomeAssistant, tmp_path):
+    """Two groups of the same model: capacity can't tell their modules apart, the saved serials can."""
+    from contextlib import contextmanager
+    from unittest.mock import patch
+
+    from custom_components.battery_ledger.backup import async_export_file
+    entry = await _module_entry(hass)
+    spec = entry.data["groups"][0]["spec"]
+    sn0, sn1 = SERIALS
+    hass.config_entries.async_update_entry(entry, data={
+        **entry.data,
+        "groups": [{"spec": spec, "units": 1, "install_date": "2024-01-01"},
+                   {"spec": spec, "units": 1, "install_date": "2025-01-01"}],
+        "modules": [{**entry.data["modules"][0]},
+                    {"id": sn1, "group": 1, "discharged_entity": f"sensor.sigen_0_cloud_4_{sn1}_total_discharge_amount",
+                     "soc_entity": None}]})
+    await hass.async_block_till_done()
+    _name, text = await async_export_file(hass, entry)
+    upload = tmp_path / "setup.json"
+    upload.write_text(text)
+
+    @contextmanager
+    def uploaded(_hass, _file_id):
+        yield upload
+
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "import_setup"})
+    with patch("custom_components.battery_ledger.config_flow.process_uploaded_file", uploaded):
+        r = await flow.async_configure(r["flow_id"], {"file": "0123456789abcdef0123456789abcdef"})
+    assert r["step_id"] == "sensors"
+    key = next(iter(r["data_schema"].schema))
+    assert key.default().startswith("sigenergy2mqtt")  # the saved setup's integration
+    r = await flow.async_configure(r["flow_id"], {"integration": key.default()})
+    assert r["step_id"] == "modules"
+    per_group = r["description_placeholders"]["per_group"]
+    assert per_group.count("1 / 1 ✓") == 2
+    [use] = list(r["data_schema"].schema)
+    assert use.default() is True
+    r = await flow.async_configure(r["flow_id"], {"use_modules": True})
+    r = await flow.async_configure(r["flow_id"], {"name": "Sigen 2", "currency_style": "symbol",
+                                                  "discharged_energy_entity": "sensor.sigen_0_accumulated_discharge_energy"})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    assert sorted((m["id"], m["group"]) for m in r["result"].data["modules"]) == [(sn0, 0), (sn1, 1)]

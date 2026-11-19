@@ -34,6 +34,9 @@ STATUS_ON_TRACK = "on_track"
 STATUS_AHEAD = "ahead_of_time"
 STATUS_EXPIRED = "expired"
 DRIVER_AGE = "age"
+EXPORT_BASIS_PROJECTED = "projected"  # cost ÷ throughput by the warranty end date (capped at the limit)
+EXPORT_BASIS_RATED = "rated"  # cost ÷ warranted throughput: no projection yet, or under 30 days of data
+EXPORT_BASIS_TIME_ONLY = "time_only"  # no throughput limit: cost ÷ projected throughput, not capped
 DRIVER_THROUGHPUT = "throughput"
 HW_MATCH = "match"
 HW_MISMATCH = "mismatch"
@@ -159,6 +162,8 @@ class GroupResult:
     usage_end: date | None = None
     cost: float | None = None
     cost_consumed: float | None = None
+    # Throughput at the average rate so far until the warranty end date, not capped at the limit.
+    projected_uncapped_kwh: float | None = None
 
     def as_attributes(self) -> dict:
         return {
@@ -219,6 +224,10 @@ class LedgerResult:
     reported_capacity_kwh: float | None = None
     total_units: int = 0
     cycles_per_day: float | None = None
+    # For a home energy manager's battery cost / minimum sell price: the cost per kWh of whichever warranty
+    # limit ends first (age or throughput); EXPORT_BASIS_* says how it was worked out.
+    cost_per_kwh_export: float | None = None
+    export_basis: str | None = None
 
 
 def _pct(frac):
@@ -308,9 +317,11 @@ def compute(inp: LedgerInput) -> LedgerResult:
         life = max(time_frac, tp_frac or 0.0)
         eol = w["eol_capacity_pct"]
         floor_pct = 100 - (100 - eol) * min(life, 1.0)
-        projected = None
-        if limit is not None and d > 0:
-            projected = min(used / d * warranty_days, limit)
+        projected = uncapped = None
+        if d > 0:
+            uncapped = used / d * warranty_days
+            if limit is not None:
+                projected = min(uncapped, limit)
         if life >= 1:
             status = STATUS_EXPIRED
         elif tp_frac is not None and tp_frac > time_frac:
@@ -327,7 +338,7 @@ def compute(inp: LedgerInput) -> LedgerResult:
             floor_usable_kwh=initial * floor_pct / 100, projected_kwh=projected,
             driver=driver, status=status, source="modules" if by_module else "plant",
             modules=modules, module_kwh=dict(g.module_kwh) if by_module else {},
-            warranty_years=w["years"], eol_pct=eol,
+            warranty_years=w["years"], eol_pct=eol, projected_uncapped_kwh=uncapped,
             warranty_end=g.install_date + timedelta(days=round(warranty_days)),
             usage_end=(g.install_date + timedelta(days=round(limit / (used / d))))
             if limit and d > 0 and used > 0 else None,
@@ -370,6 +381,19 @@ def compute(inp: LedgerInput) -> LedgerResult:
     costed_proj = [r.projected_kwh for r in costed]
     cpk_proj = (cost / sum(costed_proj) if cost and costed_proj and None not in costed_proj and sum(costed_proj) > 0
                 else None)
+
+    # Export cost per kWh: projected (= rated when usage ends the warranty first, higher when age does). Rated
+    # until there are 30 days of data, as an early projection can be far too high for a minimum sell price.
+    # Groups without a throughput limit use their uncapped projection.
+    cpk_export = export_basis = None
+    eff = [r.projected_kwh if r.limit_kwh is not None else r.projected_uncapped_kwh for r in costed]
+    time_only = bool(costed) and any(r.limit_kwh is None for r in costed)
+    low = max_days < LOW_CONFIDENCE_DAYS
+    if cost and cpk_rated is not None and (low or None in eff):
+        cpk_export, export_basis = cpk_rated, EXPORT_BASIS_RATED
+    elif cost and eff and None not in eff and sum(eff) > 0:
+        cpk_export = cost / sum(eff)
+        export_basis = EXPORT_BASIS_TIME_ONLY if time_only else EXPORT_BASIS_PROJECTED
 
     expected_reported = None
     hardware = None
@@ -416,4 +440,4 @@ def compute(inp: LedgerInput) -> LedgerResult:
         soc_spread=soc_spread, module_soc=dict(inp.module_soc),
         reported_soh_pct=inp.reported_soh_pct, health_margin=margin,
         reported_capacity_kwh=inp.reported_capacity_kwh, total_units=sum(g.units for g in inp.groups),
-        cycles_per_day=cycles)
+        cycles_per_day=cycles, cost_per_kwh_export=cpk_export, export_basis=export_basis)

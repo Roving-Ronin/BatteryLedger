@@ -4,6 +4,32 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.1.16 (2026-11-19)
+
+### TL;DR
+- New `sensor.battery_ledger_cost_per_kwh_export`: the battery's cost per kWh of whichever warranty limit ends
+  first, to use as the battery cost or minimum export price in EMHASS, HAEO or Energy Manager
+- Setup file: **Export setup** (Configure, or the card's new **Backup** tab) and **Import a saved setup**, for a new
+  server without a backup restore
+- **Download diagnostics**, with module serials and costs removed, to attach to issues
+
+### Added
+- **Cost Per kWh (Export)** (`sensor.battery_ledger_cost_per_kwh_export`): battery cost ÷ projected throughput by
+  the warranty end date, capped at the warranted throughput, so it's the Rated figure when usage ends the
+  warranty first and higher when age does. For the first 30 days (or with no usage yet) it's the Rated figure,
+  as an early projection can be far too high for a minimum sell price. Warranties with no throughput limit use
+  the uncapped projection. Attributes: `basis` (`projected`, `rated`, `time_only`), `driver`, `low_confidence`.
+  See README → Battery cost for exports.
+- **Setup file:** Configure → **Export setup**, or the card settings' new **Backup** tab, downloads a `.json` file:
+  the battery groups with their copied specs, warranty start dates and costs, the sensors chosen, which module
+  (by serial number) is in which group, the name, currency style and card settings. **Import a saved setup**
+  (when adding BatteryLedger) uploads it: saved sensors are used where they exist on the new server, and modules
+  keep their battery group by serial, so two groups of the same model are restored correctly. A file from a
+  newer BatteryLedger is refused. A Home Assistant backup restore still needs none of this.
+- Card settings: **Display** and **Backup** tabs.
+- **Download diagnostics**: the setup, source sensors' readings and the latest calculation, with module serials
+  replaced by M1, M2… and costs removed.
+
 ## v0.1.15 (2026-11-19)
 
 ### TL;DR

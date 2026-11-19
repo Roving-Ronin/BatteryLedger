@@ -124,8 +124,26 @@ Later, under **Configure**:
   start and cost are filled in from Energy Manager's `input_datetime.battery_install_date_2` and
   `input_number.battery_install_cost_2` when you use them. See [Battery groups](#battery-groups).
 - **Battery costs:** what each battery group cost.
+- **Export setup:** download a setup file to keep (see [Moving to a new server](#moving-to-a-new-server)).
 
 Changes recalculate every sensor. Costs use your Home Assistant currency (Settings → System → General).
+
+### Moving to a new server
+
+A Home Assistant backup includes BatteryLedger: restore it on the new server and nothing else is needed.
+BatteryLedger keeps no history of its own; throughput, warranty used and costs are worked out from your
+inverter's lifetime counters, so they carry on once its integration is running.
+
+To set up again without restoring a backup, save a **setup file** on the old server: **Configure → Export
+setup**, or the card's settings (cog) → **Backup** → **Download setup file**. On the new server, add BatteryLedger,
+choose **Import a saved setup** and choose the file. It holds the battery groups (with their copied specs),
+warranty start dates and costs, the sensors chosen, which battery module (by serial number) is in which group,
+the name, currency style and card settings. On import, the saved sensors are used where they exist on the new
+server (otherwise Detect's), and modules keep their battery group by serial number, so two groups of the same
+model are restored correctly.
+
+The file includes serial numbers and costs: keep it private. To share details for help, use Download
+diagnostics instead (see [Reporting problems](#reporting-problems)).
 
 ### Battery groups
 
@@ -207,6 +225,7 @@ If a source drops out later, its last reading is used until it's back.
 | `projected_warranted_throughput` | Throughput by the end of the warranty at the average rate so far (capped at the limit) | `average_daily_kwh`, `low_confidence` |
 | `cost_per_kwh_rated` | Battery cost ÷ warranted throughput (battery groups with a cost) | |
 | `cost_per_kwh_projected` | Battery cost ÷ projected throughput (battery groups with a cost) | |
+| `cost_per_kwh_export` | Cost per kWh of whichever warranty limit ends first, for a home energy manager (see [Battery cost for exports](#battery-cost-for-exports)) | `basis`, `driver`, `low_confidence` |
 | `cost_consumed_to_date` | Cost apportioned to warranty life used: each battery group's cost by its own warranty driver (time elapsed or throughput used, whichever is further along), added up. `percent_of_rated_life_used` stays the throughput share. Each group's `cost` and `cost_consumed` are in the `groups` attribute | `percent_of_rated_life_used`, `estimated_remaining_value` |
 | `initial_usable_capacity` | Usable capacity at beginning of life | |
 | `estimated_usable_capacity` | Warranty floor health %: the minimum capacity the warranty guarantees today (see below) | `remaining_usable_kwh`, `degradation_driver`, `warranty_status`, `groups`, `notes` |
@@ -222,6 +241,21 @@ before setting up BatteryLedger in the same Home Assistant. BatteryLedger adds o
 formula (cycles per day × capacity × warranty days, i.e. average daily throughput × warranty days) with the
 days taken from the warranty start date, so no separate age or cycles sensors are needed; it's capped at the
 warranted total. `cycles_per_day` replaces the package's `battery_cycles_per_day`. Friendly names start with "Battery" for every brand.
+
+### Battery cost for exports
+
+`sensor.battery_ledger_cost_per_kwh_export` is the battery's cost per kWh to use as the battery cost, or the
+minimum sell price for battery exports, in a home energy manager (EMHASS, HAEO, Energy Manager). Add your margin
+there.
+
+- It's the cost per kWh of whichever warranty limit ends first: battery cost ÷ the throughput you're projected to
+  put through by the warranty end date, capped at the warranted throughput. When usage ends the warranty first
+  that's the Rated figure; when age does, it's higher (`basis: projected`, `driver` says which).
+- For the first 30 days, and until there's any usage to project from, it's the Rated figure (`basis: rated`,
+  `low_confidence: true`): an early projection can be far too high and would stop battery exports.
+- With a warranty that has no throughput limit, it's cost ÷ projected throughput, not capped (`basis: time_only`).
+- It's per kWh discharged. Charging losses (round-trip efficiency) are for your energy manager to allow for.
+- Battery groups without a cost aren't included.
 
 ## What the numbers mean (and don't)
 
@@ -282,6 +316,10 @@ For a bug or a feature request, use the
 [issue templates](https://github.com/Roving-Ronin/BatteryLedger/issues/new/choose). Bug reports missing the
 BatteryLedger version, Home Assistant version or battery are labelled `question` and closed after 5 days if they're
 not updated. Comment `/reopen` on your own closed issue to reopen it.
+
+To help with a problem, attach BatteryLedger's diagnostics: Settings → Devices & services → BatteryLedger → ⋮ →
+**Download diagnostics**. It holds the setup, the source sensors' current readings and the latest calculation,
+with module serial numbers replaced by M1, M2… and costs removed. Check it before attaching.
 
 ## Development
 

@@ -88,6 +88,10 @@ async def test_flow_and_sensors(hass: HomeAssistant):
     assert float(val("cost_per_kwh_rated").state) == pytest.approx(0.1827, abs=0.0001)
     # Default currency style is the symbol, as in the YAML package
     assert val("cost_per_kwh_rated").attributes["unit_of_measurement"] == "$/kWh"
+    export = val("cost_per_kwh_export")
+    assert export.attributes["unit_of_measurement"] == "$/kWh"
+    assert export.attributes["basis"] in ("projected", "rated")
+    assert float(export.state) >= float(val("cost_per_kwh_rated").state)
     assert val("cost_consumed_to_date").attributes["unit_of_measurement"] == "$"
     assert "device_class" not in val("cost_consumed_to_date").attributes
     assert float(val("cost_consumed_to_date").state) == pytest.approx(3474.93, abs=1)  # follows the driver (age)
@@ -517,3 +521,84 @@ def test_mix_example_uses_the_batteries_shown():
     assert _mix_example([luna7, luna5], store) == ("LUNA2000-7-S1", "LUNA2000-5-S0")
     assert _mix_example([luna5], store) == ("LUNA2000-5-S0", "LUNA2000-7-S1")  # one shown: same brand next
     assert _mix_example([bat8, bat8], store) == ("SigenStor BAT 8.0", "SigenStor BAT 10.0")
+
+
+async def test_export_and_import_setup(hass: HomeAssistant, hass_client, tmp_path):
+    """Export setup (a file download), then Import a saved setup (a file upload): same groups, dates, costs,
+    name, sensors, module groups and card settings."""
+    import json
+    from contextlib import contextmanager
+    from unittest.mock import patch
+
+    from homeassistant.setup import async_setup_component
+
+    from custom_components.battery_ledger.card import async_card_settings
+
+    assert await async_setup_component(hass, "http", {})
+    entry = await _two_group_entry(hass)
+    opts = hass.config_entries.options
+    r = await opts.async_init(entry.entry_id)
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "export_setup"})
+    ph = r["description_placeholders"]
+    assert r["step_id"] == "export_setup" and (ph["groups"], ph["modules"]) == ("2", "3")
+    assert ph["file"].startswith("battery-ledger-sigen-") and ph["file"].endswith(".json")
+    client = await hass_client()
+    resp = await client.get(ph["url"])
+    assert resp.status == 200 and ph["file"] in resp.headers["Content-Disposition"]
+    text = await resp.text()
+    export = json.loads(text)
+    assert export["battery_ledger_export"] == 1 and export["name"] == "Sigen"
+    assert [(g["units"], g["install_date"], g["cost"]) for g in export["groups"]] == [
+        (4, "2024-01-01", 20000), (2, "2025-06-01", 8000)]
+    assert export["modules"] == [{"id": "A1", "group": 0}, {"id": "B1", "group": 1}, {"id": "B2", "group": 1}]
+    assert export["sensors"] == {"charged_energy_entity": CHARGED}
+    assert export["card_settings"]["cost_decimals"] >= 2
+    r = await opts.async_configure(r["flow_id"], {})
+    assert r["type"] is FlowResultType.ABORT and r["reason"] == "export_done"
+
+    upload = tmp_path / "setup.json"
+
+    @contextmanager
+    def uploaded(_hass, _file_id):
+        yield upload
+
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "import_setup"})
+    with patch("custom_components.battery_ledger.config_flow.process_uploaded_file", uploaded):
+        for bad, code in (("not json", "import_not_json"), ('{"a": 1}', "import_not_export"),
+                          (text.replace('"entry_version": "1.', '"entry_version": "9.'), "import_newer")):
+            upload.write_text(bad)
+            r = await flow.async_configure(r["flow_id"], {"file": "0123456789abcdef0123456789abcdef"})
+            assert r["errors"] == {"base": code}
+        upload.write_text(text)
+        r = await flow.async_configure(r["flow_id"], {"file": "0123456789abcdef0123456789abcdef"})
+    assert r["step_id"] == "sensors"
+    r = await flow.async_configure(r["flow_id"], {"integration": "manual"})
+    assert r["step_id"] == "system"
+    keys = {str(k): k for k in r["data_schema"].schema}
+    assert keys["name"].default() == "Sigen"
+    assert keys["charged_energy_entity"].description["suggested_value"] == CHARGED  # exists here
+    r = await flow.async_configure(r["flow_id"], {"name": "Sigen", "currency_style": "symbol",
+                                                  "charged_energy_entity": CHARGED})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    new = r["result"]
+    assert [(g["units"], g["install_date"], g["cost"], g["spec"]["id"]) for g in new.data["groups"]] == [
+        (g["units"], g["install_date"], g["cost"], g["spec"]["id"]) for g in entry.data["groups"]]
+    assert await async_card_settings(hass, new.entry_id) == export["card_settings"]
+
+
+async def test_diagnostics_redacts_serials_and_costs(hass: HomeAssistant):
+    import json
+    from custom_components.battery_ledger.diagnostics import async_get_config_entry_diagnostics
+    entry = await _two_group_entry(hass)
+    async_fire_time_changed(hass, dt_util.utcnow() + STARTUP_WAIT + timedelta(seconds=1))
+    await hass.async_block_till_done()
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+    text = json.dumps(diag, default=str)
+    assert "A1" not in text and "B2" not in text and '"M1"' in text
+    assert "20000" not in text and "8000" not in text
+    assert diag["entry"]["data"]["groups"][0]["cost"] == "**REDACTED**"
+    assert diag["sources"]["charged_energy_entity"]["state"] == "1000"
+    assert diag["result"] is not None and diag["store"]["specs"] > 0
