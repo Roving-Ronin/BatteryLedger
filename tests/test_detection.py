@@ -626,11 +626,11 @@ async def test_options_add_group_prefills_energy_manager_second_battery(hass: Ho
     suggested = {str(k): k.description["suggested_value"] for k in r["data_schema"].schema
                  if k.description and "suggested_value" in k.description}
     assert suggested == {"install_date": "2025-06-01", "cost": 2400.0}
-    r = await opts.async_configure(r["flow_id"], {"units": 2, "install_date": "2025-06-01", "cost": 2400})
+    r = await opts.async_configure(r["flow_id"], {"units": 3, "install_date": "2025-06-01", "cost": 2400})
     assert r["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     new = entry.data["groups"][1]
-    assert (new["units"], new["install_date"], new["cost"], new["spec"]["id"]) == (2, "2025-06-01", 2400, spec_id)
+    assert (new["units"], new["install_date"], new["cost"], new["spec"]["id"]) == (3, "2025-06-01", 2400, spec_id)
 
 
 async def _module_entry(hass: HomeAssistant):
