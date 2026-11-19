@@ -90,7 +90,7 @@ async def test_flow_and_sensors(hass: HomeAssistant):
     assert val("cost_per_kwh_rated").attributes["unit_of_measurement"] == "$/kWh"
     export = val("cost_per_kwh_export")
     assert export.attributes["unit_of_measurement"] == "$/kWh"
-    assert export.attributes["basis"] in ("projected", "rated")
+    assert export.attributes["basis"] in ("age", "usage")
     assert float(export.state) >= float(val("cost_per_kwh_rated").state)
     assert val("cost_consumed_to_date").attributes["unit_of_measurement"] == "$"
     assert "device_class" not in val("cost_consumed_to_date").attributes
@@ -536,6 +536,9 @@ async def test_export_and_import_setup(hass: HomeAssistant, hass_client, tmp_pat
 
     assert await async_setup_component(hass, "http", {})
     entry = await _two_group_entry(hass)
+    hass.config_entries.async_update_entry(entry, options={**entry.options, "esl_years": 15.0,
+                                                            "export_cost_basis": "cheapest"})
+    await hass.async_block_till_done()
     opts = hass.config_entries.options
     r = await opts.async_init(entry.entry_id)
     r = await opts.async_configure(r["flow_id"], {"next_step_id": "export_setup"})
@@ -587,6 +590,7 @@ async def test_export_and_import_setup(hass: HomeAssistant, hass_client, tmp_pat
     assert [(g["units"], g["install_date"], g["cost"], g["spec"]["id"]) for g in new.data["groups"]] == [
         (g["units"], g["install_date"], g["cost"], g["spec"]["id"]) for g in entry.data["groups"]]
     assert await async_card_settings(hass, new.entry_id) == export["card_settings"]
+    assert (new.options["esl_years"], new.options["export_cost_basis"]) == (15.0, "cheapest")
 
 
 async def test_diagnostics_redacts_serials_and_costs(hass: HomeAssistant):
@@ -602,3 +606,43 @@ async def test_diagnostics_redacts_serials_and_costs(hass: HomeAssistant):
     assert diag["entry"]["data"]["groups"][0]["cost"] == "**REDACTED**"
     assert diag["sources"]["charged_energy_entity"]["state"] == "1000"
     assert diag["result"] is not None and diag["store"]["specs"] > 0
+
+
+async def test_estimated_service_life_and_export_basis_entities(hass: HomeAssistant):
+    """number / select: ESL and the export basis change the sensors at once, without reloading the setup."""
+    entry = await _two_group_entry(hass)
+    async_fire_time_changed(hass, dt_util.utcnow() + STARTUP_WAIT + timedelta(seconds=1))
+    await hass.async_block_till_done()
+    esl = hass.states.get("number.battery_ledger_estimated_service_life")
+    basis = hass.states.get("select.battery_ledger_export_cost_basis")
+    assert float(esl.state) == 10 and esl.attributes["unit_of_measurement"] == "y"
+    assert basis.state == "warranty" and basis.attributes["options"] == ["warranty", "age", "usage", "esl", "cheapest"]
+    eosl = hass.states.get("sensor.battery_ledger_end_of_service_life")
+    assert eosl.state == "2034-01-01"  # the 2024 group + 10 years; the 2025 group's is in `groups`
+    assert [g["end_of_service_life"] for g in eosl.attributes["groups"]] == ["2034-01-01", "2035-06-01"]
+
+    runtime = entry.runtime_data
+    await hass.services.async_call("number", "set_value", {"entity_id": esl.entity_id, "value": 15}, blocking=True)
+    await hass.services.async_call("select", "select_option", {"entity_id": basis.entity_id, "option": "esl"},
+                                   blocking=True)
+    await hass.async_block_till_done()
+    assert entry.runtime_data is runtime  # recalculated, not reloaded
+    assert entry.options["esl_years"] == 15 and entry.options["export_cost_basis"] == "esl"
+    assert hass.states.get("sensor.battery_ledger_end_of_service_life").state == "2039-01-01"
+    export = hass.states.get("sensor.battery_ledger_cost_per_kwh_export")
+    assert export.attributes["basis"] == "esl"
+    assert float(export.state) == pytest.approx(export.attributes["esl"])
+    assert export.attributes["esl"] < export.attributes["age"]
+    assert set(export.attributes) >= {"age", "usage", "esl", "soh_trend", "soh_trend_years", "driver"}
+
+    # Configure → Service life and export cost shows and saves the same values
+    opts = hass.config_entries.options
+    r = await opts.async_init(entry.entry_id)
+    r = await opts.async_configure(r["flow_id"], {"next_step_id": "service_life"})
+    assert r["step_id"] == "service_life" and "2039-01-01" in r["description_placeholders"]["groups"]
+    r = await opts.async_configure(r["flow_id"], {"esl_years": 12, "export_cost_basis": "cheapest"})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert entry.runtime_data is runtime
+    assert float(hass.states.get("number.battery_ledger_estimated_service_life").state) == 12
+    assert hass.states.get("select.battery_ledger_export_cost_basis").state == "cheapest"

@@ -120,7 +120,7 @@ async def test_1_3_options_cost_wins(hass: HomeAssistant):
     await hass.async_block_till_done()
     assert entry.data["groups"][0]["cost"] == 9500
     assert "cost" not in entry.data and "cost" not in entry.options
-    assert entry.options == {"currency_style": "symbol"}
+    assert entry.options == {"currency_style": "symbol", "esl_years": None, "export_cost_basis": "warranty"}
 
 
 async def test_1_3_cleared_cost_and_no_cost(hass: HomeAssistant):
@@ -133,3 +133,18 @@ async def test_1_3_cleared_cost_and_no_cost(hass: HomeAssistant):
         await hass.async_block_till_done()
         assert "cost" not in entry.data["groups"][0]
         assert "cost" not in entry.data and "cost" not in entry.options
+
+
+async def test_1_4_adds_service_life_options(hass: HomeAssistant):
+    """1.4 -> 1.5: Estimated Service Life unset (= warranty period) and the warranty export basis."""
+    entry = MockConfigEntry(domain=DOMAIN, title="Acme", data=V1_DATA, options={"currency_style": "code"},
+                            version=1, minor_version=4)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert (entry.version, entry.minor_version) == (1, 5)
+    assert entry.options == {"currency_style": "code", "esl_years": None, "export_cost_basis": "warranty"}
+    # Idempotent: a second run changes nothing
+    from custom_components.battery_ledger import async_migrate_entry
+    assert await async_migrate_entry(hass, entry)
+    assert entry.options == {"currency_style": "code", "esl_years": None, "export_cost_basis": "warranty"}

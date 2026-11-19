@@ -38,6 +38,7 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
 | `store_client.py` | Downloads, caches and searches the Store index; bundled snapshot fallback |
 | `runtime.py` | Per-entry: reads source sensors, converts units, calls `ledger.compute`, signals sensors |
 | `sensor.py` | Entities only: values come from the `LedgerResult` |
+| `number.py`, `select.py` | Estimated Service Life and Export Cost Basis: live options (`LIVE_OPTIONS`), recalculated without a reload |
 | `config_flow.py` | Setup wizard and options flow |
 | `repairs.py` | Accepting revised Store specs |
 | `transfer.py` | Setup file contents (export / import). Pure. Holds serials and costs: the user's own file, never sent anywhere |

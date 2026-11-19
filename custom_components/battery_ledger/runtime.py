@@ -28,7 +28,10 @@ from .const import (
     CURRENCY_STYLE_SYMBOL,
     CURRENCY_SYMBOLS,
     CONF_DISCHARGED_ENTITY,
+    CONF_ESL_YEARS,
+    CONF_EXPORT_SETTING,
     CONF_GROUPS,
+    LIVE_OPTIONS,
     CONF_INSTALL_DATE,
     CONF_MODULES,
     CONF_SOH_ENTITY,
@@ -43,7 +46,7 @@ from .const import (
     SIGNAL_UPDATE,
     STARTUP_WAIT,
 )
-from .ledger import GroupInput, LedgerInput, LedgerResult, SpecError, compute
+from .ledger import EXPORT_WARRANTY, GroupInput, LedgerInput, LedgerResult, SpecError, compute
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,6 +64,8 @@ class LedgerRuntime:
         self.problem: str | None = None
         self._unsubs: list[CALLBACK_TYPE] = []
         self._pending: CALLBACK_TYPE | None = None
+        self._seen: tuple[dict, dict] = ({}, {})
+        self.remember_entry()
         # Startup: no calculation until every configured source has reported (or STARTUP_WAIT
         # after Home Assistant started), so a source that's still connecting isn't mistaken for
         # one that isn't configured. Until then the sensors are unavailable.
@@ -69,6 +74,18 @@ class LedgerRuntime:
         # Last valid reading of each source (kWh for energy counters), used while a configured
         # source is briefly unavailable so the basis or module tracking doesn't flip.
         self._last: dict[str, float] = {}
+
+    def remember_entry(self) -> None:
+        self._seen = (dict(self.entry.data), dict(self.entry.options))
+
+    def only_live_options_changed(self) -> bool:
+        """The entry changed only in options that apply without a reload (LIVE_OPTIONS)."""
+        data, options = self._seen
+
+        def strip(o: dict) -> dict:
+            return {k: v for k, v in o.items() if k not in LIVE_OPTIONS}
+
+        return dict(self.entry.data) == data and strip(dict(self.entry.options)) == strip(options)
 
     @property
     def config(self) -> dict[str, Any]:
@@ -239,6 +256,8 @@ class LedgerRuntime:
                 reported_capacity_kwh=capacity,
                 reported_soh_pct=soh,
                 module_soc=module_soc,
+                esl_years=self.config.get(CONF_ESL_YEARS),
+                export_setting=self.config.get(CONF_EXPORT_SETTING) or EXPORT_WARRANTY,
             ))
             self.problem = None
         except (SpecError, KeyError, ValueError) as err:

@@ -34,9 +34,19 @@ STATUS_ON_TRACK = "on_track"
 STATUS_AHEAD = "ahead_of_time"
 STATUS_EXPIRED = "expired"
 DRIVER_AGE = "age"
-EXPORT_BASIS_PROJECTED = "projected"  # cost ÷ throughput by the warranty end date (capped at the limit)
-EXPORT_BASIS_RATED = "rated"  # cost ÷ warranted throughput: no projection yet, or under 30 days of data
-EXPORT_BASIS_TIME_ONLY = "time_only"  # no throughput limit: cost ÷ projected throughput, not capped
+# Cost per kWh (Export): each basis, and what its "basis" attribute says. The warranty basis is the higher of
+# age and usage (whichever limit ends the warranty first); usage is used for the first 30 days.
+BASIS_AGE = "age"  # cost ÷ throughput projected by the warranty end date, at the average rate so far
+BASIS_USAGE = "usage"  # cost ÷ warranted throughput
+BASIS_ESL = "esl"  # cost ÷ throughput projected over the Estimated Service Life
+BASIS_SOH_TREND = "soh_trend"  # cost ÷ throughput projected until the SoH trend reaches the warranty capacity
+# The export cost setting (select entity / Configure)
+EXPORT_WARRANTY = "warranty"  # whichever warranty limit ends first (the higher of age and usage)
+EXPORT_AGE = "age"
+EXPORT_USAGE = "usage"
+EXPORT_ESL = "esl"
+EXPORT_CHEAPEST = "cheapest"
+EXPORT_SETTINGS = (EXPORT_WARRANTY, EXPORT_AGE, EXPORT_USAGE, EXPORT_ESL, EXPORT_CHEAPEST)
 DRIVER_THROUGHPUT = "throughput"
 HW_MATCH = "match"
 HW_MISMATCH = "mismatch"
@@ -130,6 +140,11 @@ class LedgerInput:
     reported_capacity_kwh: float | None = None
     reported_soh_pct: float | None = None
     module_soc: dict[str, float] = field(default_factory=dict)
+    # Estimated Service Life in years, counted from each group's warranty start; None = its warranty period
+    esl_years: float | None = None
+    export_setting: str = EXPORT_WARRANTY
+    # Years the SoH trend suggests until the warranty capacity is reached (None: not enough history)
+    soh_trend_years: float | None = None
 
 
 @dataclass
@@ -164,6 +179,10 @@ class GroupResult:
     cost_consumed: float | None = None
     # Throughput at the average rate so far until the warranty end date, not capped at the limit.
     projected_uncapped_kwh: float | None = None
+    # End of Service Life: warranty start + Estimated Service Life; throughput projected until then
+    eosl: date | None = None
+    projected_esl_kwh: float | None = None
+    projected_soh_kwh: float | None = None
 
     def as_attributes(self) -> dict:
         return {
@@ -187,6 +206,7 @@ class GroupResult:
             "energy_source": self.source,
             "cost": _r(self.cost, 2),
             "cost_consumed": _r(self.cost_consumed, 2),
+            "end_of_service_life": self.eosl.isoformat() if self.eosl else None,
         }
 
 
@@ -224,10 +244,13 @@ class LedgerResult:
     reported_capacity_kwh: float | None = None
     total_units: int = 0
     cycles_per_day: float | None = None
-    # For a home energy manager's battery cost / minimum sell price: the cost per kWh of whichever warranty
-    # limit ends first (age or throughput); EXPORT_BASIS_* says how it was worked out.
+    # For a home energy manager's battery cost / minimum sell price (see BASIS_* / EXPORT_*)
     cost_per_kwh_export: float | None = None
     export_basis: str | None = None
+    export_costs: dict[str, float | None] = field(default_factory=dict)  # basis -> cost per kWh
+    esl_years: float | None = None
+    eosl: date | None = None  # earliest End of Service Life among the groups
+    soh_trend_years: float | None = None
 
 
 def _pct(frac):
@@ -273,6 +296,16 @@ def _module_mode(g: GroupInput) -> bool:
     )
 
 
+def _add_years(start: date, years: float) -> date:
+    """Calendar years (15 years from 2020-03-01 is 2035-03-01), then any fraction in days."""
+    whole = int(years)
+    try:
+        end = start.replace(year=start.year + whole)
+    except ValueError:  # 29 February
+        end = start.replace(year=start.year + whole, day=28)
+    return end + timedelta(days=round((years - whole) * DAYS_PER_YEAR))
+
+
 def compute(inp: LedgerInput) -> LedgerResult:
     if not inp.groups:
         raise SpecError("no battery groups configured")
@@ -313,6 +346,7 @@ def compute(inp: LedgerInput) -> LedgerResult:
             used = max(system_kwh, 0.0) * share
             tp_frac = (used / limit) if limit else None
         warranty_days = w["years"] * DAYS_PER_YEAR
+        esl_days = (inp.esl_years or w["years"]) * DAYS_PER_YEAR
         time_frac = d / warranty_days
         life = max(time_frac, tp_frac or 0.0)
         eol = w["eol_capacity_pct"]
@@ -339,6 +373,10 @@ def compute(inp: LedgerInput) -> LedgerResult:
             driver=driver, status=status, source="modules" if by_module else "plant",
             modules=modules, module_kwh=dict(g.module_kwh) if by_module else {},
             warranty_years=w["years"], eol_pct=eol, projected_uncapped_kwh=uncapped,
+            eosl=_add_years(g.install_date, inp.esl_years or w["years"]),
+            projected_esl_kwh=used / d * esl_days if d > 0 else None,
+            projected_soh_kwh=used / d * inp.soh_trend_years * DAYS_PER_YEAR
+            if d > 0 and inp.soh_trend_years else None,
             warranty_end=g.install_date + timedelta(days=round(warranty_days)),
             usage_end=(g.install_date + timedelta(days=round(limit / (used / d))))
             if limit and d > 0 and used > 0 else None,
@@ -382,18 +420,36 @@ def compute(inp: LedgerInput) -> LedgerResult:
     cpk_proj = (cost / sum(costed_proj) if cost and costed_proj and None not in costed_proj and sum(costed_proj) > 0
                 else None)
 
-    # Export cost per kWh: projected (= rated when usage ends the warranty first, higher when age does). Rated
-    # until there are 30 days of data, as an early projection can be far too high for a minimum sell price.
-    # Groups without a throughput limit use their uncapped projection.
+    # Cost per kWh (Export). Per basis: age (cost ÷ throughput by the warranty end date, not capped), usage
+    # (rated), ESL and SoH trend (cost ÷ throughput over those lives). The warranty basis is the higher of age
+    # and usage: whichever limit ends the warranty first. Usage for the first 30 days, as an early projection
+    # can be far too high for a minimum sell price.
+    def per_kwh(kwhs: list[float | None]) -> float | None:
+        return cost / sum(kwhs) if cost and kwhs and None not in kwhs and sum(kwhs) > 0 else None
+
+    costs: dict[str, float | None] = {
+        BASIS_AGE: per_kwh([r.projected_uncapped_kwh for r in costed]),
+        BASIS_USAGE: cpk_rated,
+        BASIS_ESL: per_kwh([r.projected_esl_kwh for r in costed]),
+        BASIS_SOH_TREND: per_kwh([r.projected_soh_kwh for r in costed]),
+    }
     cpk_export = export_basis = None
-    eff = [r.projected_kwh if r.limit_kwh is not None else r.projected_uncapped_kwh for r in costed]
-    time_only = bool(costed) and any(r.limit_kwh is None for r in costed)
-    low = max_days < LOW_CONFIDENCE_DAYS
-    if cost and cpk_rated is not None and (low or None in eff):
-        cpk_export, export_basis = cpk_rated, EXPORT_BASIS_RATED
-    elif cost and eff and None not in eff and sum(eff) > 0:
-        cpk_export = cost / sum(eff)
-        export_basis = EXPORT_BASIS_TIME_ONLY if time_only else EXPORT_BASIS_PROJECTED
+    if cost and max_days < LOW_CONFIDENCE_DAYS:
+        if costs[BASIS_USAGE] is not None:
+            export_basis = BASIS_USAGE
+    elif cost:
+        warranty = [b for b in (BASIS_AGE, BASIS_USAGE) if costs[b] is not None]
+        warranty_basis = max(warranty, key=lambda b: costs[b]) if warranty else None
+        chosen = {EXPORT_AGE: BASIS_AGE, EXPORT_USAGE: BASIS_USAGE, EXPORT_ESL: BASIS_ESL}.get(inp.export_setting)
+        if chosen and costs[chosen] is not None:
+            export_basis = chosen  # without that figure (e.g. no throughput limit), the warranty basis
+        elif inp.export_setting == EXPORT_CHEAPEST:
+            choices = [b for b in (warranty_basis, BASIS_ESL, BASIS_SOH_TREND) if b and costs[b] is not None]
+            export_basis = min(choices, key=lambda b: costs[b]) if choices else None
+        else:
+            export_basis = warranty_basis
+    if export_basis:
+        cpk_export = costs[export_basis]
 
     expected_reported = None
     hardware = None
@@ -440,4 +496,6 @@ def compute(inp: LedgerInput) -> LedgerResult:
         soc_spread=soc_spread, module_soc=dict(inp.module_soc),
         reported_soh_pct=inp.reported_soh_pct, health_margin=margin,
         reported_capacity_kwh=inp.reported_capacity_kwh, total_units=sum(g.units for g in inp.groups),
-        cycles_per_day=cycles, cost_per_kwh_export=cpk_export, export_basis=export_basis)
+        cycles_per_day=cycles, cost_per_kwh_export=cpk_export, export_basis=export_basis,
+        export_costs=costs,
+        esl_years=inp.esl_years or (max(r.warranty_years for r in results) if results else None), soh_trend_years=inp.soh_trend_years, eosl=min(r.eosl for r in results) if results else None)

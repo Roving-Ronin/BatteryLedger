@@ -239,7 +239,7 @@ def test_energy_counters_stuck_at_zero_are_flagged():
     assert ledger.NOTE_ENERGY_ZERO not in used.notes
 
 
-def _export_case(days: int, daily_kwh: float, scope_kwh: float | None = 23770.0):
+def _export_case(days: int, daily_kwh: float, scope_kwh: float | None = 23770.0, **kw):
     from datetime import date, timedelta
     from custom_components.battery_ledger.ledger import GroupInput, LedgerInput, compute
     spec = {"brand": "X", "model": "Y", "capacity": {"unit": "module", "usable_kwh": 8.0, "nominal_kwh": 8.0},
@@ -249,25 +249,56 @@ def _export_case(days: int, daily_kwh: float, scope_kwh: float | None = 23770.0)
     today = date(2026, 11, 19)
     return compute(LedgerInput(
         groups=[GroupInput(spec=spec, units=6, install_date=today - timedelta(days=days), cost=20000)],
-        charged_kwh=None, discharged_kwh=days * daily_kwh, today=today))
+        charged_kwh=None, discharged_kwh=days * daily_kwh, today=today, **kw))
 
 
-def test_cost_per_kwh_export_follows_the_warranty_driver():
-    from custom_components.battery_ledger.ledger import (
-        EXPORT_BASIS_PROJECTED, EXPORT_BASIS_RATED, EXPORT_BASIS_TIME_ONLY)
-    # Age-driven (light use): the projected figure, higher than rated
+def test_cost_per_kwh_export_warranty_basis_is_whichever_ends_first():
+    # Age-driven (light use): age is higher than usage, and is the state
     age = _export_case(400, 10.0)
-    assert age.export_basis == EXPORT_BASIS_PROJECTED and age.driver == "age"
+    assert age.export_basis == "age" and age.driver == "age"
     assert age.cost_per_kwh_export == pytest.approx(age.cost_per_kwh_projected)
-    assert age.cost_per_kwh_export > age.cost_per_kwh_rated
-    # Usage-driven (heavy use): projection is capped at the limit, so it equals rated
+    assert age.export_costs["usage"] == pytest.approx(age.cost_per_kwh_rated)
+    assert age.export_costs["usage"] < age.cost_per_kwh_export
+    # Usage-driven (heavy use): usage (rated) is higher than age
     use = _export_case(400, 60.0)
-    assert use.driver == "throughput" and use.cost_per_kwh_export == pytest.approx(use.cost_per_kwh_rated)
-    # Under 30 days: rated, flagged low confidence
-    early = _export_case(5, 2.0)
-    assert early.export_basis == EXPORT_BASIS_RATED and early.low_confidence
-    assert early.cost_per_kwh_export == pytest.approx(early.cost_per_kwh_rated)
-    # Time-only warranty: no rated figure; cost ÷ projected throughput, not capped
+    assert use.export_basis == "usage" and use.cost_per_kwh_export == pytest.approx(use.cost_per_kwh_rated)
+    assert use.export_costs["age"] < use.cost_per_kwh_export
+    # Under 30 days: usage, whatever the setting
+    early = _export_case(5, 2.0, export_setting="cheapest")
+    assert early.export_basis == "usage" and early.low_confidence
+    # Time-only warranty: age (uncapped)
     t = _export_case(400, 10.0, scope_kwh=None)
-    assert t.cost_per_kwh_rated is None and t.export_basis == EXPORT_BASIS_TIME_ONLY
+    assert t.cost_per_kwh_rated is None and t.export_basis == "age"
     assert t.cost_per_kwh_export == pytest.approx(20000 / (10.0 * 3652.5), rel=0.01)
+
+
+def test_cost_per_kwh_export_estimated_service_life_and_cheapest():
+    # ESL defaults to the warranty period; 15 years spreads the cost over more throughput
+    default = _export_case(400, 10.0)
+    assert default.export_costs["esl"] == pytest.approx(default.export_costs["age"])
+    assert abs((default.groups[0].eosl - default.groups[0].warranty_end).days) <= 1
+    esl = _export_case(400, 10.0, esl_years=15, export_setting="esl")
+    assert esl.export_basis == "esl"
+    assert esl.cost_per_kwh_export == pytest.approx(esl.export_costs["age"] * 10 / 15)
+    g = esl.groups[0]
+    assert g.eosl == g.install_date.replace(year=g.install_date.year + 15) and esl.eosl == g.eosl
+    # Cheapest: ESL beats the warranty; with an SoH trend of 25 years, that beats ESL
+    cheap = _export_case(400, 10.0, esl_years=15, export_setting="cheapest")
+    assert cheap.export_basis == "esl"
+    soh = _export_case(400, 10.0, esl_years=15, export_setting="cheapest", soh_trend_years=25)
+    assert soh.export_basis == "soh_trend" and soh.cost_per_kwh_export < cheap.cost_per_kwh_export
+    # Heavy use, cheapest: the warranty's binding limit (usage) vs ESL; never the non-binding age figure
+    heavy = _export_case(400, 60.0, export_setting="cheapest")
+    assert heavy.export_basis == "esl"  # 10 years uncapped < rated
+    assert heavy.cost_per_kwh_export == pytest.approx(heavy.export_costs["age"])
+
+
+def test_cost_per_kwh_export_by_age_or_by_usage():
+    # Age-driven battery: choosing by usage publishes the (lower) usage figure, by age the age figure
+    usage = _export_case(400, 10.0, export_setting="usage")
+    age = _export_case(400, 10.0, export_setting="age")
+    assert usage.export_basis == "usage" and usage.cost_per_kwh_export == pytest.approx(usage.cost_per_kwh_rated)
+    assert age.export_basis == "age" and age.cost_per_kwh_export > usage.cost_per_kwh_export
+    # No throughput limit: by usage has no figure, so the warranty basis (age) is used
+    t = _export_case(400, 10.0, scope_kwh=None, export_setting="usage")
+    assert t.export_basis == "age"
