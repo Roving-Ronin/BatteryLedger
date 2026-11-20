@@ -19,7 +19,10 @@ said go yet.
   export earnings; optional battery losses cost to subtract.
 - **Returns before these sensors started**: a typed amount added on (the sensors only count from their setup).
 - Sensors: `savings_to_date`, `payback_date`, `net_position` (savings − investment; attributes: projected savings
-  and ROI % at warranty end and EoSL). Card: Cost section shows them.
+  and ROI % at warranty end and EoSL).
+- Card: a new section **ROI** (Return on Investment), internal key `roi` (section names and keys match, as since
+  0.3.2: `usage` = Usage & Throughput, `financials` = Financials); on/off in the card settings like the others.
+  Its place among the sections is to settle with the maintainer when it's built (2026-11-20).
 - Rate: average since BatteryLedger first saw the sensor (kept in storage); first 30 days: total ÷ days since
   install, `low_confidence`; projections `low_confidence` until a year of data (seasons).
 - Per setup, not per battery group (savings are whole-battery). Refuse a currency that isn't HA's.
