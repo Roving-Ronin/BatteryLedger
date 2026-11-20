@@ -51,11 +51,6 @@ is already in plan totals) and the typed amount only covers before HA's statisti
   resets rather than reading the value. Counts from when the price was set, not lifetime. Several export meters:
   add them up. Read the Energy prefs via `energy.data.async_get_manager(hass).data["energy_sources"]`.
 
-### Auto Release: first real run
-**Status (2026-11-20):** merged in PR #20; v0.3.1 was released by hand before it. On the next `vX.Y.Z: …`
-PR merge, check the Auto Release run created the release, `battery_ledger.zip` is attached and `manifest.json` on
-main was bumped. zizmor's `self-repository` finding is ignored on the two local `uses:` lines on purpose.
-
 ### BYD entity IDs on the Store site
 **Status (2026-11-20):** BYD Battery Box doesn't set `has_entity_name`, so per-tower entities likely default to
 `sensor.bms_1_state_of_charge` (in the Store's `default_entity_ids`), and the existing BMU defaults
