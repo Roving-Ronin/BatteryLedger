@@ -26,6 +26,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # ledger.py stays loadable on its own (tests/test_ledger.py)
+    from .capacity import Measured
 
 DAYS_PER_YEAR = 365.25
 LOW_CONFIDENCE_DAYS = 30
@@ -145,6 +149,8 @@ class LedgerInput:
     export_setting: str = EXPORT_WARRANTY
     # Years the SoH trend suggests until the warranty capacity is reached (None: not enough history)
     soh_trend_years: float | None = None
+    # Usable capacity measured from state-of-charge runs (capacity.py); None without a SoC sensor
+    measured: Measured | None = None
 
 
 @dataclass
@@ -255,6 +261,8 @@ class LedgerResult:
     # Estimated usage at EoSL: each group's throughput at the average rate so far, to its End of Service Life
     projected_esl_kwh: float | None = None
     soh_trend_years: float | None = None
+    measured: Measured | None = None
+    measured_soh_pct: float | None = None  # measured usable ÷ usable when new
 
 
 def _pct(frac):
@@ -512,5 +520,8 @@ def compute(inp: LedgerInput) -> LedgerResult:
         cycles_per_day=cycles, cost_per_kwh_export=cpk_export, export_basis=export_basis,
         export_costs=costs,
         esl_years=esl_years, soh_trend_years=inp.soh_trend_years,
+        measured=inp.measured,
+        measured_soh_pct=inp.measured.usable_kwh / initial_total * 100
+        if inp.measured and inp.measured.usable_kwh is not None and initial_total else None,
         projected_esl_kwh=sum(esl_kwh) if (esl_kwh := [r.projected_esl_kwh for r in results]) and None not in esl_kwh
         else None, eosl=min(r.eosl for r in results) if results else None)

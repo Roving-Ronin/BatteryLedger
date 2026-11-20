@@ -34,12 +34,13 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
 |---|---|
 | `ledger.py` | **All warranty / degradation / cost maths.** Pure Python, no HA imports, unit-tested directly. Never re-implement this maths elsewhere |
 | `detect.py` | Finds sensors from Store sensor profiles (unique-ID templates), per-inverter readings, and assigns modules to battery groups. Pure |
+| `capacity.py` | Measured usable capacity / SoH from state-of-charge runs against the energy counters (after Energy Pilot). Pure; its state is saved per entry by `runtime.py` |
 | `suggest.py` | Suggests battery model and unit count from capacity, pack/module counts and inverter model text, for the user to confirm. Pure |
 | `store_client.py` | Downloads, caches and searches the Store index; bundled snapshot fallback |
 | `runtime.py` | Per-entry: reads source sensors, converts units, calls `ledger.compute`, signals sensors |
 | `sensor.py` | Entities only: values come from the `LedgerResult` |
 | `number.py`, `select.py` | Estimated Service Life and Export Cost Basis: live options (`LIVE_OPTIONS`), recalculated without a reload |
-| `config_flow.py` | Setup wizard and options flow |
+| `config_flow.py` | Setup wizard and options flow; Detect also offers Energy dashboard batteries no profile found |
 | `repairs.py` | Accepting revised Store specs |
 | `transfer.py` | Setup file contents (export / import). Pure. Holds serials and costs: the user's own file, never sent anywhere |
 | `backup.py` | Setup file download: signed-link view (admins), used by Configure → Export setup |

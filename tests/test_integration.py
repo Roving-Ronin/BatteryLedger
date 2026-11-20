@@ -226,7 +226,7 @@ async def test_store_refresh_result_steps(hass: HomeAssistant):
 
 
 async def test_currency_symbol_and_default_name(hass: HomeAssistant):
-    """Currency comes from HA; symbol style changes cost per kWh only; name defaults to '<Brand> Battery'."""
+    """Currency comes from HA; symbol style changes cost per kWh only; name defaults to '<Brand> Battery Ledger'."""
     hass.config.currency = "EUR"
     hass.states.async_set(CHARGED, "100", {"unit_of_measurement": "kWh"})
     flow = hass.config_entries.flow
@@ -240,7 +240,7 @@ async def test_currency_symbol_and_default_name(hass: HomeAssistant):
     assert r["step_id"] == "system"
     assert r["description_placeholders"]["currency"] == "EUR" and r["description_placeholders"]["symbol"] == "€"
     name_key = next(k for k in r["data_schema"].schema if str(k) == "name")
-    assert name_key.default() == "Sigenergy Battery"
+    assert name_key.default() == "Sigenergy Battery Ledger"
     r = await flow.async_configure(r["flow_id"], {"name": "Sigenergy Battery",
                                                   "currency_style": "code", "charged_energy_entity": CHARGED})
     assert r["type"] is FlowResultType.CREATE_ENTRY
@@ -651,3 +651,59 @@ async def test_estimated_service_life_and_export_basis_entities(hass: HomeAssist
     assert entry.runtime_data is runtime
     assert float(hass.states.get("number.battery_ledger_estimated_service_life").state) == 12
     assert hass.states.get("select.battery_ledger_export_cost_basis").state == "cheapest"
+
+
+async def test_measured_capacity_from_soc(hass: HomeAssistant, hass_storage):
+    """With a SoC sensor, runs of charge and discharge measure the usable capacity and SoH; they're kept
+    across a reload and start again when the SoC sensor changes."""
+    soc_id = "sensor.sigen_plant_battery_state_of_charge"
+    ch, dis, soc = 12000.0, 11000.0, 20
+    hass.states.async_set(CHARGED, str(ch), {"unit_of_measurement": "kWh"})
+    hass.states.async_set(DISCHARGED, str(dis), {"unit_of_measurement": "kWh"})
+    hass.states.async_set(RATED, "48.36", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(soc_id, str(soc), {"unit_of_measurement": "%"})
+    entry = await _startup_entry(hass)
+    hass.config_entries.async_update_entry(entry, data={**entry.data, "soc_entity": soc_id})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    runtime = entry.runtime_data
+    cap = hass.states.get("sensor.battery_ledger_measured_usable_capacity")
+    assert cap.state == "unknown" and cap.attributes["status"] == "insufficient"
+
+    def step(new_soc, d_ch=0.0, d_dis=0.0):
+        nonlocal ch, dis, soc
+        ch, dis, soc = ch + d_ch, dis + d_dis, new_soc
+        hass.states.async_set(CHARGED, str(ch), {"unit_of_measurement": "kWh"})
+        hass.states.async_set(DISCHARGED, str(dis), {"unit_of_measurement": "kWh"})
+        hass.states.async_set(soc_id, str(soc), {"unit_of_measurement": "%"})
+        runtime.recalculate()
+
+    for _ in range(4):  # 40 kWh usable, 0.42 kWh in and 0.38 out per point
+        for s in range(soc + 1, 91):
+            step(s, d_ch=0.42)
+        for s in range(soc - 1, 19, -1):
+            step(s, d_dis=0.38)
+    for s in range(21, 24):
+        step(s, d_ch=0.42)
+    await hass.async_block_till_done()
+    cap = hass.states.get("sensor.battery_ledger_measured_usable_capacity")
+    assert cap.attributes["status"] == "ok" and float(cap.state) == pytest.approx(39.95, abs=0.1)
+    assert cap.attributes["round_trip_efficiency_pct"] == pytest.approx(90.5, abs=0.2)
+    soh = hass.states.get("sensor.battery_ledger_measured_soh")
+    initial = float(hass.states.get("sensor.battery_ledger_initial_usable_capacity").state)
+    assert float(soh.state) == pytest.approx(float(cap.state) / initial * 100, abs=0.1)
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass_storage[f"{DOMAIN}.capacity.{entry.entry_id}"]["data"]["soc_entity"] == soc_id
+    assert hass.states.get("sensor.battery_ledger_measured_usable_capacity").attributes["status"] == "ok"
+
+    other = "sensor.sigen_inverter_battery_state_of_charge"
+    hass.states.async_set(other, "50", {"unit_of_measurement": "%"})
+    hass.config_entries.async_update_entry(entry, data={**entry.data, "soc_entity": other})
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.battery_ledger_measured_usable_capacity").attributes["status"] == "insufficient"
+
+    await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+    assert f"{DOMAIN}.capacity.{entry.entry_id}" not in hass_storage

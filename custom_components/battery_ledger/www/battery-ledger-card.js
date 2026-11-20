@@ -64,6 +64,11 @@ const STRINGS = {
     projected: "by age",
     health: "Health",
     actual_soh: "Actual SoH (battery)",
+    actual_soh_measured: "Actual SoH (measured)",
+    measured_line: "Measured: {pct}%",
+    measuring: "Measuring capacity:",
+    measuring_charges: "{runs} of {need} Charges",
+    measuring_discharges: "{runs} of {need} Discharges",
     warranty_allows: "Projected SoH (Today)",
     // Actual SoH tile without a reading: why, from the setup's integration (its Store profile)
     soh_no_reading: "No SoH reading from {source}",
@@ -123,7 +128,7 @@ const STYLE = `
           --bl-ok: var(--success-color, #43a047); --bl-muted: var(--secondary-text-color);
           --bl-tile: var(--secondary-background-color, rgba(127,127,127,.08)); }
   ha-card { display: block; padding: 16px; position: relative; }
-  .head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
   .logo { width: 40px; height: 40px; flex: none; object-fit: contain; }
   .title { font-size: 16px; font-weight: 500; line-height: 1.3; }
   .sub, .lbl { font-size: 12px; color: var(--bl-muted); }
@@ -134,10 +139,10 @@ const STYLE = `
   .chip.bad { background: rgba(219,68,55,.15); color: var(--bl-bad); }
   .chip.muted { background: var(--bl-tile); color: var(--bl-muted); }
   .cog { color: var(--bl-muted); flex: none; margin: -10px 0; }
-  section { margin-top: 16px; }
+  section { margin-top: 12px; }
   section:first-of-type { margin-top: 0; }
   .ring-row { display: flex; align-items: center; gap: 18px; }
-  .stats { flex: 1; display: grid; gap: 8px; min-width: 0; }
+  .stats { flex: 1; display: grid; gap: 5px; min-width: 0; }
   .stat { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
   .stat .v { font-size: 14px; font-weight: 500; text-align: right; }
   .driver-end { color: var(--bl-bad); }
@@ -145,7 +150,7 @@ const STYLE = `
   .setup-link ha-icon { --mdc-icon-size: 18px; }
   .setup-link:hover { text-decoration: underline; }
   /* A thin line above each end date, starting its group. */
-  .stat.spaced { border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); padding-top: 8px; }
+  .stat.spaced { border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); padding-top: 5px; }
   /* The dot hangs in the gap left of the label, so every label's words start in line. */
   .stat .lbl { position: relative; }
   .dot { position: absolute; left: -14px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px;
@@ -155,7 +160,7 @@ const STYLE = `
   .bar .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; }
   .spread { display: flex; justify-content: space-between; gap: 8px; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
-  .tile { background: var(--bl-tile); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+  .tile { background: var(--bl-tile); border-radius: 8px; padding: 8px 12px; min-width: 0; }
   .big { font-size: 22px; font-weight: 500; line-height: 1.3; }
   /* Money tiles: the figure is centred in the space below its label (the cost per kWh tile is taller). */
   .tile.value { display: flex; flex-direction: column; }
@@ -166,9 +171,9 @@ const STYLE = `
   .tiles { align-items: stretch; }
   .tile.value { min-height: 84px; }
   .mid { font-size: 15px; font-weight: 500; }
-  .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .section-head .t { font-size: 15px; font-weight: 500; }
-  .foot { border-top: 1px solid var(--divider-color); padding-top: 10px; margin-top: 12px; display: flex;
+  .foot { border-top: 1px solid var(--divider-color); padding-top: 8px; margin-top: 10px; display: flex;
           justify-content: space-between; align-items: flex-start; gap: 8px; }
   .foot.bare { border-top: none; padding-top: 0; margin-top: 4px; justify-content: flex-end; }
   .foot .lines { display: grid; gap: 4px; min-width: 0; }
@@ -634,9 +639,14 @@ class BatteryLedgerCard extends HTMLElement {
     const g = this._picked();  // a chosen group: its warranty curve against the battery's reported SoH
     const curve = g ? g.warranty_floor_pct : this._num("estimated_usable_capacity");  // warranty-allowed SoH today
     const curveKwh = g ? g.warranty_floor_kwh : parseFloat(this._attr("estimated_usable_capacity", "remaining_usable_kwh"));
-    const soh = parseFloat(this._attr("soh_above_warranty_floor", "reported_soh_pct"));
+    const bms = parseFloat(this._attr("soh_above_warranty_floor", "reported_soh_pct"));
+    const measured = this._num("measured_soh");
+    // The battery's own SoH first; without one, the SoH measured from charge and discharge runs
+    const fromMeasured = !Number.isFinite(bms) && measured !== null;
+    const soh = fromMeasured ? measured : bms;
     const hasSoh = Number.isFinite(soh);
-    const margin = g ? (hasSoh && curve != null ? soh - curve : null) : this._num("soh_above_warranty_floor");
+    const margin = g || fromMeasured ? (hasSoh && curve != null ? soh - curve : null) : this._num("soh_above_warranty_floor");
+    const sohEnt = fromMeasured ? "measured_soh" : "soh_above_warranty_floor";
     const eols = g ? [g.end_of_warranty_capacity_pct] : setup.groups.map((x) => x.eol_capacity_pct);
     const eolList = eols.filter((v) => Number.isFinite(v));
     const eol = eolList.length ? Math.max(...eolList) : 60;
@@ -647,13 +657,29 @@ class BatteryLedgerCard extends HTMLElement {
     let chip = "";
     if (margin !== null) {
       const cls = margin >= 0 ? "ok" : "bad";
-      chip = `<span class="chip ${cls}"${this._ent("soh_above_warranty_floor")}>${esc(fill(margin >= 0 ? t.above : t.below, { pct: this._fmt(Math.abs(margin), 1) }))}</span>`;
+      chip = `<span class="chip ${cls}"${this._ent(sohEnt)}>${esc(fill(margin >= 0 ? t.above : t.below, { pct: this._fmt(Math.abs(margin), 1) }))}</span>`;
+    }
+    // A cross-check under the battery's own SoH, or how far the measuring has got
+    let measuredLine = "";
+    const measuring = !hasSoh && this._attr("measured_usable_capacity", "status") === "insufficient";
+    if (!fromMeasured && measured !== null) {
+      measuredLine = `<div class="lbl"${this._ent("measured_soh")}>${esc(fill(t.measured_line, { pct: this._fmt(measured, 1) }))}</div>`;
+    } else if (measuring) {
+      // One line per direction still short of its runs; a direction without an energy counter isn't measured (null)
+      const need = 3;
+      const items = [["charge_runs", t.measuring_charges], ["discharge_runs", t.measuring_discharges]]
+        .map(([key, text]) => [this._attr("measured_usable_capacity", key), text])
+        .filter(([runs]) => Number.isFinite(runs) && runs < need)
+        .map(([runs, text]) => `<li>${esc(fill(text, { runs, need }))}</li>`).join("");
+      measuredLine = `<div class="lbl" style="margin-top:6px"${this._ent("measured_usable_capacity")}>${esc(t.measuring)}
+        <ul style="margin:2px 0 0;padding-left:18px">${items}</ul></div>`;
     }
     const actualTile = hasSoh
-      ? `<div class="tile"${this._ent("soh_above_warranty_floor")}><div class="lbl">${esc(t.actual_soh)}</div>
+      ? `<div class="tile"${this._ent(sohEnt)}><div class="lbl">${esc(fromMeasured ? t.actual_soh_measured : t.actual_soh)}</div>
           <div class="big">${this._fmt(soh, 1)}%</div>
-          <div class="lbl">${initial !== null ? esc(fill(t.usable, { kwh: this._fmt(initial * soh / 100, 1) })) : ""}</div></div>`
-      : `<div class="tile"><div class="lbl">${esc(t.actual_soh)}</div><div class="lbl" style="margin-top:6px">${this._noSohHtml(t, setup.soh || {}, setup)}</div></div>`;
+          <div class="lbl">${initial !== null ? esc(fill(t.usable, { kwh: this._fmt(initial * soh / 100, 1) })) : ""}</div>${measuredLine}</div>`
+      : `<div class="tile"><div class="lbl">${esc(t.actual_soh)}</div>${measuring ? measuredLine
+          : `<div class="lbl" style="margin-top:6px">${this._noSohHtml(t, setup.soh || {}, setup)}</div>`}</div>`;
     const curveTile = `<div class="tile"${this._ent("estimated_usable_capacity")}><div class="lbl">${esc(t.warranty_allows)}</div>
           <div class="big">${this._fmt(curve, 1)}%</div>
           <div class="lbl">${Number.isFinite(curveKwh) ? `${this._fmt(curveKwh, 1)} kWh` : ""}${driver ? ` · ${esc(driver)}` : ""}</div></div>`;

@@ -828,3 +828,38 @@ async def test_import_keeps_module_groups_by_serial(hass: HomeAssistant, tmp_pat
                                                   "discharged_energy_entity": "sensor.sigen_0_accumulated_discharge_energy"})
     assert r["type"] is FlowResultType.CREATE_ENTRY
     assert sorted((m["id"], m["group"]) for m in r["result"].data["modules"]) == [(sn0, 0), (sn1, 1)]
+
+
+async def test_energy_dashboard_battery_detected(hass: HomeAssistant):
+    """A battery in Home Assistant's Energy dashboard that no Store profile finds: offered in Detect and on the
+    sensors step, its energy in / out sensors filled in as charged / discharged."""
+    from homeassistant.components.energy.data import async_get_manager
+
+    hass.states.async_set("sensor.my_battery_in", "1200", {"unit_of_measurement": "kWh"})
+    hass.states.async_set("sensor.my_battery_out", "1100", {"unit_of_measurement": "kWh"})
+    manager = await async_get_manager(hass)
+    await manager.async_update({"energy_sources": [
+        {"type": "battery", "stat_energy_to": "sensor.my_battery_in", "stat_energy_from": "sensor.my_battery_out"}]})
+
+    flow = hass.config_entries.flow
+    r = await flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "detect"})
+    assert r["step_id"] == "detect"
+    assert [o["value"] for o in r["data_schema"].schema["system"].config["options"]] == ["energy_dashboard_1"]
+    assert "sensor.my_battery_out · sensor.my_battery_in" in r["description_placeholders"]["energy"] or \
+        "sensor.my_battery_in · sensor.my_battery_out" in r["description_placeholders"]["energy"]
+    r = await flow.async_configure(r["flow_id"], {"system": "energy_dashboard_1"})
+    assert r["step_id"] == "store_search"  # no profile: choose the battery model
+    r = await flow.async_configure(r["flow_id"], {"search": "bat 8", "brand": "Sigenergy", "region": "AU", "phase": "3"})
+    r = await flow.async_configure(r["flow_id"], {"series": "Sigenergy|SigenStor"})
+    r = await flow.async_configure(r["flow_id"], {"spec_ids": ["sigenergy-sigenstor-bat-8-0-anz"]})
+    r = await flow.async_configure(r["flow_id"], {"units": 6, "install_date": "2024-01-01"})
+    r = await flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    assert r["step_id"] == "sensors"
+    key = next(iter(r["data_schema"].schema))
+    assert key.default() == "energy_dashboard_1"
+    r = await flow.async_configure(r["flow_id"], {"integration": "energy_dashboard_1"})
+    assert r["step_id"] == "system"
+    keys = {str(k): k for k in r["data_schema"].schema}
+    assert keys["charged_energy_entity"].description["suggested_value"] == "sensor.my_battery_in"
+    assert keys["discharged_energy_entity"].description["suggested_value"] == "sensor.my_battery_out"

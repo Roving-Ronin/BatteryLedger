@@ -94,12 +94,14 @@
           "discharged_energy_entity": "Lifetime discharged energy sensor",
           "reported_capacity_entity": "Rated capacity sensor (optional)",
           "soh_entity": "Battery state of health sensor (optional)",
-          "currency_style": "Show cost per kWh with"
+          "currency_style": "Show cost per kWh with",
+          "soc_entity": "Battery state of charge sensor (optional)"
         },
         "data_description": {
           "reported_capacity_entity": "The battery capacity your inverter reports, used to check the configured units match the hardware.",
           "soh_entity": "The health % your inverter reports, compared against the warranty floor.",
-          "currency_style": "Currency code: {currency} and {currency}/kWh, shown as money in each user's own currency format. Currency symbol: {symbol} and {symbol}/kWh, as in the original YAML package."
+          "currency_style": "Currency code: {currency} and {currency}/kWh, shown as money in each user's own currency format. Currency symbol: {symbol} and {symbol}/kWh, as in the original YAML package.",
+          "soc_entity": "The whole battery's charge level (%). With the lifetime energy sensors it measures the battery's usable capacity, and so its health where the battery reports none."
         }
       },
       "sensors": {
@@ -136,7 +138,7 @@
       },
       "detect": {
         "title": "Detect your battery",
-        "description": "Found {count} system(s) from integrations BatteryLedger knows. Choose yours: BatteryLedger reads its battery capacity, module count and inverter model to suggest the battery model and number of modules, which you confirm next.",
+        "description": "Found {count} system(s) from integrations BatteryLedger knows. Choose yours: BatteryLedger reads its battery capacity, module count and inverter model to suggest the battery model and number of modules, which you confirm next.\n\nAn **Energy dashboard battery** is one set up in Home Assistant's Energy dashboard (Settings → Dashboards → Energy) that no sensor profile found: its energy in and out sensors are used, and you choose the battery model next.\n{energy}",
         "data": {
           "system": "System"
         }
@@ -219,11 +221,13 @@
           "discharged_energy_entity": "Lifetime discharged energy sensor",
           "reported_capacity_entity": "Rated capacity sensor (optional)",
           "soh_entity": "Battery state of health sensor (optional)",
-          "currency_style": "Show cost per kWh with"
+          "currency_style": "Show cost per kWh with",
+          "soc_entity": "Battery state of charge sensor (optional)"
         },
         "description": "Costs use your Home Assistant currency, **{currency}**.",
         "data_description": {
-          "currency_style": "Currency code: {currency} and {currency}/kWh, shown as money in each user's own currency format. Currency symbol: {symbol} and {symbol}/kWh, as in the original YAML package."
+          "currency_style": "Currency code: {currency} and {currency}/kWh, shown as money in each user's own currency format. Currency symbol: {symbol} and {symbol}/kWh, as in the original YAML package.",
+          "soc_entity": "The whole battery's charge level (%). With the lifetime energy sensors it measures the battery's usable capacity, and so its health where the battery reports none."
         }
       },
       "groups": {
@@ -341,7 +345,11 @@
     },
     "integration": {
       "options": {
-        "manual": "Choose sensors myself"
+        "manual": "Choose sensors myself",
+        "energy_dashboard_1": "Energy dashboard battery",
+        "energy_dashboard_2": "Energy dashboard battery 2",
+        "energy_dashboard_3": "Energy dashboard battery 3",
+        "energy_dashboard_4": "Energy dashboard battery 4"
       }
     },
     "currency_style": {
@@ -473,6 +481,32 @@
       },
       "cycles_per_day": {
         "name": "Cycles Per Day"
+      },
+      "measured_usable_capacity": {
+        "name": "Measured Usable Capacity",
+        "state_attributes": {
+          "status": {
+            "name": "Status",
+            "state": {
+              "ok": "Measured",
+              "one_direction": "Measured one way only",
+              "insufficient": "Learning"
+            }
+          }
+        }
+      },
+      "measured_soh": {
+        "name": "Measured SoH",
+        "state_attributes": {
+          "status": {
+            "name": "Status",
+            "state": {
+              "ok": "Measured",
+              "one_direction": "Measured one way only",
+              "insufficient": "Learning"
+            }
+          }
+        }
       }
     },
     "number": {

@@ -11,6 +11,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.storage import Store
 
 from .const import (
     CONF_CURRENCY_STYLE,
@@ -30,7 +31,7 @@ from .const import (
     STORE_REFRESH_INTERVAL,
 )
 from .card import async_register_card, async_remove_card_settings
-from .runtime import LedgerRuntime
+from .runtime import CAPACITY_STORE_VERSION, LedgerRuntime, capacity_store_key
 from .store_client import StoreIndex, async_get_store_index
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BatteryLedgerConfigEntry
     _ensure_store_refresh(hass, index)
 
     runtime = LedgerRuntime(hass, entry)
+    await runtime.async_load()
     entry.runtime_data = runtime
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     runtime.async_start()
@@ -113,6 +115,11 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         options.setdefault(CONF_EXPORT_SETTING, "warranty")
         minor = 5
 
+    if version == 1 and minor < 6:
+        # 0.2.0 (entry 1.6): an optional battery state of charge sensor (soc_entity; absent = none), for measured
+        # usable capacity. Nothing to change in stored data.
+        minor = 6
+
     # Future steps go here, oldest first.
 
     if (version, minor) != (entry.version, entry.minor_version):
@@ -154,6 +161,7 @@ async def _migrate_entities_1_2(hass: HomeAssistant, entry: ConfigEntry) -> None
 async def async_unload_entry(hass: HomeAssistant, entry: BatteryLedgerConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
+        await entry.runtime_data.async_save_capacity()
         remaining = [e for e in _loaded_entries(hass) if e.entry_id != entry.entry_id]
         if not remaining:
             unsub = hass.data.get(DOMAIN, {}).pop("refresh_unsub", None)
@@ -166,6 +174,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     for issue_id in _issue_ids_for(hass, entry.entry_id):
         ir.async_delete_issue(hass, DOMAIN, issue_id)
     await async_remove_card_settings(hass, entry.entry_id)
+    await Store(hass, CAPACITY_STORE_VERSION, capacity_store_key(entry.entry_id)).async_remove()
 
 
 def _loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:

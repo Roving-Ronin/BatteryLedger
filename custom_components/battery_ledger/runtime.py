@@ -16,9 +16,11 @@ from homeassistant.helpers.event import (
     async_track_time_interval,
 )
 from homeassistant.helpers.start import async_at_started
+from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import EnergyConverter
 
+from .capacity import CapacityLearner
 from .const import (
     CONF_CAPACITY_ENTITY,
     CONF_CHARGED_ENTITY,
@@ -34,6 +36,8 @@ from .const import (
     LIVE_OPTIONS,
     CONF_INSTALL_DATE,
     CONF_MODULES,
+    CONF_SOC_ENTITY,
+    DOMAIN,
     CONF_SOH_ENTITY,
     CONF_SPEC,
     CONF_UNITS,
@@ -56,6 +60,14 @@ def entry_config(entry: ConfigEntry) -> dict[str, Any]:
     return {**entry.data, **entry.options}
 
 
+CAPACITY_STORE_VERSION = 1
+CAPACITY_SAVE_DELAY = 60  # seconds
+
+
+def capacity_store_key(entry_id: str) -> str:
+    return f"{DOMAIN}.capacity.{entry_id}"
+
+
 class LedgerRuntime:
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
@@ -74,6 +86,33 @@ class LedgerRuntime:
         # Last valid reading of each source (kWh for energy counters), used while a configured
         # source is briefly unavailable so the basis or module tracking doesn't flip.
         self._last: dict[str, float] = {}
+        # Measured usable capacity, learned from state-of-charge runs (only with a SoC sensor)
+        self.learner: CapacityLearner | None = None
+        self._learner_soc: str | None = None  # the SoC sensor it learned from
+        self._capacity_store: Store = Store(hass, CAPACITY_STORE_VERSION, capacity_store_key(entry.entry_id))
+
+    async def async_load(self) -> None:
+        """Load what the capacity learner has recorded; it starts again when the SoC sensor changes."""
+        soc_entity = self.config.get(CONF_SOC_ENTITY)
+        if not soc_entity:
+            return
+        data = await self._capacity_store.async_load() or {}
+        if data.get("soc_entity") != soc_entity:
+            data = {}
+        self._learner_soc = soc_entity
+        self.learner = CapacityLearner(data.get("learner"))
+
+    def _capacity_data(self) -> dict[str, Any]:
+        return {"soc_entity": self._learner_soc, "learner": dict(self.learner.state)}
+
+    def _save_capacity(self) -> None:
+        data = self._capacity_data()
+        self._capacity_store.async_delay_save(lambda: data, CAPACITY_SAVE_DELAY)
+
+    async def async_save_capacity(self) -> None:
+        """On unload: write now, so a reload doesn't lose a run recorded since the last save."""
+        if self.learner is not None:
+            await self._capacity_store.async_save(self._capacity_data())
 
     def remember_entry(self) -> None:
         self._seen = (dict(self.entry.data), dict(self.entry.options))
@@ -118,7 +157,7 @@ class LedgerRuntime:
     def _watched(self) -> list[str]:
         cfg = self.config
         ids = [cfg.get(k) for k in (CONF_CHARGED_ENTITY, CONF_DISCHARGED_ENTITY,
-                                     CONF_CAPACITY_ENTITY, CONF_SOH_ENTITY)]
+                                     CONF_CAPACITY_ENTITY, CONF_SOH_ENTITY, CONF_SOC_ENTITY)]
         for m in self.modules:
             ids += [m.get(MOD_DISCHARGED), m.get(MOD_SOC)]
         return [e for e in ids if e]
@@ -245,6 +284,13 @@ class LedgerRuntime:
             if soc is not None:
                 module_soc[m[MOD_ID]] = soc
 
+        if self.learner is not None:
+            # Only a fresh SoC reading: a remembered one beside new energy figures would invent a run
+            soc_state = self.hass.states.get(self._learner_soc)
+            if self._valid(soc_state):
+                if self.learner.observe(self._read_number(self._learner_soc), charged, discharged):
+                    self._save_capacity()  # once per recorded run: a run in progress starts again after a restart
+
         try:
             self.result = compute(LedgerInput(
                 groups=[GroupInput(g[CONF_SPEC], int(g[CONF_UNITS]), date.fromisoformat(g[CONF_INSTALL_DATE]),
@@ -258,6 +304,7 @@ class LedgerRuntime:
                 module_soc=module_soc,
                 esl_years=self.config.get(CONF_ESL_YEARS),
                 export_setting=self.config.get(CONF_EXPORT_SETTING) or EXPORT_WARRANTY,
+                measured=self.learner.measured() if self.learner is not None else None,
             ))
             self.problem = None
         except (SpecError, KeyError, ValueError) as err:
