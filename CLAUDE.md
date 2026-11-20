@@ -3,6 +3,10 @@
 Guidance for Claude Code when working in this repository. This file holds the rules and traps;
 the README explains features to users.
 
+**Start of a session: read `CLAUDE-TODO.md`.** It holds planned and waiting work (e.g. features waiting on another
+integration), the design agreed for each, the facts already checked (unique IDs, sensor behaviour) and what was
+decided against and why. Update it as items move (dated status lines); remove an item once it's released.
+
 ## Project
 
 BatteryLedger is a Home Assistant custom integration (`custom_components/battery_ledger`) that tracks
