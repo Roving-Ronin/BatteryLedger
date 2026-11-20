@@ -32,6 +32,10 @@ SYSTEM_ROLES = ("discharged_energy", "charged_energy", "rated_capacity", "soh", 
 INVERTER_ROLES = ("inverter_model", "inverter_pack_count", "inverter_rated_capacity", "pack_serial")
 MODULE_ROLES = ("module_discharged_energy", "module_charged_energy", "module_rated_capacity",
                 "module_soc", "module_soh")
+# Per tower (stack): one set per inverter and tower number (the rule's "tower")
+TOWER_ROLES = ("tower_soc", "tower_charged_energy", "tower_discharged_energy")
+# One per battery pack: each pack's own SoH; their average stands in for a missing whole-battery SoH
+PACK_ROLES = ("pack_soh",)
 
 _TOKEN = re.compile(r"\{(" + "|".join(PLACEHOLDERS) + r")\}")
 
@@ -69,6 +73,15 @@ class DetectedSystem:
     inverters: dict[str, dict[str, list[str]]] = field(default_factory=dict)
     # pack_serial entity_id -> battery tower on its inverter, where the profile says (rule "tower")
     pack_towers: dict[str, int] = field(default_factory=dict)
+    # (inverter key, tower number) -> role -> entity_id, for towers with their own SoC and energy counters
+    towers: dict[tuple[str, int], dict[str, str]] = field(default_factory=dict)
+    # Each battery pack's SoH sensor
+    pack_soh: list[str] = field(default_factory=list)
+
+    def measurable_towers(self) -> list[dict[str, str]]:
+        """Towers with a SoC and at least one energy counter, in inverter then tower order."""
+        return [roles for _key, roles in sorted(self.towers.items())
+                if "tower_soc" in roles and ({"tower_charged_energy", "tower_discharged_energy"} & set(roles))]
 
     @property
     def value(self) -> str:
@@ -108,7 +121,13 @@ def detect(profile: dict, entities: Iterable[RegistryEntity]) -> list[DetectedSy
                     continue
                 groups = m.groupdict()
                 key = _system_key(groups)
-                if role in MODULE_ROLES:
+                if role in TOWER_ROLES:
+                    tower = (_inverter_key(groups), int(rule.get("tower", 1)))
+                    system(key).towers.setdefault(tower, {}).setdefault(role, ent.entity_id)
+                elif role in PACK_ROLES:
+                    if ent.entity_id not in system(key).pack_soh:
+                        system(key).pack_soh.append(ent.entity_id)
+                elif role in MODULE_ROLES:
                     system(key).modules.setdefault(groups["serial"], {}).setdefault(role, ent.entity_id)
                 elif role in INVERTER_ROLES:
                     found = system(key).inverters.setdefault(_inverter_key(groups), {}).setdefault(role, [])
@@ -127,7 +146,7 @@ def detect(profile: dict, entities: Iterable[RegistryEntity]) -> list[DetectedSy
             systems[key].roles[role] = top[0]
         else:
             systems[key].ambiguous.append(role)
-    return [s for s in systems.values() if s.roles or s.modules or s.inverters]
+    return [s for s in systems.values() if s.roles or s.modules or s.inverters or s.towers or s.pack_soh]
 
 
 def assign_modules(

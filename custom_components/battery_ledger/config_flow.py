@@ -52,7 +52,14 @@ from .const import (
     CONF_INSTALL_DATE,
     CONF_MODULES,
     CONF_PROFILE,
+    CONF_PACK_SOH,
     CONF_SOC_ENTITY,
+    CONF_TOWERS,
+    MAX_TOWERS,
+    TOWER_CHARGED,
+    TOWER_DISCHARGED,
+    TOWER_GROUP,
+    TOWER_SOC,
     CONF_SOH_ENTITY,
     CONF_SPEC,
     CONF_UNITS,
@@ -156,6 +163,7 @@ def _system_schema(defaults: dict[str, Any], *, with_name: bool) -> vol.Schema:
         vol.Optional(CONF_CAPACITY_ENTITY): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
         vol.Optional(CONF_SOC_ENTITY): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
         vol.Optional(CONF_SOH_ENTITY): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
+        vol.Optional(CONF_PACK_SOH): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor", multiple=True)),
     })
     return vol.Schema(fields)
 
@@ -322,7 +330,84 @@ def _check_system(user_input: dict) -> dict[str, str]:
     return {}
 
 
-class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
+def _towers_from_detected(system: DetectedSystem | None, groups: list[dict]) -> list[dict]:
+    """Detected towers as tower settings. Tower n goes to battery group n when there's a group per tower."""
+    found = system.measurable_towers() if system else []
+    per_tower = len(groups) == len(found) and len(groups) > 1
+    return [{TOWER_SOC: t.get("tower_soc"), TOWER_CHARGED: t.get("tower_charged_energy"),
+             TOWER_DISCHARGED: t.get("tower_discharged_energy"), TOWER_GROUP: i if per_tower else 0}
+            for i, t in enumerate(found)]
+
+
+class _TowerSteps:
+    """Battery towers: how many, then one form per tower (its SoC and energy sensors, and its battery group).
+
+    Used by setup (after the sensors / modules steps, when towers were detected) and by Configure. The host flow
+    provides _tower_groups() and _async_towers_done(towers), and sets _tower_defaults before the first step."""
+
+    _tower_defaults: list[dict]
+    _tower_list: list[dict]
+    _tower_total: int
+
+    def _tower_groups(self) -> list[dict]:
+        raise NotImplementedError
+
+    async def _async_towers_done(self, towers: list[dict]) -> ConfigFlowResult:
+        raise NotImplementedError
+
+    async def async_step_towers(self, user_input: dict | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            self._tower_total = int(user_input["count"])
+            self._tower_list = []
+            if not self._tower_total:
+                return await self._async_towers_done([])
+            return await self.async_step_tower()
+        found = "\n".join(
+            f"- {i + 1}: {' · '.join(e for e in (t.get(TOWER_SOC), t.get(TOWER_CHARGED), t.get(TOWER_DISCHARGED)) if e)}"
+            for i, t in enumerate(self._tower_defaults)) or DASH
+        return self.async_show_form(
+            step_id="towers",
+            data_schema=vol.Schema({vol.Required("count", default=len(self._tower_defaults)): _num_box(
+                min=0, max=MAX_TOWERS, step=1)}),
+            description_placeholders={"found": found, "count": str(len(self._tower_defaults))})
+
+    async def async_step_tower(self, user_input: dict | None = None) -> ConfigFlowResult:
+        groups = self._tower_groups()
+        n = len(self._tower_list)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            soc = user_input.get(TOWER_SOC)
+            charged, discharged = user_input.get(TOWER_CHARGED), user_input.get(TOWER_DISCHARGED)
+            if not soc:
+                errors[TOWER_SOC] = "tower_no_soc"
+            elif not charged and not discharged:
+                errors["base"] = "tower_no_energy"
+            else:
+                self._tower_list.append({TOWER_SOC: soc, TOWER_CHARGED: charged, TOWER_DISCHARGED: discharged,
+                                         TOWER_GROUP: min(int(user_input.get(TOWER_GROUP, "0")), len(groups) - 1)})
+                if len(self._tower_list) >= self._tower_total:
+                    return await self._async_towers_done(self._tower_list)
+                return await self.async_step_tower()
+        schema = vol.Schema({
+            vol.Optional(TOWER_SOC): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
+            vol.Optional(TOWER_CHARGED): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
+            vol.Optional(TOWER_DISCHARGED): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
+            vol.Required(TOWER_GROUP, default="0"): sel.SelectSelector(sel.SelectSelectorConfig(
+                options=[sel.SelectOptionDict(value=str(i), label=f"{i + 1}: {_group_label(g)}")
+                         for i, g in enumerate(groups)], mode=sel.SelectSelectorMode.DROPDOWN)),
+        })
+        if user_input is not None:
+            suggested = user_input
+        else:
+            d = self._tower_defaults[n] if n < len(self._tower_defaults) else {}
+            suggested = {k: d[k] for k in (TOWER_SOC, TOWER_CHARGED, TOWER_DISCHARGED) if d.get(k)}
+            suggested[TOWER_GROUP] = str(min(int(d.get(TOWER_GROUP, 0)), len(groups) - 1))
+        return self.async_show_form(
+            step_id="tower", data_schema=self.add_suggested_values_to_schema(schema, suggested), errors=errors,
+            description_placeholders={"number": str(n + 1), "total": str(self._tower_total)})
+
+
+class BatteryLedgerConfigFlow(_TowerSteps, ConfigFlow, domain=DOMAIN):
     VERSION = CONFIG_ENTRY_VERSION
     MINOR_VERSION = CONFIG_ENTRY_MINOR_VERSION
 
@@ -349,6 +434,9 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         self._tower_index = 0
         self._imported: dict[str, Any] | None = None  # a pasted export (import_setup)
         self._reconf: ConfigEntry | None = None  # the setup being set up again (reconfigure)
+        self._tower_defaults: list[dict] = []
+        self._tower_list: list[dict] = []
+        self._tower_total = 0
 
     @staticmethod
     @callback
@@ -479,6 +567,8 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         ids = [eid for _lvl, eid in system.roles.values()]
         ids += [eid for roles in system.inverters.values() for found in roles.values() for eid in found]
         ids += [eid for roles in system.modules.values() for eid in roles.values()]
+        ids += [eid for roles in system.towers.values() for eid in roles.values()]
+        ids += system.pack_soh
         return list(dict.fromkeys(ids))
 
     def _disabled_entities(self, system: DetectedSystem) -> list[str]:
@@ -926,6 +1016,26 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                 out[CONF_UNITS] = old[CONF_UNITS]
         return out
 
+    def _tower_groups(self) -> list[dict]:
+        return self._groups
+
+    async def _async_towers_done(self, towers: list[dict]) -> ConfigFlowResult:
+        return await self.async_step_system()
+
+    async def _async_after_modules(self) -> ConfigFlowResult:
+        """Battery towers next, when the integration has them (or the setup being set up again had them)."""
+        self._tower_list = []
+        self._tower_defaults = _towers_from_detected(self._system, self._groups)
+        if not self._tower_defaults and self._reconf:
+            self._tower_defaults = [dict(t) for t in self._reconf.data.get(CONF_TOWERS) or []]
+        if not self._tower_defaults and self._imported:
+            # A restored setup: its towers, where their sensors exist on this server
+            self._tower_defaults = [t for t in self._imported.get(CONF_TOWERS) or []
+                                    if self.hass.states.get(t[TOWER_SOC])]
+        if self._tower_defaults:
+            return await self.async_step_towers()
+        return await self.async_step_system()
+
     async def async_step_add_more(self, user_input: dict | None = None) -> ConfigFlowResult:
         summary = "\n".join(
             f"- {g[CONF_UNITS]} × {g[CONF_SPEC]['brand']} {g[CONF_SPEC]['model']} · {g[CONF_INSTALL_DATE]}"
@@ -947,12 +1057,12 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             choice = user_input["integration"]
             if choice == MANUAL:
                 self._system = None
-                return await self.async_step_system()
+                return await self._async_after_modules()
             if choice in self._detected:
                 self._system = self._detected[choice]
                 if self._system.modules and self._system.modules_usable:
                     return await self.async_step_modules()
-                return await self.async_step_system()
+                return await self._async_after_modules()
             errors["integration"] = "not_detected"
 
         entities = _registry_entities(self.hass)
@@ -1015,7 +1125,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_modules(self, user_input: dict | None = None) -> ConfigFlowResult:
         if self._system is None:
-            return await self.async_step_system()
+            return await self._async_after_modules()
         mods = {mid: roles for mid, roles in self._system.modules.items() if "module_discharged_energy" in roles}
         rated = {mid: _read_float(self.hass, r.get("module_rated_capacity")) for mid, r in mods.items()}
         group_caps = [
@@ -1042,7 +1152,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                      MOD_SOC: mods[mid].get("module_soc")}
                     for mid, grp in assignment.items()
                 ]
-            return await self.async_step_system()
+            return await self._async_after_modules()
 
         lines = []
         for mid in sorted(mods):
@@ -1072,7 +1182,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                     entry = self._reconf
                     data = {**user_input, CONF_GROUPS: self._groups,
                             CONF_PROFILE: self._system.profile_id if self._system else None,
-                            CONF_MODULES: self._modules}
+                            CONF_MODULES: self._modules, CONF_TOWERS: self._tower_list}
                     if entry.data.get(CONF_CURRENCY):  # a pre-1.3 setup's own currency
                         data[CONF_CURRENCY] = entry.data[CONF_CURRENCY]
                     # Sensor and currency overrides from Configure are replaced by this setup; ESL and export kept
@@ -1090,6 +1200,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_GROUPS: self._groups,
                     CONF_PROFILE: self._system.profile_id if self._system else None,
                     CONF_MODULES: self._modules,
+                    CONF_TOWERS: self._tower_list,
                 })
         first = self._groups[0][CONF_SPEC]
         # Brand in title form + "Battery Ledger": e.g. "Sigenergy Battery Ledger", the card's title.
@@ -1110,12 +1221,20 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             current = {**self._reconf.data, **self._reconf.options}
             suggested = {k: current[k] for k in set(ROLE_TO_CONF.values())
                          if current.get(k) and self.hass.states.get(current[k])}
+        if user_input is None and self._reconf:
+            current = {**self._reconf.data, **self._reconf.options}
+            if current.get(CONF_PACK_SOH):
+                suggested[CONF_PACK_SOH] = current[CONF_PACK_SOH]
         if user_input is None and self._system:
             suggested.update({ROLE_TO_CONF[r]: eid for r, (_lvl, eid) in self._system.roles.items()
                               if r in ROLE_TO_CONF})
+            if self._system.pack_soh:
+                suggested[CONF_PACK_SOH] = self._system.pack_soh
         if user_input is None and self._imported:
             # The sensors the saved setup used, where they exist on this server
             suggested.update({k: eid for k, eid in self._imported["sensors"].items() if self.hass.states.get(eid)})
+            if packs := [e for e in self._imported.get(CONF_PACK_SOH) or [] if self.hass.states.get(e)]:
+                suggested[CONF_PACK_SOH] = packs
         if suggested:
             schema = self.add_suggested_values_to_schema(schema, suggested)
         sysd = self._system
@@ -1144,7 +1263,7 @@ def _check_group(spec: dict, units: int, install: date) -> dict[str, str]:
     return errors
 
 
-class BatteryLedgerOptionsFlow(OptionsFlow):
+class BatteryLedgerOptionsFlow(_TowerSteps, OptionsFlow):
     """Change sensors, currency style, battery groups and each group's cost after setup."""
 
     def __init__(self) -> None:
@@ -1158,7 +1277,20 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
 
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
         return self.async_show_menu(step_id="init", menu_options=[
-            "system", "groups", "costs", "service_life", "store_refresh", "export_setup"])
+            "system", "groups", "towers_start", "costs", "service_life", "store_refresh", "export_setup"])
+
+    async def async_step_towers_start(self, user_input: dict | None = None) -> ConfigFlowResult:
+        self._tower_defaults = [dict(t) for t in self.config_entry.data.get(CONF_TOWERS) or []]
+        self._tower_list, self._tower_total = [], 0
+        return await self.async_step_towers()
+
+    def _tower_groups(self) -> list[dict]:
+        return self.config_entry.data[CONF_GROUPS]
+
+    async def _async_towers_done(self, towers: list[dict]) -> ConfigFlowResult:
+        self.hass.config_entries.async_update_entry(
+            self.config_entry, data={**self.config_entry.data, CONF_TOWERS: towers})
+        return self.async_create_entry(data=dict(self.config_entry.options))
 
     async def async_step_store_refresh(self, user_input: dict | None = None) -> ConfigFlowResult:
         """Download the Store list now; a revised spec in use is offered through Repairs, as usual."""
@@ -1225,11 +1357,14 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
 
     # --- Battery groups: change units / warranty start, remove, or add one --------------------
 
-    def _save_groups(self, groups: list[dict], modules: list[dict] | None = None) -> ConfigFlowResult:
-        """Store the groups (and module assignments) with the entry; the reload recalculates everything."""
+    def _save_groups(self, groups: list[dict], modules: list[dict] | None = None,
+                     towers: list[dict] | None = None) -> ConfigFlowResult:
+        """Store the groups (and module / tower assignments) with the entry; the reload recalculates everything."""
         data = {**self.config_entry.data, CONF_GROUPS: groups}
         if modules is not None:
             data[CONF_MODULES] = modules
+        if towers is not None and (towers or data.get(CONF_TOWERS)):
+            data[CONF_TOWERS] = towers
         self.hass.config_entries.async_update_entry(self.config_entry, data=data)
         return self.async_create_entry(data=dict(self.config_entry.options))
 
@@ -1320,7 +1455,11 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
                         grp = int(m[MOD_GROUP])
                         if grp != i:
                             modules.append({**m, MOD_GROUP: grp - 1 if grp > i else grp})
-                    return self._save_groups(groups, modules)
+                    # Towers stay (they're still measured); the removed group's go to the first group
+                    towers = [{**t, TOWER_GROUP: 0 if int(t[TOWER_GROUP]) == i else
+                               int(t[TOWER_GROUP]) - (int(t[TOWER_GROUP]) > i)}
+                              for t in self.config_entry.data.get(CONF_TOWERS) or []]
+                    return self._save_groups(groups, modules, towers)
             else:
                 units = int(user_input[CONF_UNITS])
                 install = date.fromisoformat(user_input[CONF_INSTALL_DATE])
@@ -1399,7 +1538,7 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
                 # Store every field so a cleared optional field overrides setup data.
                 data = {k: user_input.get(k) for k in
                         (CONF_CURRENCY_STYLE, CONF_CHARGED_ENTITY, CONF_DISCHARGED_ENTITY,
-                         CONF_CAPACITY_ENTITY, CONF_SOH_ENTITY, CONF_SOC_ENTITY)}
+                         CONF_CAPACITY_ENTITY, CONF_SOH_ENTITY, CONF_SOC_ENTITY, CONF_PACK_SOH)}
                 return self.async_create_entry(data=data)
         current = {**self.config_entry.data, **self.config_entry.options}
         schema = _system_schema({CONF_CURRENCY_STYLE: current.get(CONF_CURRENCY_STYLE, CURRENCY_STYLE_CODE)},

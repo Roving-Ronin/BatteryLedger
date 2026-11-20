@@ -117,8 +117,9 @@ async def test_soh_source_explains_a_missing_reading(hass):
     # Energy Manager: available when the battery reports it (Sungrow), not for Huawei / iStore
     assert src("energy-manager", ["Sungrow"])["available"] is True
     assert src("energy-manager", ["Huawei"])["available"] is False
-    # No SoH rule at all (Deye via Solarman)
-    assert src("deye-solarman-davidrapan", ["Deye"])["available"] is False
+    # No whole-battery SoH rule (Deye via Solarman or ESPHome)
+    assert src("deye-solarman-davidrapan", ["Deye"])["available"] is None  # pack SoH on three-phase models only
+    assert src("deye-esphome-lewa-reka", ["Deye"])["available"] is False
     # Manual setup: the integration isn't known
     assert src(None, ["Sigenergy"]) == {"configured": False, "available": None, "source": None}
     # A sensor chosen (reading or not)

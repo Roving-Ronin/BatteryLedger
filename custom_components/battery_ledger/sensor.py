@@ -21,9 +21,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_CAPACITY_ENTITY,
+    CONF_PACK_SOH,
     CONF_SOC_ENTITY,
     CONF_SOH_ENTITY,
     CONF_SPEC,
+    CONF_TOWERS,
     DOMAIN,
     ENTITY_ID_PREFIX,
     MOD_SOC,
@@ -176,14 +178,17 @@ MEASURED_SENSORS: tuple[LedgerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR, suggested_display_precision=2,
         state_class=SensorStateClass.MEASUREMENT, available_without_value=True,
         value_fn=lambda r: _r(r.measured.usable_kwh, 2) if r.measured else None,
-        attrs_fn=lambda r: {**_measured_attrs(r), "initial_usable_kwh": _r(r.initial_usable_kwh, 2)}),
+        attrs_fn=lambda r: {**_measured_attrs(r), "initial_usable_kwh": _r(r.initial_usable_kwh, 2),
+                            **({"towers": r.tower_details} if r.tower_details else {})}),
     LedgerSensorDescription(
         key="measured_soh", translation_key="measured_soh", icon="mdi:battery-heart",
         native_unit_of_measurement=PERCENTAGE, suggested_display_precision=1,
         state_class=SensorStateClass.MEASUREMENT, available_without_value=True,
         value_fn=lambda r: _r(r.measured_soh_pct, 1),
         attrs_fn=lambda r: {"status": r.measured.status if r.measured else None,
-                            "reported_soh_pct": r.reported_soh_pct, "warranty_floor_pct": _r(r.floor_pct, 1)}),
+                            "reported_soh_pct": r.reported_soh_pct, "warranty_floor_pct": _r(r.floor_pct, 1),
+                            **({"groups": [{"label": g.label, "measured_soh_pct": _r(g.measured_soh_pct, 1)}
+                                           for g in r.groups]} if r.tower_details else {})}),
 )
 
 
@@ -194,9 +199,9 @@ async def async_setup_entry(
     descriptions = list(SENSORS)
     if runtime.config.get(CONF_CAPACITY_ENTITY):
         descriptions.append(HARDWARE_SENSOR)
-    if runtime.config.get(CONF_SOH_ENTITY):
+    if runtime.config.get(CONF_SOH_ENTITY) or runtime.config.get(CONF_PACK_SOH):
         descriptions.append(HEALTH_MARGIN_SENSOR)
-    if runtime.config.get(CONF_SOC_ENTITY):
+    if runtime.config.get(CONF_SOC_ENTITY) or runtime.config.get(CONF_TOWERS):
         descriptions.extend(MEASURED_SENSORS)
     if runtime.modules:
         descriptions.append(WORST_MODULE_SENSOR)
@@ -228,7 +233,7 @@ class LedgerSensor(SensorEntity):
         "expected_reported_kwh",
         "modules", "module_soc", "worst_module", "module_total_vs_plant_pct",
         "reported_soh_pct", "warranty_floor_pct",
-        "status", "charge_runs", "discharge_runs", "round_trip_efficiency_pct", "initial_usable_kwh",
+        "status", "charge_runs", "discharge_runs", "round_trip_efficiency_pct", "initial_usable_kwh", "towers",
         # The YAML package's attributes on cost_consumed_to_date / estimated_usable_capacity:
         # they change with every state update, and the sensor's own history already covers them.
         "percent_of_rated_life_used", "estimated_remaining_value", "remaining_usable_kwh",

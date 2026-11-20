@@ -149,8 +149,10 @@ class LedgerInput:
     export_setting: str = EXPORT_WARRANTY
     # Years the SoH trend suggests until the warranty capacity is reached (None: not enough history)
     soh_trend_years: float | None = None
-    # Usable capacity measured from state-of-charge runs (capacity.py); None without a SoC sensor
+    # Usable capacity measured from state-of-charge runs (capacity.py); None without a SoC sensor or towers
     measured: Measured | None = None
+    # Each battery tower's measurement and the battery group (index) it's in, when towers are measured
+    tower_measured: list[tuple[int, Measured]] = field(default_factory=list)
 
 
 @dataclass
@@ -189,6 +191,9 @@ class GroupResult:
     eosl: date | None = None
     projected_esl_kwh: float | None = None
     projected_soh_kwh: float | None = None
+    # Measured from this group's towers: their usable capacity added up ÷ the group's usable capacity when new
+    measured_usable_kwh: float | None = None
+    measured_soh_pct: float | None = None
 
     def as_attributes(self) -> dict:
         return {
@@ -215,6 +220,8 @@ class GroupResult:
             "end_of_service_life": self.eosl.isoformat() if self.eosl else None,
             "projected_throughput_kwh": _r(self.projected_kwh, 0),
             "projected_esl_throughput_kwh": _r(self.projected_esl_kwh, 0),
+            "measured_usable_kwh": _r(self.measured_usable_kwh, 2),
+            "measured_soh_pct": _r(self.measured_soh_pct, 1),
         }
 
 
@@ -263,6 +270,7 @@ class LedgerResult:
     soh_trend_years: float | None = None
     measured: Measured | None = None
     measured_soh_pct: float | None = None  # measured usable ÷ usable when new
+    tower_details: list[dict] = field(default_factory=list)  # each tower's measurement, for the attributes
 
 
 def _pct(frac):
@@ -503,6 +511,26 @@ def compute(inp: LedgerInput) -> LedgerResult:
     cycle_capacity = inp.reported_capacity_kwh or expected_reported or initial_total
     cycles = used_total / max_days / cycle_capacity if max_days > 0 and cycle_capacity else None
 
+    # Battery towers: each group's measured capacity is its towers' added up; a tower's SoH is against its share of
+    # the group's usable capacity when new (the group's towers taken as equal in size)
+    tower_details = []
+    per_group: dict[int, list] = {}
+    for grp, m in inp.tower_measured:
+        per_group.setdefault(min(max(grp, 0), len(results) - 1), []).append(m)
+    for grp, ms in per_group.items():
+        r = results[grp]
+        if all(m.usable_kwh is not None for m in ms):
+            r.measured_usable_kwh = sum(m.usable_kwh for m in ms)
+            r.measured_soh_pct = r.measured_usable_kwh / r.initial_usable_kwh * 100 if r.initial_usable_kwh else None
+    for n, (grp, m) in enumerate(inp.tower_measured, start=1):
+        grp = min(max(grp, 0), len(results) - 1)
+        share = results[grp].initial_usable_kwh / len(per_group[grp]) if results[grp].initial_usable_kwh else None
+        tower_details.append({
+            "tower": n, "group": grp + 1, "status": m.status, "usable_kwh": m.usable_kwh,
+            "soh_pct": _r(m.usable_kwh / share * 100, 1) if m.usable_kwh is not None and share else None,
+            "round_trip_efficiency_pct": m.efficiency_pct,
+            "charge_runs": m.charge_runs, "discharge_runs": m.discharge_runs})
+
     return LedgerResult(
         groups=results, limit_kwh=limit_total, used_kwh=used_limited if limited else used_total,
         remaining_kwh=remaining, used_pct=used_pct, projected_kwh=projected_total,
@@ -520,7 +548,7 @@ def compute(inp: LedgerInput) -> LedgerResult:
         cycles_per_day=cycles, cost_per_kwh_export=cpk_export, export_basis=export_basis,
         export_costs=costs,
         esl_years=esl_years, soh_trend_years=inp.soh_trend_years,
-        measured=inp.measured,
+        measured=inp.measured, tower_details=tower_details,
         measured_soh_pct=inp.measured.usable_kwh / initial_total * 100
         if inp.measured and inp.measured.usable_kwh is not None and initial_total else None,
         projected_esl_kwh=sum(esl_kwh) if (esl_kwh := [r.projected_esl_kwh for r in results]) and None not in esl_kwh

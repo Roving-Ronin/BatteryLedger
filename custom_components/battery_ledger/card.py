@@ -28,7 +28,16 @@ from homeassistant.helpers.storage import Store
 from homeassistant.loader import async_get_integration
 
 from .backup import ExportView
-from .const import CONF_GROUPS, CONF_INSTALL_DATE, CONF_PROFILE, CONF_SOH_ENTITY, CONF_SPEC, CONF_UNITS, DOMAIN
+from .const import (
+    CONF_GROUPS,
+    CONF_INSTALL_DATE,
+    CONF_PACK_SOH,
+    CONF_PROFILE,
+    CONF_SOH_ENTITY,
+    CONF_SPEC,
+    CONF_UNITS,
+    DOMAIN,
+)
 from .store_client import StoreIndex, async_get_store_index
 
 CARD_FILE = Path(__file__).parent / "www" / "battery-ledger-card.js"
@@ -132,7 +141,9 @@ def _soh_source(entry, index: StoreIndex, brands: list[str]) -> dict[str, Any]:
     if profile is not None:
         missing = set(profile.get("unavailable", {}).get("soh", []))
         available = "soh" in profile.get("roles", {}) and not (brands and set(brands) <= missing)
-    return {"configured": bool(current.get(CONF_SOH_ENTITY)), "available": available,
+        if not available and "pack_soh" in profile.get("roles", {}):
+            available = None  # each pack's SoH, on some models only (e.g. Solarman: three-phase Deye)
+    return {"configured": bool(current.get(CONF_SOH_ENTITY) or current.get(CONF_PACK_SOH)), "available": available,
             "source": profile["name"] if profile else None}
 
 

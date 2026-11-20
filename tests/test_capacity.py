@@ -104,3 +104,17 @@ def test_state_survives_a_restart():
     _cycle(learner)
     again = CapacityLearner(dict(learner.state))
     assert again.measured() == learner.measured()
+
+
+def test_combine_towers():
+    from custom_components.battery_ledger.capacity import Measured, combine
+
+    a = Measured(13.5, 92.0, 5, 4, STATUS_OK)
+    b = Measured(6.5, 88.0, 3, 6, STATUS_OK)
+    m = combine([a, b])
+    assert m.status == STATUS_OK and m.usable_kwh == 20.0
+    assert m.efficiency_pct == pytest.approx((92 * 13.5 + 88 * 6.5) / 20, abs=0.1)
+    assert (m.charge_runs, m.discharge_runs) == (3, 4)  # the tower furthest behind
+    learning = combine([a, Measured(None, None, 1, 2, STATUS_INSUFFICIENT)])
+    assert learning.status == STATUS_INSUFFICIENT and learning.usable_kwh is None and learning.charge_runs == 1
+    assert combine([a, Measured(6.0, None, None, 3, STATUS_ONE_WAY)]).status == STATUS_ONE_WAY

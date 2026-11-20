@@ -800,3 +800,175 @@ async def test_options_store_refresh(hass: HomeAssistant):
         r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "store_refresh"})
     assert r["step_id"] == "store_refresh_ok" and r["description_placeholders"]["count"] == "35"
     assert ir.async_get(hass).async_get_issue(DOMAIN, f"spec_updated_{entry.entry_id}_{spec_id}") is not None
+
+
+async def _tower_entry(hass: HomeAssistant, towers: list[dict], pack_soh: list[str] | None = None):
+    """Two battery groups (BAT 8.0 × 4 from 2024, × 2 from 2025) on plant charged / discharged counters."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.battery_ledger.const import CONFIG_ENTRY_MINOR_VERSION, CONFIG_ENTRY_VERSION
+    index = await async_get_store_index(hass)
+    spec = index.get("sigenergy-sigenstor-bat-8-0-anz")
+    data = {"name": "Huawei", "groups": [{"spec": spec, "units": 4, "install_date": "2024-01-01"},
+                                         {"spec": spec, "units": 2, "install_date": "2025-06-01"}],
+            "charged_energy_entity": CHARGED, "discharged_energy_entity": DISCHARGED, "towers": towers}
+    if pack_soh:
+        data["pack_soh_entities"] = pack_soh
+    hass.states.async_set(CHARGED, "5000", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(DISCHARGED, "4500", {"unit_of_measurement": "kWh"})
+    entry = MockConfigEntry(domain=DOMAIN, title="Huawei", version=CONFIG_ENTRY_VERSION,
+                            minor_version=CONFIG_ENTRY_MINOR_VERSION, data=data)
+    entry.add_to_hass(hass)
+    return entry
+
+
+async def test_towers_measured_per_group(hass: HomeAssistant, hass_storage):
+    """Each tower is measured from its own SoC and counters; the whole battery is their sum, and each group's
+    measured SoH is its towers' capacity against the group's usable capacity when new."""
+    towers = [{"soc_entity": f"sensor.battery_{n}_soc", "charged_entity": f"sensor.battery_{n}_charge",
+               "discharged_entity": f"sensor.battery_{n}_discharge", "group": n - 1} for n in (1, 2)]
+    state = {n: {"soc": 20, "ch": 100.0, "dis": 90.0} for n in (1, 2)}
+
+    def publish(n):
+        hass.states.async_set(f"sensor.battery_{n}_soc", str(state[n]["soc"]), {"unit_of_measurement": "%"})
+        hass.states.async_set(f"sensor.battery_{n}_charge", str(state[n]["ch"]), {"unit_of_measurement": "kWh"})
+        hass.states.async_set(f"sensor.battery_{n}_discharge", str(state[n]["dis"]), {"unit_of_measurement": "kWh"})
+
+    for n in (1, 2):
+        publish(n)
+    entry = await _tower_entry(hass, towers)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    runtime = entry.runtime_data
+    assert len(runtime.tower_learners) == 2 and runtime.learner is None
+    cap = hass.states.get("sensor.battery_ledger_measured_usable_capacity")
+    assert cap.attributes["status"] == "insufficient" and len(cap.attributes["towers"]) == 2
+
+    per_point = {1: 0.30, 2: 0.15}  # tower 1 holds 30 kWh, tower 2 15 kWh (losses cancel: in 1.05×, out 0.95×)
+
+    def step(n, soc):
+        d = soc - state[n]["soc"]
+        state[n]["soc"] = soc
+        if d > 0:
+            state[n]["ch"] += d * per_point[n] * 1.05
+        else:
+            state[n]["dis"] += -d * per_point[n] * 0.95
+        publish(n)
+        runtime.recalculate()
+
+    for _ in range(4):
+        for soc in range(21, 91):
+            step(1, soc)
+            step(2, soc)
+        for soc in range(89, 19, -1):
+            step(1, soc)
+            step(2, soc)
+    for soc in range(21, 24):
+        step(1, soc)
+        step(2, soc)
+    await hass.async_block_till_done()
+
+    cap = hass.states.get("sensor.battery_ledger_measured_usable_capacity")
+    t1, t2 = cap.attributes["towers"]
+    assert cap.attributes["status"] == "ok"
+    assert t1["usable_kwh"] == pytest.approx(29.97, abs=0.1) and t2["usable_kwh"] == pytest.approx(14.98, abs=0.1)
+    assert float(cap.state) == pytest.approx(t1["usable_kwh"] + t2["usable_kwh"], abs=0.02)
+    assert (t1["group"], t2["group"]) == (1, 2)
+    soh = hass.states.get("sensor.battery_ledger_measured_soh")
+    g1, g2 = soh.attributes["groups"]
+    used = hass.states.get("sensor.battery_ledger_rated_throughput_used").attributes["groups"]
+    assert g1["measured_soh_pct"] == pytest.approx(t1["usable_kwh"] / used[0]["warranty_floor_kwh"]
+                                                   * used[0]["warranty_floor_pct"], abs=0.2)
+    assert g2["measured_soh_pct"] == pytest.approx(t2["usable_kwh"] / used[1]["warranty_floor_kwh"]
+                                                   * used[1]["warranty_floor_pct"], abs=0.2)
+    assert used[1]["measured_soh_pct"] == g2["measured_soh_pct"]
+
+    # Kept across a reload, by each tower's SoC sensor
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    saved = hass_storage[f"{DOMAIN}.capacity.{entry.entry_id}"]["data"]["towers"]
+    assert set(saved) == {"sensor.battery_1_soc", "sensor.battery_2_soc"}
+    assert hass.states.get("sensor.battery_ledger_measured_usable_capacity").attributes["status"] == "ok"
+
+
+async def test_pack_soh_average(hass: HomeAssistant):
+    """No whole-battery SoH sensor: the average of the packs that report one (0 and unavailable left out)."""
+    packs = [f"sensor.inverter_battery_{n}_soh" for n in (1, 2, 3)]
+    for e, v in zip(packs, ("98", "96", "0"), strict=True):
+        hass.states.async_set(e, v, {"unit_of_measurement": "%"})
+    entry = await _tower_entry(hass, [], pack_soh=packs)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    margin = hass.states.get("sensor.battery_ledger_soh_above_warranty_floor")
+    assert margin.attributes["reported_soh_pct"] == 97.0
+
+
+async def test_options_towers(hass: HomeAssistant):
+    """Configure → Battery towers: how many, then each tower's sensors and group; 0 removes them."""
+    for n in (1, 2):
+        hass.states.async_set(f"sensor.battery_{n}_soc", "50", {"unit_of_measurement": "%"})
+        hass.states.async_set(f"sensor.battery_{n}_charge", "10", {"unit_of_measurement": "kWh"})
+    entry = await _tower_entry(hass, [])
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    r = await hass.config_entries.options.async_init(entry.entry_id)
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "towers_start"})
+    assert r["step_id"] == "towers"
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"count": 2})
+    assert r["step_id"] == "tower" and r["description_placeholders"] == {"number": "1", "total": "2"}
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"group": "0"})
+    assert r["errors"] == {"soc_entity": "tower_no_soc"}
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"soc_entity": "sensor.battery_1_soc",
+                                                                          "group": "0"})
+    assert r["errors"] == {"base": "tower_no_energy"}
+    r = await hass.config_entries.options.async_configure(
+        r["flow_id"], {"soc_entity": "sensor.battery_1_soc", "charged_entity": "sensor.battery_1_charge", "group": "0"})
+    r = await hass.config_entries.options.async_configure(
+        r["flow_id"], {"soc_entity": "sensor.battery_2_soc", "charged_entity": "sensor.battery_2_charge", "group": "1"})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert [(t["soc_entity"], t["group"]) for t in entry.data["towers"]] == [
+        ("sensor.battery_1_soc", 0), ("sensor.battery_2_soc", 1)]
+    assert hass.states.get("sensor.battery_ledger_measured_usable_capacity") is not None
+
+    # The current towers are filled in next time; 0 removes them
+    r = await hass.config_entries.options.async_init(entry.entry_id)
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "towers_start"})
+    assert r["description_placeholders"]["count"] == "2"
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"count": 0})
+    await hass.async_block_till_done()
+    assert entry.data["towers"] == []
+
+
+async def test_reconfigure_keeps_towers(hass: HomeAssistant):
+    """Setting up again shows the towers step with the setup's towers filled in."""
+    towers = [{"soc_entity": f"sensor.battery_{n}_soc", "charged_entity": f"sensor.battery_{n}_charge",
+               "discharged_entity": None, "group": n - 1} for n in (1, 2)]
+    for n in (1, 2):
+        hass.states.async_set(f"sensor.battery_{n}_soc", "50", {"unit_of_measurement": "%"})
+        hass.states.async_set(f"sensor.battery_{n}_charge", "10", {"unit_of_measurement": "kWh"})
+    entry = await _tower_entry(hass, towers)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    r = await entry.start_reconfigure_flow(hass)
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+    r = await hass.config_entries.flow.async_configure(
+        r["flow_id"], {"search": "bat 8", "brand": "Sigenergy", "region": "AU", "phase": "3"})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"series": "Sigenergy|SigenStor"})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"spec_ids": ["sigenergy-sigenstor-bat-8-0-anz"]})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"units": 4, "install_date": "2024-01-01"})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"integration": "manual"})
+    assert r["step_id"] == "towers" and r["description_placeholders"]["count"] == "2"
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"count": 2})
+    assert _suggested(r, "soc_entity") == "sensor.battery_1_soc"
+    r = await hass.config_entries.flow.async_configure(
+        r["flow_id"], {"soc_entity": "sensor.battery_1_soc", "charged_entity": "sensor.battery_1_charge", "group": "0"})
+    assert _suggested(r, "soc_entity") == "sensor.battery_2_soc"
+    assert _suggested(r, "group") == "0"  # only one group now: tower 2's old group 2 falls back to it
+    r = await hass.config_entries.flow.async_configure(
+        r["flow_id"], {"soc_entity": "sensor.battery_2_soc", "charged_entity": "sensor.battery_2_charge", "group": "0"})
+    assert r["step_id"] == "system"
+    r = await hass.config_entries.flow.async_configure(
+        r["flow_id"], {"name": "Huawei", "charged_energy_entity": CHARGED, "discharged_energy_entity": DISCHARGED})
+    assert r["reason"] == "reconfigure_successful"
+    assert len(entry.data["towers"]) == 2 and {t["group"] for t in entry.data["towers"]} == {0}
