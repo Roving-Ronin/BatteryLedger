@@ -105,9 +105,13 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
 - Recalculation is debounced (`RECALC_DEBOUNCE_SECONDS`); energy counters update every few seconds.
 
 ## Releases and changelog
-- Publish a GitHub release tagged `vX.Y.Z`; the Release workflow writes the version into
-  `manifest.json`, attaches `battery_ledger.zip` (what the Marketplace / HACS installs) and commits the
-  version back. Don't edit the manifest version by hand.
+- **A PR titled `vX.Y.Z: …` releases `vX.Y.Z` when it's merged** (Auto Release), with its CHANGELOG section as the
+  notes. So title every release PR with its version, and never put a version at the start of a PR that isn't a
+  release. `[skip release]` in a PR's title or description stops it releasing (release later by hand: Actions →
+  Auto Release → Run workflow). Auto Release calls Release and the issue notifier itself: a release created with the workflow token
+  doesn't trigger `release: published` workflows.
+- Release writes the version into `manifest.json`, attaches `battery_ledger.zip` (what the Marketplace / HACS
+  installs) and commits the version back. Don't edit the manifest version by hand.
 - Refresh `data/index_snapshot.json` from the published Store index before a release.
 - `CHANGELOG.md`: every release opens with a `### TL;DR`, rewritten as a whole when entries are added.
 - A PR that adds a CHANGELOG section is followed by its release: head the section `## vX.Y.Z (YYYY-MM-DD)` with

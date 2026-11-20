@@ -424,10 +424,19 @@ Store's published `index.json` before each release.
 
 ## Releasing
 
-Draft a new GitHub release, create a tag such as `v0.2.0` on `main`, and publish. The release workflow takes the
-version from the tag, writes it into `manifest.json`, attaches `battery_ledger.zip` to the release (what the Marketplace / HACS installs
-and the download badge counts), and commits the version back to `main`. Mark betas as a pre-release (e.g. `v0.3.0b1`);
-they don't change the version on `main`.
+**Automatically, on merge:** title the PR with its version first, e.g. `v0.4.0: savings and payback`, and give
+`CHANGELOG.md` a matching `## v0.4.0 (YYYY-MM-DD)` section. When the PR is merged into `main`, the Auto Release
+workflow creates the release `v0.4.0` on the merge commit, with that CHANGELOG section as its notes (a `b` or `rc`
+version, e.g. `v0.4.0b1`, as a pre-release). A PR whose title doesn't start with a version releases nothing, and neither does one with **`[skip release]`**
+anywhere in its title or description, e.g. to merge a versioned PR now and release it later by hand. If the
+section is missing or the tag already exists, nothing is released and the workflow says why.
+
+**By hand:** Actions → Auto Release → Run workflow, and type the version (the CHANGELOG section is still needed);
+or draft a GitHub release with a tag such as `v0.4.0` and publish it.
+
+Either way the Release workflow then takes the version from the tag, writes it into `manifest.json`, attaches
+`battery_ledger.zip` to the release (what the Marketplace / HACS installs and the download badge counts), and commits
+the version back to `main`. Pre-releases don't change the version on `main`.
 
 
 <!-- Badges -->
