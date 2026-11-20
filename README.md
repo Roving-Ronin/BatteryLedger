@@ -331,7 +331,8 @@ battery really holds, using the method from [Energy Pilot](https://github.com/Cl
 measures each tower instead of the whole battery: each battery unit on a Huawei inverter (2 per inverter, wlcrs),
 each Sigenergy inverter's battery (Sigenergy Local Modbus, sigenergy2mqtt) and each BYD tower (BYD Battery Box, up
 to 3 on HVS / HVM). Detect finds them and setup shows a **Battery towers** step (how many, then each tower's
-sensors and battery group); Configure → Battery towers changes them for any setup. The whole battery's measured
+sensors and battery group); Configure → Battery towers changes them for any setup, and finds them for a setup
+that has none saved yet (e.g. one made before 0.3.0). The whole battery's measured
 capacity is the towers' added up, and each battery group gets its own measured SoH (its towers' capacity ÷ the
 group's usable capacity when new), in Measured SoH's `groups` attribute and on the card when you pick a group.
 Measured Usable Capacity's `towers` attribute has each tower's capacity, SoH (against its share of the group, the
