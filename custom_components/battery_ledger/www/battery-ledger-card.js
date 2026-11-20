@@ -40,6 +40,8 @@ const STRINGS = {
     driver_throughput: "Throughput (Cycles)",
     esl_years: "years",
     eosl: "End of Service Life (EoSL):",
+    esl_usage: "Estimated usage at EoSL:",
+    of_warranted: "{pct}% of warranted",
     export_cost: "Export Cost:",
     export_basis: "Export Cost Basis:",
     basis_age: "by age",
@@ -200,8 +202,8 @@ const STYLE = `
   .gchips .lbl { margin-right: 4px; }
   .gchip { font: inherit; font-size: 13px; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 14px; cursor: pointer;
            border: 1px solid var(--divider-color, #555); background: none; color: var(--primary-text-color); }
-  /* Lavender: clear of the card's blue (by age), green (by usage), orange (curve) and red (warranty end) */
-  .gchip[aria-pressed="true"] { background: #b39ddb; border-color: #b39ddb; color: #1c1c1c; font-weight: 500; }
+  /* Light grey: clear of the card's blue (by age), green (by usage), orange (curve) and red (warranty end) */
+  .gchip[aria-pressed="true"] { background: #bdbdbd; border-color: #bdbdbd; color: #1c1c1c; font-weight: 500; }
   .group-grid { display: grid; gap: 6px; }
   .basis-row { margin-top: 8px; display: grid; gap: 4px; min-width: 0; }
   .tile { min-width: 0; }
@@ -468,6 +470,7 @@ class BatteryLedgerCard extends HTMLElement {
         ${g.throughput_used_pct != null ? row(t.by_throughput, `${this._fmt(g.throughput_used_pct, 2)}%`, ent, "var(--bl-tp)") : ""}
         ${this._serviceLife(t, row, false)}
         ${g.end_of_service_life ? row(t.eosl, esc(this._date(g.end_of_service_life)), this._ent("end_of_service_life")) : ""}
+        ${this._eslUsage(t, row, g.projected_esl_throughput_kwh, g.throughput_limit_kwh)}
       </div></div></section>`;
     }
     if (groups.length > 1) {
@@ -516,6 +519,14 @@ class BatteryLedgerCard extends HTMLElement {
       <span class="lbl">${esc(t.battery_groups)}</span>${chips}</div>${head}</section>`;
   }
 
+  // Estimated usage at EoSL: throughput at the average rate so far until End of Service Life, and its share
+  // of the warranted throughput (over 100% once it runs past the warranty's limit)
+  _eslUsage(t, row, kwh, limit) {
+    if (kwh == null) return "";
+    const pct = limit ? `<br><span class="lbl">${esc(fill(t.of_warranted, { pct: this._fmt(kwh / limit * 100, 0) }))}</span>` : "";
+    return row(t.esl_usage, `${this._fmt(kwh, 0)} kWh${pct}`, this._ent("estimated_usage_at_eosl"));
+  }
+
   // Estimated Service Life (a box admins can change) and each battery group's End of Service Life.
   _serviceLife(t, row, withEosl = true) {
     const eslId = this._setup.entities.estimated_service_life;
@@ -529,7 +540,8 @@ class BatteryLedgerCard extends HTMLElement {
     const dates = groups.length > 1
       ? groups.map((g) => esc(this._date(g.end_of_service_life))).join("<br>")
       : esc(this._date(this._state("end_of_service_life")?.state));
-    return row(t.esl, value, "", null, true) + (withEosl ? row(t.eosl, dates, this._ent("end_of_service_life")) : "");
+    return row(t.esl, value, "", null, true) + (withEosl ? row(t.eosl, dates, this._ent("end_of_service_life")) : "")
+      + (withEosl ? this._eslUsage(t, row, this._num("estimated_usage_at_eosl"), this._num("total_rated_throughput")) : "");
   }
 
   _throughput(t) {

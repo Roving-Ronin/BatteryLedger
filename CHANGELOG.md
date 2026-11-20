@@ -4,6 +4,23 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.1.19 (2026-11-20)
+
+### TL;DR
+- **Estimated Usage at EoSL**: the throughput expected by the End of Service Life, as a sensor and on the card
+- Card: the chosen **Battery group** chip is light grey (was lavender)
+
+### Added
+- `sensor.battery_ledger_estimated_usage_at_eosl` (Estimated Usage at EoSL): throughput at the average rate so far
+  until each battery group's End of Service Life, not capped at the warranted throughput. Attributes:
+  `warranted_throughput_kwh`, `percent_of_warranted`, `estimated_service_life_years`, `low_confidence`. Each
+  group's is in the groups attribute (`projected_esl_throughput_kwh`).
+- Card: **Estimated usage at EoSL** under End of Service Life, e.g. "165,000 kWh" with "116% of warranted" below
+  it, following the Battery group switcher.
+
+### Changed
+- Card: the chosen chip in the **Battery group** switcher is light grey.
+
 ## v0.1.18 (2026-11-20)
 
 ### TL;DR

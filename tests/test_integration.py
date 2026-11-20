@@ -617,6 +617,11 @@ async def test_estimated_service_life_and_export_basis_entities(hass: HomeAssist
     basis = hass.states.get("select.battery_ledger_export_cost_basis")
     assert float(esl.state) == 15 and esl.attributes["unit_of_measurement"] == "y"  # the default
     assert basis.state == "warranty" and basis.attributes["options"] == ["warranty", "age", "usage", "esl", "cheapest"]
+    usage = hass.states.get("sensor.battery_ledger_estimated_usage_at_eosl")
+    assert usage.attributes["unit_of_measurement"] == "kWh" and float(usage.state) > 0
+    assert usage.attributes["percent_of_warranted"] == pytest.approx(
+        float(usage.state) / usage.attributes["warranted_throughput_kwh"] * 100, abs=0.1)
+    assert usage.attributes["estimated_service_life_years"] == 15
     eosl = hass.states.get("sensor.battery_ledger_end_of_service_life")
     assert eosl.state == "2039-01-01"  # the 2024 group + 15 years; the 2025 group's is in `groups`
     assert [g["end_of_service_life"] for g in eosl.attributes["groups"]] == ["2039-01-01", "2040-06-01"]

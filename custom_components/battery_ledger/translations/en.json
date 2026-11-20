@@ -416,6 +416,23 @@
           }
         }
       },
+      "estimated_usage_at_eosl": {
+        "name": "Estimated Usage at EoSL",
+        "state_attributes": {
+          "warranted_throughput_kwh": {
+            "name": "Warranted throughput"
+          },
+          "percent_of_warranted": {
+            "name": "Percent of warranted throughput"
+          },
+          "estimated_service_life_years": {
+            "name": "Estimated Service Life (years)"
+          },
+          "low_confidence": {
+            "name": "Low confidence"
+          }
+        }
+      },
       "end_of_service_life": {
         "name": "End of Service Life (EoSL)",
         "state_attributes": {

@@ -279,6 +279,9 @@ def test_cost_per_kwh_export_estimated_service_life_and_cheapest():
     assert default.export_costs["esl"] == pytest.approx(default.export_costs["age"] * 10 / 15)
     g0 = default.groups[0]
     assert g0.as_attributes()["projected_throughput_kwh"] == round(g0.projected_kwh)  # for the card's group view
+    # Estimated usage at EoSL: 10 kWh/day for 15 years, not capped at the warranted throughput
+    assert default.projected_esl_kwh == pytest.approx(10.0 * 15 * 365.25)
+    assert g0.as_attributes()["projected_esl_throughput_kwh"] == round(default.projected_esl_kwh)
     assert g0.eosl == g0.install_date.replace(year=g0.install_date.year + 15)
     # A warranty longer than 15 years is the default instead; a set ESL wins either way
     assert _export_case(400, 10.0, esl_years=12).esl_years == 12

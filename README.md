@@ -198,7 +198,8 @@ The card has four sections:
   above its share: by age, labelled with your battery's warranty period (e.g. **Warranty Ends (10 years)**:
   warranty start + 10 years), and **Warranty Ends (by usage)**, when the throughput limit would be reached at your
   average daily use so far. The warranty ends at whichever comes first, shown in red. Then **Estimated Service
-  Life (ESL)**, which admins can change in its box, and **End of Service Life (EoSL)**.
+  Life (ESL)**, which admins can change in its box, **End of Service Life (EoSL)** and **Estimated usage at
+  EoSL** (with its share of the warranted throughput).
 - **Throughput:** remaining warrantied usage (rated throughput) counts down, with a marker for what's projected
   to be left when the warranty ends.
 - **Cost:** value used to date (the `cost_consumed_to_date` sensor), remaining value, cost per kWh (by usage and
@@ -232,6 +233,7 @@ If a source drops out later, its last reading is used until it's back.
 | `cost_per_kwh_rated` | Battery cost ÷ warranted throughput (battery groups with a cost) | |
 | `cost_per_kwh_projected` | Battery cost ÷ projected throughput (battery groups with a cost) | |
 | `cost_per_kwh_export` | Battery cost per kWh for a home energy manager, on the basis chosen with Export Cost Basis (see [Battery cost for exports](#battery-cost-for-exports)) | `basis`, `age`, `usage`, `esl`, `soh_trend`, `soh_trend_years`, `driver`, `low_confidence` |
+| `estimated_usage_at_eosl` | Estimated usage at EoSL: throughput at the average rate so far until each battery group's End of Service Life, not capped at the warranted throughput | `warranted_throughput_kwh`, `percent_of_warranted`, `estimated_service_life_years`, `low_confidence` |
 | `end_of_service_life` | Earliest End of Service Life: a battery group's warranty start + Estimated Service Life (see [ESL and EoSL](#estimated-service-life-esl-and-end-of-service-life-eosl)) | `estimated_service_life_years`, `groups` |
 | `cost_consumed_to_date` | Cost apportioned to warranty life used: each battery group's cost by its own warranty driver (time elapsed or throughput used, whichever is further along), added up. `percent_of_rated_life_used` stays the throughput share. Each group's `cost` and `cost_consumed` are in the `groups` attribute | `percent_of_rated_life_used`, `estimated_remaining_value` |
 | `initial_usable_capacity` | Usable capacity at beginning of life | |
@@ -281,7 +283,9 @@ your energy manager to allow for), and battery groups without a cost aren't incl
 cost) is how many years you expect to keep the batteries: one value per setup, counted from each battery group's
 warranty start. Until you set it, it's **15 years** (or the warranty period, if a battery's is longer). With 15
 years, a stack from 2020 reaches its **End of Service Life** in 2035 and one added in 2025 in 2040. `sensor.battery_ledger_end_of_service_life` is the earliest;
-each group's is in its `groups` attribute. Changing ESL or the export cost basis recalculates straight away, so
+each group's is in its `groups` attribute. `sensor.battery_ledger_estimated_usage_at_eosl` is the throughput
+expected by then, at the average rate so far, and its share of the warranted throughput (over 100% once use runs
+past the warranty's limit). Changing ESL or the export cost basis recalculates straight away, so
 both can be set from a dashboard or an automation.
 
 ## What the numbers mean (and don't)
