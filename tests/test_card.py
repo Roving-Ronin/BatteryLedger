@@ -36,10 +36,12 @@ async def test_card_setups_and_settings(hass: HomeAssistant, hass_ws_client):
 
     assert setup["settings"]["date_style"] == "ha"  # Home Assistant's date format unless chosen otherwise
 
-    # Saved by a card from before the date option: it keeps the default
-    older = {"cost_decimals": 2, "sections": {"warranty": True, "throughput": False, "cost": True, "health": True}}
+    # Saved by a card from before the date option and the 0.3.2 section names: it keeps the default date style,
+    # and its sections are stored under their new names (throughput -> usage, cost -> financials)
+    oldest = {"cost_decimals": 2, "sections": {"warranty": True, "throughput": False, "cost": True, "health": True}}
+    older = {"cost_decimals": 2, "sections": {"warranty": True, "usage": False, "financials": True, "health": True}}
     await client.send_json_auto_id({"type": "battery_ledger/card/save_settings",
-                                    "entry_id": entry.entry_id, "settings": older})
+                                    "entry_id": entry.entry_id, "settings": oldest})
     res = await client.receive_json()
     assert res["success"] and res["result"]["settings"] == {**older, "date_style": "ha"}
 
@@ -128,3 +130,11 @@ async def test_soh_source_explains_a_missing_reading(hass):
     em = src("energy-manager", ["Sungrow"], soh_entity="sensor.inverter_battery_soh")
     assert em["configured"] is True and em["available"] is True and em["source"] == "Energy Manager"
     assert src("energy-manager", ["Huawei"], soh_entity="sensor.inverter_battery_soh")["available"] is False
+
+
+def test_old_section_names_read_as_new():
+    """Card settings stored (or in a setup file) before 0.3.2 keep their choices under the new section names."""
+    from custom_components.battery_ledger.card import _with_defaults
+
+    got = _with_defaults({"cost_decimals": 3, "sections": {"throughput": False, "cost": False, "bogus": True}})
+    assert got["sections"] == {"warranty": True, "usage": False, "financials": False, "health": True}

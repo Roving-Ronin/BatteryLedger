@@ -206,7 +206,7 @@ entry_id: <optional; the first setup is used if left out>
 
 With more than one battery group, a **Battery group** switcher under the title shows **All** (the whole setup)
 or one group (1, 2, 3 …). A group shows its own status, warranty rings, end dates, EoSL, remaining warrantied usage
-and warranty curve (against the battery's reported state of health); cost stays for the whole setup.
+and warranty curve (against the battery's reported state of health); Financials stay for the whole setup.
 
 The card has four sections:
 - **Warranty:** two rings show how much of the warranty is used by age (time elapsed) and by usage (throughput).
@@ -216,9 +216,9 @@ The card has four sections:
   average daily use so far. The warranty ends at whichever comes first, shown in red. Then **Estimated Service
   Life (ESL)**, which admins can change in its box, **End of Service Life (EoSL)** and **Estimated usage at
   EoSL** (with its share of the warranted throughput).
-- **Throughput:** remaining warrantied usage (rated throughput) counts down, with a marker for what's projected
+- **Usage & Throughput:** remaining warrantied usage (rated throughput) counts down, with a marker for what's projected
   to be left when the warranty ends.
-- **Cost:** value used to date (the `cost_consumed_to_date` sensor), remaining value, cost per kWh (by usage and
+- **Financials:** value used to date (the `cost_consumed_to_date` sensor), remaining value, cost per kWh (by usage and
   by age), and **Export Cost** with its basis; admins choose the **Export Cost Basis** there.
 - **Health:** your battery's reported state of health against the warranty curve (Estimated Usable
   Capacity, what the warranty allows at this age and usage), on a scale from the end-of-warranty capacity
@@ -229,7 +229,8 @@ The card has four sections:
 Tap any figure to open its sensor. The bottom right corner shows the BatteryLedger version; admins also see a cog just to its left. It opens the card
 settings: decimal places for cost per kWh (2 to 5), how dates are shown (your Home Assistant date format, or
 day month year such as 18 Jul 2035), and which sections to show. The settings are saved for each
-BatteryLedger setup, so the card looks the same on every dashboard and device.
+BatteryLedger setup, so the card looks the same on every dashboard and device. Thin lines separate the
+warranty figures from Usage & Throughput, and Financials from Health.
 
 ## Sensors
 
