@@ -11,6 +11,12 @@ on:
       tag:
         description: "Release tag to scan (defaults to the latest published release)"
         required: false
+  workflow_call:  # from Auto Release, whose release doesn't trigger this workflow by itself
+    inputs:
+      tag:
+        description: Release tag to scan
+        required: true
+        type: string
 
 permissions:
   issues: write
