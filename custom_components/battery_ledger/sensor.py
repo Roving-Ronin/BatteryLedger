@@ -127,6 +127,12 @@ EXTRA_SENSORS: tuple[LedgerSensorDescription, ...] = (
                             **{b: _r(v, 4) for b, v in r.export_costs.items()},
                             "soh_trend_years": _r(r.soh_trend_years, 1),
                             "driver": r.driver, "low_confidence": r.low_confidence}),
+    # Estimated usage at EoSL: throughput at the average rate so far until each group's End of Service Life
+    _energy("estimated_usage_at_eosl", "mdi:chart-timeline-variant-shimmer", lambda r: _r(r.projected_esl_kwh, 0),
+            lambda r: {"warranted_throughput_kwh": _r(r.limit_kwh, 0),
+                       "percent_of_warranted": _r(r.projected_esl_kwh / r.limit_kwh * 100, 1)
+                       if r.projected_esl_kwh is not None and r.limit_kwh else None,
+                       "estimated_service_life_years": r.esl_years, "low_confidence": r.low_confidence}),
     # End of Service Life: the earliest group's warranty start + Estimated Service Life (each group's in `groups`)
     LedgerSensorDescription(
         key="end_of_service_life", translation_key="end_of_service_life", icon="mdi:calendar-end",

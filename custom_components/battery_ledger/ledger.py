@@ -208,6 +208,7 @@ class GroupResult:
             "cost_consumed": _r(self.cost_consumed, 2),
             "end_of_service_life": self.eosl.isoformat() if self.eosl else None,
             "projected_throughput_kwh": _r(self.projected_kwh, 0),
+            "projected_esl_throughput_kwh": _r(self.projected_esl_kwh, 0),
         }
 
 
@@ -251,6 +252,8 @@ class LedgerResult:
     export_costs: dict[str, float | None] = field(default_factory=dict)  # basis -> cost per kWh
     esl_years: float | None = None
     eosl: date | None = None  # earliest End of Service Life among the groups
+    # Estimated usage at EoSL: each group's throughput at the average rate so far, to its End of Service Life
+    projected_esl_kwh: float | None = None
     soh_trend_years: float | None = None
 
 
@@ -508,4 +511,6 @@ def compute(inp: LedgerInput) -> LedgerResult:
         reported_capacity_kwh=inp.reported_capacity_kwh, total_units=sum(g.units for g in inp.groups),
         cycles_per_day=cycles, cost_per_kwh_export=cpk_export, export_basis=export_basis,
         export_costs=costs,
-        esl_years=esl_years, soh_trend_years=inp.soh_trend_years, eosl=min(r.eosl for r in results) if results else None)
+        esl_years=esl_years, soh_trend_years=inp.soh_trend_years,
+        projected_esl_kwh=sum(esl_kwh) if (esl_kwh := [r.projected_esl_kwh for r in results]) and None not in esl_kwh
+        else None, eosl=min(r.eosl for r in results) if results else None)

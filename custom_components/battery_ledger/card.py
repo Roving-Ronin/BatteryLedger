@@ -51,7 +51,7 @@ CARD_SENSOR_KEYS = (
     "cost_per_kwh_rated", "cost_per_kwh_projected", "cost_consumed_to_date",
     "initial_usable_capacity", "estimated_usable_capacity", "soh_above_warranty_floor",
     "hardware_capacity_validation", "most_used_module_throughput", "module_soc_spread",
-    "cost_per_kwh_export", "end_of_service_life",
+    "cost_per_kwh_export", "end_of_service_life", "estimated_usage_at_eosl",
 )
 # Settings the card can change (number / select entities)
 CARD_CONTROL_KEYS = (("number", "estimated_service_life"), ("select", "export_cost_basis"))
