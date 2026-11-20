@@ -48,7 +48,9 @@ _REGISTERED = f"{DOMAIN}_card_registered"
 _SETTINGS = f"{DOMAIN}_card_settings"
 SETTINGS_STORE_KEY = f"{DOMAIN}.card_settings"
 
-SECTIONS = ("warranty", "throughput", "cost", "health")
+SECTIONS = ("warranty", "usage", "financials", "health")
+# Card sections renamed in 0.3.2: settings saved (or exported) before then are read with the new names
+_OLD_SECTIONS = {"throughput": "usage", "cost": "financials"}
 # How the card shows dates: the user's Home Assistant date format, or day, month name, year (18 Jul 2035).
 DATE_STYLES = ("ha", "day_month_year")
 DEFAULT_SETTINGS: dict[str, Any] = {"cost_decimals": 4, "date_style": "ha", "sections": {s: True for s in SECTIONS}}
@@ -69,7 +71,8 @@ CARD_CONTROL_KEYS = (("number", "estimated_service_life"), ("select", "export_co
 SETTINGS_SCHEMA = vol.Schema({
     vol.Required("cost_decimals"): vol.All(vol.Coerce(int), vol.Range(min=0, max=6)),
     vol.Optional("date_style"): vol.In(DATE_STYLES),
-    vol.Required("sections"): {vol.In(SECTIONS): bool},
+    # The old names are accepted (a card still cached in a browser) and stored under the new ones
+    vol.Required("sections"): {vol.In(SECTIONS + tuple(_OLD_SECTIONS)): bool},
 })
 
 
@@ -109,6 +112,7 @@ async def async_restore_card_settings(hass: HomeAssistant, entry_id: str, saved:
     """Card settings from an imported setup file, if they're valid."""
     if not saved:
         return
+    saved = {**saved, "sections": _renamed_sections(saved.get("sections"))}
     try:
         checked = SETTINGS_SCHEMA({k: v for k, v in saved.items() if k in ("cost_decimals", "date_style", "sections")})
     except vol.Invalid:
@@ -118,12 +122,19 @@ async def async_restore_card_settings(hass: HomeAssistant, entry_id: str, saved:
     await store.async_save(settings)
 
 
+def _renamed_sections(sections: dict | None) -> dict[str, bool]:
+    """Sections under their current names (from settings saved before 0.3.2, too); unknown ones dropped."""
+    out = {_OLD_SECTIONS.get(k, k): v for k, v in (sections or {}).items() if k in _OLD_SECTIONS}
+    out.update({k: v for k, v in (sections or {}).items() if k in SECTIONS})
+    return out
+
+
 def _with_defaults(saved: dict | None) -> dict[str, Any]:
     saved = saved or {}
     return {
         "cost_decimals": saved.get("cost_decimals", DEFAULT_SETTINGS["cost_decimals"]),
         "date_style": saved.get("date_style", DEFAULT_SETTINGS["date_style"]),
-        "sections": {**DEFAULT_SETTINGS["sections"], **saved.get("sections", {})},
+        "sections": {**DEFAULT_SETTINGS["sections"], **_renamed_sections(saved.get("sections"))},
     }
 
 

@@ -10,7 +10,7 @@ const CARD_VERSION = new URL(import.meta.url).searchParams.get("v") || "dev";  /
 const LOGO_URL = `${new URL("battery-ledger-logo.png", import.meta.url).pathname}?v=${encodeURIComponent(CARD_VERSION)}`;
 const WS_SETUPS = "battery_ledger/card/setups";
 const WS_SAVE = "battery_ledger/card/save_settings";
-const SECTIONS = ["warranty", "throughput", "cost", "health"];
+const SECTIONS = ["warranty", "usage", "financials", "health"];
 const DECIMAL_CHOICES = [2, 3, 4, 5];
 const DATE_STYLES = ["ha", "day_month_year"];
 
@@ -91,8 +91,8 @@ const STRINGS = {
     date_style_day_month_year: "Day month year (18 Jul 2035)",
     sections: "Display Sections:",
     section_warranty: "Warranty",
-    section_throughput: "Throughput",
-    section_cost: "Cost",
+    section_usage: "Usage & Throughput",
+    section_financials: "Financials",
     section_health: "Health",
     cancel: "Cancel",
     save: "Save",
@@ -151,6 +151,10 @@ const STYLE = `
   .setup-link:hover { text-decoration: underline; }
   /* A thin line above each end date, starting its group. */
   .stat.spaced { border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); padding-top: 5px; }
+  /* Thin lines between warranty and Remaining Warrantied Usage, and between Financials and Health, when both are
+     shown. The section's own 12px gap is split either side of the line, so the card doesn't grow. */
+  section.warranty + section.usage, section.financials + section.health {
+    border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); margin-top: 6px; padding-top: 6px; }
   /* The dot hangs in the gap left of the label, so every label's words start in line. */
   .stat .lbl { position: relative; }
   .dot { position: absolute; left: -14px; top: 50%; transform: translateY(-50%); width: 8px; height: 8px;
@@ -361,8 +365,8 @@ class BatteryLedgerCard extends HTMLElement {
       this._header(t, setup),
       this._switcher(t),
       sec.warranty ? this._warranty(t) : "",
-      sec.throughput ? this._throughput(t) : "",
-      sec.cost ? this._cost(t, setup) : "",
+      sec.usage ? this._usage(t) : "",
+      sec.financials ? this._financials(t, setup) : "",
       sec.health ? this._health(t, setup) : "",
       this._footer(t, sec.health),
     ].join("");
@@ -467,7 +471,7 @@ class BatteryLedgerCard extends HTMLElement {
       const gEnd = g.warranty_end_date ? { date: g.warranty_end_date, years: g.warranty_years } : null;
       const gUsage = g.throughput_end_date ? { date: g.throughput_end_date } : null;
       const ent = this._ent("rated_throughput_used");
-      return `<section><div class="ring-row">${this._ring(g.time_elapsed_pct, g.throughput_used_pct)}<div class="stats">
+      return `<section class="warranty"><div class="ring-row">${this._ring(g.time_elapsed_pct, g.throughput_used_pct)}<div class="stats">
         ${row(t.driver, esc(t[`driver_${g.driver}`] || g.driver || "—"), ent)}
         ${gEnd ? row(fill(t.warranty_ends, { years: this._fmt(gEnd.years, gEnd.years % 1 ? 1 : 0) }), endValue(gEnd, gUsage, true), "", null, true) : ""}
         ${row(t.by_time, `${this._fmt(g.time_elapsed_pct, 2)}%`, ent, "var(--bl-time)")}
@@ -480,7 +484,7 @@ class BatteryLedgerCard extends HTMLElement {
     }
     if (groups.length > 1) {
       // All: the whole setup (end dates differ by group: choose one with the switcher)
-      return `<section><div class="ring-row">${this._ring(timePct, tpPct)}<div class="stats">
+      return `<section class="warranty"><div class="ring-row">${this._ring(timePct, tpPct)}<div class="stats">
         ${row(t.driver, esc(driver ?? "—"), this._ent("estimated_usable_capacity"))}
         ${row(t.cycles, this._fmt(this._num("cycles_per_day"), 4), this._ent("cycles_per_day"))}
         ${row(t.by_time, `${this._fmt(timePct, 2)}%`, this._ent("warranty_time_elapsed"), "var(--bl-time)", true)}
@@ -488,7 +492,7 @@ class BatteryLedgerCard extends HTMLElement {
         ${this._serviceLife(t, row)}
       </div></div></section>`;
     }
-    return `<section><div class="ring-row">${this._ring(timePct, tpPct)}<div class="stats">
+    return `<section class="warranty"><div class="ring-row">${this._ring(timePct, tpPct)}<div class="stats">
       ${row(t.driver, esc(driver ?? "—"), this._ent("estimated_usable_capacity"))}
       ${row(t.cycles, this._fmt(this._num("cycles_per_day"), 4), this._ent("cycles_per_day"))}
       ${end ? row(fill(t.warranty_ends, { years: this._fmt(end.years, end.years % 1 ? 1 : 0) }), endValue(end, usageEnd, true), "", null, true) : ""}
@@ -549,19 +553,19 @@ class BatteryLedgerCard extends HTMLElement {
       + (withEosl ? this._eslUsage(t, row, this._num("estimated_usage_at_eosl"), this._num("total_rated_throughput")) : "");
   }
 
-  _throughput(t) {
+  _usage(t) {
     const g = this._picked();
     const total = g ? g.throughput_limit_kwh : this._num("total_rated_throughput");
     const used = g ? g.throughput_used_kwh : this._num("rated_throughput_used");
     const remaining = g ? (total != null && used != null ? Math.max(0, total - used) : null)
       : this._num("remaining_rated_throughput");
     if (!total || remaining === null) {
-      return this._state("total_rated_throughput") ? `<section><div class="lbl">${esc(t.no_throughput_limit)}</div></section>` : "";
+      return this._state("total_rated_throughput") ? `<section class="usage"><div class="lbl">${esc(t.no_throughput_limit)}</div></section>` : "";
     }
     const projected = g ? g.projected_throughput_kwh ?? null : this._num("projected_warranted_throughput");
     const leftAtEnd = projected !== null ? Math.max(0, total - projected) : null;
     const pct = (v) => Math.max(0, Math.min(100, v / total * 100)).toFixed(2);
-    return `<section>
+    return `<section class="usage">
       <div class="stat"${this._ent("remaining_rated_throughput")}><span class="lbl">${esc(t.remaining_throughput)}</span>
         <span class="mid">${this._fmt(remaining, 0)} <span class="lbl">${esc(fill(t.of_total, { total: this._fmt(total, 0) }))}</span></span></div>
       <div class="bar"${this._ent("remaining_rated_throughput")}><div class="fill" style="width:${pct(remaining)}%;background:var(--bl-tp)"></div>
@@ -572,7 +576,7 @@ class BatteryLedgerCard extends HTMLElement {
       </div></section>`;
   }
 
-  _cost(t, setup) {
+  _financials(t, setup) {
     const d = setup.settings.cost_decimals;
     // When both cost per kWh figures read the same (e.g. the throughput allowance will all be used before the
     // date end), show the one figure at the size of the others; otherwise both, labelled.
@@ -585,7 +589,7 @@ class BatteryLedgerCard extends HTMLElement {
         <div class="pair">
         <div class="mid"${this._ent("cost_per_kwh_rated")}>${esc(byUsage)} <span class="lbl">${esc(t.rated)}</span></div>
         <div class="mid"${this._ent("cost_per_kwh_projected")}>${esc(byAge)} <span class="lbl">${esc(t.projected)}</span></div></div></div>`;
-    return `<section><div class="tiles">
+    return `<section class="financials"><div class="tiles">
       <div class="tile value"${this._ent("cost_consumed_to_date")}><div class="lbl">${esc(t.cost_consumed)}</div>
         <div class="big">${esc(this._money(this._num("cost_consumed_to_date"), 2))}</div></div>
       <div class="tile value"${this._ent("cost_consumed_to_date")}><div class="lbl">${esc(t.remaining_value)}</div>
@@ -692,7 +696,7 @@ class BatteryLedgerCard extends HTMLElement {
           <div class="lbl">${Number.isFinite(curveKwh) ? `${this._fmt(curveKwh, 1)} kWh` : ""}${driver ? ` · ${esc(driver)}` : ""}</div></div>`;
     const sohColor = !hasSoh ? "var(--bl-tile)" : margin !== null && margin < 0 ? "var(--bl-bad)" : "var(--bl-time)";
 
-    return `<section>
+    return `<section class="health">
       <div class="section-head"><span class="t">${esc(t.health)}</span>${chip}</div>
       <div class="tiles">${actualTile}${curveTile}</div>
       <div class="bar" style="margin-top:14px"><div class="fill" style="width:${hasSoh ? pos(soh) : 0}%;background:${sohColor}"></div>

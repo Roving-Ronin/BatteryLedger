@@ -4,6 +4,21 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.3.2 (2026-11-20)
+
+### TL;DR
+- Card: thin lines between the warranty figures and Remaining Warrantied Usage, and between Financials and Health
+- Card settings: **Cost** is now **Financials**, **Throughput** is now **Usage & Throughput**
+
+### Changed
+- Card: a thin grey line between the warranty figures and Remaining Warrantied Usage, and another between the
+  Financials tiles and Health, each only when both sections are shown. The gap already there is split either side
+  of the line, so the card is only the two lines (2 px) taller.
+- Card settings, Display Sections: **Cost** is now **Financials** (value used, remaining value, cost per kWh and
+  export cost) and **Throughput** is now **Usage & Throughput**. Their saved names follow (`cost` → `financials`,
+  `throughput` → `usage`): card settings saved before, or in a setup file exported before, keep their choices
+  under the new names, and a card still cached in a browser can still save with the old ones.
+
 ## v0.3.1 (2026-11-20)
 
 ### TL;DR
