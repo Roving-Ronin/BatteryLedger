@@ -21,6 +21,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_CAPACITY_ENTITY,
+    CONF_SOC_ENTITY,
     CONF_SOH_ENTITY,
     CONF_SPEC,
     DOMAIN,
@@ -43,6 +44,8 @@ class LedgerSensorDescription(SensorEntityDescription):
     value_fn: Callable[[LedgerResult], Any]
     attrs_fn: Callable[[LedgerResult], dict[str, Any]] | None = None
     unit_fn: Callable[[str, str], str] | None = None  # given (currency code, code-or-symbol label)
+    # Available (state unknown) while the value is missing, so attributes such as a learning status show
+    available_without_value: bool = False
 
 
 def _groups_attr(res: LedgerResult) -> dict[str, Any]:
@@ -160,6 +163,30 @@ HEALTH_MARGIN_SENSOR = _pct(
     lambda r: {"reported_soh_pct": r.reported_soh_pct, "warranty_floor_pct": _r(r.floor_pct, 1)}, precision=1)
 
 
+def _measured_attrs(r: LedgerResult) -> dict[str, Any]:
+    m = r.measured
+    return {"status": m.status, "charge_runs": m.charge_runs, "discharge_runs": m.discharge_runs,
+            "round_trip_efficiency_pct": m.efficiency_pct} if m else {}
+
+
+# Only when a state-of-charge sensor is configured: learned from runs of SoC against energy in and out
+MEASURED_SENSORS: tuple[LedgerSensorDescription, ...] = (
+    LedgerSensorDescription(
+        key="measured_usable_capacity", translation_key="measured_usable_capacity", icon="mdi:battery-check",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR, suggested_display_precision=2,
+        state_class=SensorStateClass.MEASUREMENT, available_without_value=True,
+        value_fn=lambda r: _r(r.measured.usable_kwh, 2) if r.measured else None,
+        attrs_fn=lambda r: {**_measured_attrs(r), "initial_usable_kwh": _r(r.initial_usable_kwh, 2)}),
+    LedgerSensorDescription(
+        key="measured_soh", translation_key="measured_soh", icon="mdi:battery-heart",
+        native_unit_of_measurement=PERCENTAGE, suggested_display_precision=1,
+        state_class=SensorStateClass.MEASUREMENT, available_without_value=True,
+        value_fn=lambda r: _r(r.measured_soh_pct, 1),
+        attrs_fn=lambda r: {"status": r.measured.status if r.measured else None,
+                            "reported_soh_pct": r.reported_soh_pct, "warranty_floor_pct": _r(r.floor_pct, 1)}),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -169,6 +196,8 @@ async def async_setup_entry(
         descriptions.append(HARDWARE_SENSOR)
     if runtime.config.get(CONF_SOH_ENTITY):
         descriptions.append(HEALTH_MARGIN_SENSOR)
+    if runtime.config.get(CONF_SOC_ENTITY):
+        descriptions.extend(MEASURED_SENSORS)
     if runtime.modules:
         descriptions.append(WORST_MODULE_SENSOR)
     if sum(1 for m in runtime.modules if m.get(MOD_SOC)) > 1:
@@ -199,6 +228,7 @@ class LedgerSensor(SensorEntity):
         "expected_reported_kwh",
         "modules", "module_soc", "worst_module", "module_total_vs_plant_pct",
         "reported_soh_pct", "warranty_floor_pct",
+        "status", "charge_runs", "discharge_runs", "round_trip_efficiency_pct", "initial_usable_kwh",
         # The YAML package's attributes on cost_consumed_to_date / estimated_usable_capacity:
         # they change with every state update, and the sensor's own history already covers them.
         "percent_of_rated_life_used", "estimated_remaining_value", "remaining_usable_kwh",
@@ -231,7 +261,9 @@ class LedgerSensor(SensorEntity):
     @property
     def available(self) -> bool:
         res = self.runtime.result
-        return res is not None and self.entity_description.value_fn(res) is not None
+        if res is None:
+            return False
+        return self.entity_description.available_without_value or self.entity_description.value_fn(res) is not None
 
     @property
     def native_value(self):

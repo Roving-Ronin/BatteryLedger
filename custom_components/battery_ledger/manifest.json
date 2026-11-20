@@ -2,6 +2,7 @@
   "domain": "battery_ledger",
   "name": "BatteryLedger",
   "after_dependencies": [
+    "energy",
     "frontend",
     "http"
   ],

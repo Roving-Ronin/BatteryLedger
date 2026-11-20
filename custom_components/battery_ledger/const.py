@@ -8,7 +8,7 @@ DOMAIN = "battery_ledger"
 # the copied battery specs) bumps one of these and adds one step to async_migrate_entry
 # in __init__.py, with a test feeding it an entry in the old format.
 CONFIG_ENTRY_VERSION = 1
-CONFIG_ENTRY_MINOR_VERSION = 5
+CONFIG_ENTRY_MINOR_VERSION = 6
 NAME = "BatteryLedger"
 
 STORE_INDEX_URL = "https://roving-ronin.github.io/BatteryLedger-Store/index.json"
@@ -48,6 +48,7 @@ CONF_CHARGED_ENTITY = "charged_energy_entity"
 CONF_DISCHARGED_ENTITY = "discharged_energy_entity"
 CONF_CAPACITY_ENTITY = "reported_capacity_entity"
 CONF_SOH_ENTITY = "soh_entity"
+CONF_SOC_ENTITY = "soc_entity"  # the whole battery's state of charge (entry 1.6+), for measured capacity
 CONF_PROFILE = "sensor_profile"
 CONF_MODULES = "modules"
 CONF_USE_MODULES = "use_modules"

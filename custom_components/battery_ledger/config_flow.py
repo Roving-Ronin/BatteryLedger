@@ -48,6 +48,7 @@ from .const import (
     CONF_INSTALL_DATE,
     CONF_MODULES,
     CONF_PROFILE,
+    CONF_SOC_ENTITY,
     CONF_SOH_ENTITY,
     CONF_SPEC,
     CONF_UNITS,
@@ -150,6 +151,7 @@ def _system_schema(defaults: dict[str, Any], *, with_name: bool) -> vol.Schema:
         vol.Optional(CONF_DISCHARGED_ENTITY): _energy_entity_selector(),
         vol.Optional(CONF_CAPACITY_ENTITY): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
         vol.Optional(CONF_SOH_ENTITY): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
+        vol.Optional(CONF_SOC_ENTITY): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
     })
     return vol.Schema(fields)
 
@@ -159,6 +161,7 @@ ROLE_TO_CONF = {
     "discharged_energy": CONF_DISCHARGED_ENTITY,
     "rated_capacity": CONF_CAPACITY_ENTITY,
     "soh": CONF_SOH_ENTITY,
+    "soc": CONF_SOC_ENTITY,
 }
 
 
@@ -195,6 +198,41 @@ def _restore_card_settings_when_added(hass, groups: list[dict], saved: dict) -> 
             hass.async_create_task(async_restore_card_settings(hass, entry.entry_id, saved))
 
     unsub = async_dispatcher_connect(hass, SIGNAL_CONFIG_ENTRY_CHANGED, added)
+
+
+ENERGY_PROFILE = "energy_dashboard"  # pseudo profile: a battery from Home Assistant's Energy dashboard
+ENERGY_MAX = 4  # options energy_dashboard_1 … _4 are translated (selector "integration")
+
+
+async def _async_energy_systems(hass, taken: set[str]) -> list[DetectedSystem]:
+    """Batteries set up in Home Assistant's Energy dashboard: energy out of the battery is the discharged counter,
+    energy into it the charged one. For integrations without a Store profile. Ones a profile already found
+    (the same sensors in `taken`) are left out."""
+    try:
+        from homeassistant.components.energy.data import async_get_manager
+
+        prefs = (await async_get_manager(hass)).data or {}
+    except Exception:  # noqa: BLE001 - the Energy dashboard is optional
+        return []
+    out: list[DetectedSystem] = []
+    for source in prefs.get("energy_sources") or []:
+        if source.get("type") != "battery":
+            continue
+        charged, discharged = source.get("stat_energy_to"), source.get("stat_energy_from")
+        if not (charged or discharged) or {charged, discharged} & taken or len(out) >= ENERGY_MAX:
+            continue
+        system = DetectedSystem(profile_id=ENERGY_PROFILE, profile_name="", key=str(len(out) + 1))
+        for role, eid in (("charged_energy", charged), ("discharged_energy", discharged)):
+            if eid and hass.states.get(eid):
+                system.roles[role] = ("plant", eid)
+        if system.roles:
+            out.append(system)
+    return out
+
+
+def _energy_option(system: DetectedSystem) -> sel.SelectOptionDict:
+    """Translated ("Energy dashboard battery 1"), as the label comes from strings.json."""
+    return sel.SelectOptionDict(value=f"{ENERGY_PROFILE}_{system.key}", label=f"{ENERGY_PROFILE}_{system.key}")
 
 
 def _read_upload(hass, file_id: str) -> str:
@@ -384,18 +422,29 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         for profile in index.profiles:
             for system in detect(profile, entities):
                 self._found[system.value] = (profile, system)
-        if not self._found:
+        # Then batteries in the Energy dashboard that no profile found (integrations without a Store profile)
+        taken = {eid for _p, s in self._found.values() for eid in self._system_entities(s)}
+        energy = await _async_energy_systems(self.hass, taken)
+        if not self._found and not energy:
             return self.async_show_form(step_id="detect_none", data_schema=vol.Schema({}))
         per_profile: dict[str, int] = {}
         for p, _system in self._found.values():
             per_profile[p["id"]] = per_profile.get(p["id"], 0) + 1
-        # Labels are data: profile name, plus the system key when one integration has several.
+        # Labels are data: profile name, plus the system key when one integration has several. Energy dashboard
+        # batteries are translated (selector "integration": energy_dashboard_1 …).
         options = [sel.SelectOptionDict(value=v, label=system.label(per_profile[p["id"]] > 1))
                    for v, (p, system) in self._found.items()]
+        for system in energy:
+            options.append(_energy_option(system))
+            self._found[options[-1]["value"]] = ({"id": ENERGY_PROFILE}, system)
         return self.async_show_form(step_id="detect", data_schema=vol.Schema({
             vol.Required("system", default=options[0]["value"]): sel.SelectSelector(
-                sel.SelectSelectorConfig(options=options, mode=sel.SelectSelectorMode.LIST)),
-        }), description_placeholders={"count": str(len(options))})
+                sel.SelectSelectorConfig(options=options, mode=sel.SelectSelectorMode.LIST,
+                                         translation_key="integration")),
+        }), description_placeholders={"count": str(len(options)),
+                                      "energy": "\n".join(f"- {_energy_option(s)['value']}: "
+                                                          f"{' · '.join(e for _l, e in s.roles.values())}"
+                                                          for s in energy) or DASH})
 
     async def async_step_detect_none(self, user_input: dict | None = None) -> ConfigFlowResult:
         return await self.async_step_store_search()
@@ -881,7 +930,14 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                 system.modules_usable = any("module_discharged_energy" in m for m in system.modules.values())
                 self._detected[system.value] = system
 
-        # Option labels are data (profile names, ✓/✗); "manual" is translated via translation_key.
+        # Batteries in the Energy dashboard that no profile found
+        taken = {eid for s in self._detected.values() for eid in self._system_entities(s)}
+        energy = await _async_energy_systems(self.hass, taken)
+        for system in energy:
+            self._detected[_energy_option(system)["value"]] = system
+
+        # Option labels are data (profile names, ✓/✗); "manual" and Energy dashboard batteries are translated
+        # via translation_key.
         options: list[sel.SelectOptionDict] = []
         lines: list[str] = []
         for profile in profiles:
@@ -892,10 +948,15 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             if not found:
                 options.append(sel.SelectOptionDict(value=f"{profile['id']}|none", label=f"{profile['name']} ✗"))
                 lines.append(f"- {profile['name']}: ✗")
+        for system in energy:
+            options.append(_energy_option(system))
+            lines.append(f"- {_energy_option(system)['value']}: {' · '.join(e for _l, e in system.roles.values())}")
         options.append(sel.SelectOptionDict(value=MANUAL, label=MANUAL))
         default = next(iter(self._detected), MANUAL)
-        if self._system and self._system.value in self._detected:
-            default = self._system.value  # the system chosen when detecting
+        chosen = self._system and (f"{ENERGY_PROFILE}_{self._system.key}" if self._system.profile_id == ENERGY_PROFILE
+                                   else self._system.value)
+        if chosen and chosen in self._detected:
+            default = chosen  # the system chosen when detecting
         elif self._imported and self._imported.get(CONF_PROFILE):
             # The integration the exported setup used, if found here
             default = next((v for v, sy in self._detected.items() if sy.profile_id == self._imported[CONF_PROFILE]),
@@ -984,8 +1045,8 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_MODULES: self._modules,
                 })
         first = self._groups[0][CONF_SPEC]
-        # Brand in title form + "Battery": e.g. "Sigenergy Battery", "Sungrow Battery".
-        defaults = {"name": f"{first['brand']} Battery"}
+        # Brand in title form + "Battery Ledger": e.g. "Sigenergy Battery Ledger", the card's title.
+        defaults = {"name": f"{first['brand']} Battery Ledger"}
         if self._imported:
             defaults["name"] = self._imported.get("name") or defaults["name"]
             if self._imported.get(CONF_CURRENCY_STYLE) in (CURRENCY_STYLE_CODE, CURRENCY_STYLE_SYMBOL):
@@ -1255,7 +1316,7 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
                 # Store every field so a cleared optional field overrides setup data.
                 data = {k: user_input.get(k) for k in
                         (CONF_CURRENCY_STYLE, CONF_CHARGED_ENTITY, CONF_DISCHARGED_ENTITY,
-                         CONF_CAPACITY_ENTITY, CONF_SOH_ENTITY)}
+                         CONF_CAPACITY_ENTITY, CONF_SOH_ENTITY, CONF_SOC_ENTITY)}
                 return self.async_create_entry(data=data)
         current = {**self.config_entry.data, **self.config_entry.options}
         schema = _system_schema({CONF_CURRENCY_STYLE: current.get(CONF_CURRENCY_STYLE, CURRENCY_STYLE_CODE)},

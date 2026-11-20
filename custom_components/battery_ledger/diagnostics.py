@@ -19,6 +19,7 @@ from .const import (
     CONF_COST,
     CONF_DISCHARGED_ENTITY,
     CONF_MODULES,
+    CONF_SOC_ENTITY,
     CONF_SOH_ENTITY,
     MOD_DISCHARGED,
     MOD_ID,
@@ -67,7 +68,8 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         "entry": {"title": entry.title, "version": f"{entry.version}.{entry.minor_version}",
                   "data": data, "options": dict(entry.options)},
         "sources": {key: _source(hass, current.get(key)) for key in
-                    (CONF_CHARGED_ENTITY, CONF_DISCHARGED_ENTITY, CONF_CAPACITY_ENTITY, CONF_SOH_ENTITY)},
+                    (CONF_CHARGED_ENTITY, CONF_DISCHARGED_ENTITY, CONF_CAPACITY_ENTITY, CONF_SOH_ENTITY,
+                     CONF_SOC_ENTITY)},
         "result": asdict(result) if result is not None else None,
         "store": {"source": index.source, "generated": index.generated, "specs": len(index.specs)},
     }, TO_REDACT))

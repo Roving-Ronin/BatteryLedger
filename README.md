@@ -65,6 +65,9 @@ Or add it manually:
      - **AlphaESS (senalse):** battery module count.
      - **Energy Manager and other integrations:** rated capacity alone, as a whole number of modules of one model
        (Energy Manager's inverter brand narrows the brand). When more than one model fits, you choose.
+     - **Energy dashboard battery:** a battery set up in Home Assistant's Energy dashboard (Settings → Dashboards →
+       Energy) whose sensors no sensor profile found, e.g. from an integration the Store doesn't know yet. Its
+       energy in and out sensors are used as charged and discharged energy; you search the Store for the model.
 
      With batteries on more than one tower or inverter (e.g. a Huawei inverter with a second tower added later),
      Detect lists each one (inverter, inverter model, tower, modules) and asks whether they were installed together.
@@ -114,8 +117,8 @@ Or add it manually:
 5. **System:** whether cost per
    kWh and cost sensors show the currency symbol (`$`, `$/kWh`, the default) or code
    (`AUD`, `AUD/kWh`, which Home Assistant formats as money in each user's locale), and the sensors (filled in from step 3 if detected): lifetime
-   **charged** and/or **discharged** energy, and optionally rated capacity (hardware check) and battery state of
-   health.
+   **charged** and/or **discharged** energy, and optionally rated capacity (hardware check), battery state of
+   health and battery **state of charge** (for [measured capacity](#measured-usable-capacity-and-soh)).
 
 Later, under **Configure**:
 - **Sensors and currency:** the source sensors and the currency display.
@@ -206,7 +209,9 @@ The card has four sections:
   by age), and **Export Cost** with its basis; admins choose the **Export Cost Basis** there.
 - **Health:** your battery's reported state of health against the warranty curve (Estimated Usable
   Capacity, what the warranty allows at this age and usage), on a scale from the end-of-warranty capacity
-  to 100%. The hardware capacity check and module figures are shown when available.
+  to 100%. A battery that reports no SoH shows the measured SoH instead (**Actual SoH (measured)**), and
+  while that's still being measured, how many charges and discharges it has so far; where the battery does report SoH, the measured figure
+  is shown under it as a cross-check. The hardware capacity check and module figures are shown when available.
 
 Tap any figure to open its sensor. The bottom right corner shows the BatteryLedger version; admins also see a cog just to its left. It opens the card
 settings: decimal places for cost per kWh (2 to 5), how dates are shown (your Home Assistant date format, or
@@ -242,6 +247,8 @@ If a source drops out later, its last reading is used until it's back.
 | `soh_above_warranty_floor` | Reported state of health minus the warranty floor, in percentage points (if a SoH sensor is set) | `reported_soh_pct`, `warranty_floor_pct` |
 | `most_used_module_throughput` | Highest per-module share of its warranted throughput (module tracking) | `worst_module`, `modules`, `module_total_vs_plant_pct` |
 | `module_soc_spread` | Highest minus lowest module state of charge right now (module tracking) | `module_soc` |
+| `measured_usable_capacity` | Usable capacity measured from charge and discharge runs (if a state of charge sensor is set; see below) | `status`, `charge_runs`, `discharge_runs`, `round_trip_efficiency_pct`, `initial_usable_kwh` |
+| `measured_soh` | Measured usable capacity ÷ usable capacity when new (if a state of charge sensor is set) | `status`, `reported_soh_pct`, `warranty_floor_pct` |
 
 *Projected Warranted Throughput* is average daily throughput × warranty days, with the days counted from the
 warranty start date, capped at the warranted total. Friendly names start with "Battery" for every brand.
@@ -287,6 +294,29 @@ each group's is in its `groups` attribute. `sensor.battery_ledger_estimated_usag
 expected by then, at the average rate so far, and its share of the warranted throughput (over 100% once use runs
 past the warranty's limit). Changing ESL or the export cost basis recalculates straight away, so
 both can be set from a dashboard or an automation.
+
+### Measured usable capacity and SoH
+
+Many batteries don't report a state of health, or report one that barely moves. With a **state of charge** sensor
+(Configure → Sensors and currency; detected for every integration the Store knows) BatteryLedger measures what the
+battery really holds, using the method from [Energy Pilot](https://github.com/Clahen86/Energy-pilot) (MIT):
+
+- Each run of charging or discharging in which the state of charge moves at least 10 points is recorded as kWh
+  per point, from the lifetime charged and discharged counters (what went in minus anything that came out
+  meanwhile, and the other way round). Small wobbles and runs that don't add up (a counter reset, a jump in the
+  state of charge) are ignored.
+- Charging takes more energy per point than discharging gives back, because of losses. The geometric mean of the
+  two medians (the last 20 runs each way) cancels the losses out: that's the **measured usable capacity**, and
+  their ratio the **round-trip efficiency**. The medians smooth out the BMS's state-of-charge drift and
+  recalibration jumps.
+- It needs 3 runs each way (`status`: `insufficient` until then; the card shows **Measuring capacity:** with how
+  many charges and discharges it has so far). With only one energy counter it measures that way alone
+  (`one_direction`), and the losses aren't cancelled; the other direction's runs attribute is empty.
+- **Measured SoH** is the measured usable capacity ÷ the usable capacity when new (`initial_usable_capacity`).
+
+The runs are kept across restarts and start again if you choose a different state of charge sensor. Like the BMS's
+own SoH, it's an estimate: it's only as good as the state of charge reading, which is least accurate in the middle
+of the range and right after the BMS recalibrates.
 
 ## What the numbers mean (and don't)
 

@@ -142,9 +142,20 @@ async def test_1_4_adds_service_life_options(hass: HomeAssistant):
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert (entry.version, entry.minor_version) == (1, 5)
+    assert (entry.version, entry.minor_version) == (1, 6)
     assert entry.options == {"currency_style": "code", "esl_years": None, "export_cost_basis": "warranty"}
     # Idempotent: a second run changes nothing
     from custom_components.battery_ledger import async_migrate_entry
     assert await async_migrate_entry(hass, entry)
     assert entry.options == {"currency_style": "code", "esl_years": None, "export_cost_basis": "warranty"}
+
+
+async def test_1_5_to_1_6_keeps_everything(hass: HomeAssistant):
+    """1.5 -> 1.6: the optional battery SoC sensor; stored data unchanged."""
+    options = {"currency_style": "code", "esl_years": 12.0, "export_cost_basis": "esl"}
+    entry = MockConfigEntry(domain=DOMAIN, title="Acme", data=V1_DATA, options=options, version=1, minor_version=5)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert (entry.version, entry.minor_version) == (1, 6)
+    assert entry.options == options and "soc_entity" not in entry.data

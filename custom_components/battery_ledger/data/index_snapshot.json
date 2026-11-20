@@ -1,7 +1,7 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-19T05:02:22+00:00",
+ "generated": "2026-11-20T01:30:34+00:00",
  "count": 34,
  "brands": [
   "AlphaESS",
@@ -1945,7 +1945,7 @@
   {
    "schema_version": 1,
    "id": "alphaess-modbus-senalse",
-   "profile_version": 2,
+   "profile_version": 3,
    "name": "AlphaESS Modbus TCP (senalse)",
    "integration": {
     "platform": "alphaess_modbus",
@@ -1999,16 +1999,25 @@
        "sensor.alphaess_inverter_battery_module_count"
       ]
      }
+    ],
+    "soc": [
+     {
+      "level": "plant",
+      "unique_id": "{entry}_soc_battery",
+      "default_entity_ids": [
+       "sensor.alphaess_inverter_battery_state_of_charge"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-18"
+   "updated": "2026-11-20"
   },
   {
    "schema_version": 1,
    "id": "byd-battery-box-redpomodoro",
-   "profile_version": 2,
+   "profile_version": 3,
    "name": "BYD Battery Box (redpomodoro)",
    "integration": {
     "platform": "byd_battery_box",
@@ -2071,16 +2080,25 @@
        "sensor.battery_management_unit_towers"
       ]
      }
+    ],
+    "soc": [
+     {
+      "level": "plant",
+      "unique_id": "bydb_soc",
+      "default_entity_ids": [
+       "sensor.battery_management_unit_state_of_charge"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-18"
+   "updated": "2026-11-20"
   },
   {
    "schema_version": 1,
    "id": "energy-manager",
-   "profile_version": 8,
+   "profile_version": 9,
    "name": "Energy Manager",
    "integration": {
     "platform": "mqtt",
@@ -2218,6 +2236,15 @@
        "input_number.battery_install_cost_2"
       ]
      }
+    ],
+    "soc": [
+     {
+      "level": "plant",
+      "unique_id": "inverter_battery_level_mqtt",
+      "default_entity_ids": [
+       "sensor.inverter_battery_level"
+      ]
+     }
     ]
    },
    "unavailable": {
@@ -2228,12 +2255,12 @@
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-19"
+   "updated": "2026-11-20"
   },
   {
    "schema_version": 1,
    "id": "deye-esphome-lewa-reka",
-   "profile_version": 1,
+   "profile_version": 2,
    "name": "ESPHome Deye Inverter (Lewa-Reka)",
    "integration": {
     "platform": "esphome",
@@ -2260,16 +2287,25 @@
        "sensor.deye_inverter_<mac_suffix>_total_battery_charge"
       ]
      }
+    ],
+    "soc": [
+     {
+      "level": "plant",
+      "unique_id": "{mac}-sensor-battery",
+      "default_entity_ids": [
+       "sensor.deye_inverter_<mac_suffix>_battery"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-18"
+   "updated": "2026-11-20"
   },
   {
    "schema_version": 1,
    "id": "fronius-modbus-redpomodoro",
-   "profile_version": 1,
+   "profile_version": 2,
    "name": "Fronius Modbus (redpomodoro)",
    "integration": {
     "platform": "fronius_modbus",
@@ -2306,16 +2342,25 @@
        "sensor.<battery_model>_capacity"
       ]
      }
+    ],
+    "soc": [
+     {
+      "level": "plant",
+      "unique_id": "fm_soc",
+      "default_entity_ids": [
+       "sensor.<battery_model>_state_of_charge"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-18"
+   "updated": "2026-11-20"
   },
   {
    "schema_version": 1,
    "id": "goodwe",
-   "profile_version": 1,
+   "profile_version": 2,
    "name": "GoodWe (Home Assistant core, or mletenay's custom version)",
    "integration": {
     "platform": "goodwe",
@@ -2351,16 +2396,25 @@
        "sensor.goodwe_battery_state_of_health"
       ]
      }
+    ],
+    "soc": [
+     {
+      "level": "plant",
+      "unique_id": "goodwe-battery_soc-{serial}",
+      "default_entity_ids": [
+       "sensor.goodwe_battery_state_of_charge"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-18"
+   "updated": "2026-11-20"
   },
   {
    "schema_version": 1,
    "id": "huawei-solar-wlcrs",
-   "profile_version": 5,
+   "profile_version": 6,
    "name": "Huawei Solar (wlcrs)",
    "integration": {
     "platform": "huawei_solar",
@@ -2482,6 +2536,15 @@
       "unique_id": "{serial}_storage_unit_2_battery_pack_3_serial_number",
       "tower": 2
      }
+    ],
+    "soc": [
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_state_of_capacity",
+      "default_entity_ids": [
+       "sensor.batteries_state_of_capacity"
+      ]
+     }
     ]
    },
    "unavailable": {
@@ -2492,12 +2555,12 @@
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-19"
+   "updated": "2026-11-20"
   },
   {
    "schema_version": 1,
    "id": "sigen-local-modbus",
-   "profile_version": 3,
+   "profile_version": 4,
    "name": "Sigenergy ESS (TypQxQ Local Modbus)",
    "integration": {
     "platform": "sigen",
@@ -2599,16 +2662,32 @@
        "sensor.sigen_inverter_rated_battery_capacity"
       ]
      }
+    ],
+    "soc": [
+     {
+      "level": "plant",
+      "unique_id": "{entry}_{device}_plant_ess_soc",
+      "default_entity_ids": [
+       "sensor.sigen_plant_battery_state_of_charge"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_{device}_inverter_ess_battery_soc",
+      "default_entity_ids": [
+       "sensor.sigen_inverter_battery_state_of_charge"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-18"
+   "updated": "2026-11-20"
   },
   {
    "schema_version": 1,
    "id": "sigenergy2mqtt",
-   "profile_version": 3,
+   "profile_version": 4,
    "name": "sigenergy2mqtt (MQTT)",
    "integration": {
     "platform": "mqtt",
@@ -2719,16 +2798,32 @@
        "sensor.sigen_0_inverter_1_rated_battery_capacity"
       ]
      }
+    ],
+    "soc": [
+     {
+      "level": "plant",
+      "unique_id": "{prefix}_{plant}_247_30014",
+      "default_entity_ids": [
+       "sensor.sigen_0_plant_battery_soc"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{prefix}_{plant}_{inverter}_30601",
+      "default_entity_ids": [
+       "sensor.sigen_0_inverter_1_battery_soc"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-19"
+   "updated": "2026-11-20"
   },
   {
    "schema_version": 1,
    "id": "deye-solarman-davidrapan",
-   "profile_version": 1,
+   "profile_version": 2,
    "name": "Solarman (davidrapan) for Deye",
    "integration": {
     "platform": "solarman",
@@ -2755,16 +2850,25 @@
        "sensor.inverter_total_battery_charge"
       ]
      }
+    ],
+    "soc": [
+     {
+      "level": "plant",
+      "unique_id": "{entry}_battery_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-18"
+   "updated": "2026-11-20"
   },
   {
    "schema_version": 1,
    "id": "sungrow-shx-inverter-wingman3434",
-   "profile_version": 1,
+   "profile_version": 2,
    "name": "Sungrow SHx Inverter (Wingman3434)",
    "integration": {
     "platform": "sungrow_shx_inverter",
@@ -2809,16 +2913,25 @@
        "sensor.sungrow_shx_inverter_<model>_battery_state_of_health"
       ]
      }
+    ],
+    "soc": [
+     {
+      "level": "plant",
+      "unique_id": "{serial}_battery_level",
+      "default_entity_ids": [
+       "sensor.sungrow_shx_inverter_<model>_battery_level"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-17"
+   "updated": "2026-11-20"
   },
   {
    "schema_version": 1,
    "id": "sungrow-shx-modbus-mkaiser",
-   "profile_version": 1,
+   "profile_version": 2,
    "name": "Sungrow SHx Modbus (mkaiser YAML package)",
    "integration": {
     "platform": "modbus",
@@ -2863,11 +2976,20 @@
        "sensor.battery_state_of_health"
       ]
      }
+    ],
+    "soc": [
+     {
+      "level": "plant",
+      "unique_id": "sg_battery_level",
+      "default_entity_ids": [
+       "sensor.battery_level"
+      ]
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
    "verified": false,
-   "updated": "2026-11-17"
+   "updated": "2026-11-20"
   }
  ]
 }

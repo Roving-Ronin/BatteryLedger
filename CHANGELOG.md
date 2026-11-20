@@ -4,6 +4,47 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.2.0 (2026-11-20)
+
+### TL;DR
+- **Measured usable capacity and SoH**: what the battery really holds, measured from charge and discharge runs
+  against its state of charge (method from Energy Pilot)
+- Card: batteries that report no SoH show the **measured SoH** in Health
+- **Energy dashboard fallback** in Detect: a battery set up in the Energy dashboard can be used when no sensor
+  profile finds its integration
+- New optional **battery state of charge** sensor, detected for every integration the Store knows
+- Card: tighter line spacing; new setups are named "<Brand> Battery Ledger"
+
+### Added
+- Setup / Configure → Sensors and currency: **Battery state of charge sensor (optional)**. Detect fills it in from
+  the Store's sensor profiles, which gain a `soc` role for all 12 integrations (plant level, or per inverter where
+  the integration has no plant figure).
+- `sensor.battery_ledger_measured_usable_capacity` (Measured Usable Capacity) and
+  `sensor.battery_ledger_measured_soh` (Measured SoH), only with a state of charge sensor. Runs of charging and
+  discharging that move the state of charge at least 10 points are recorded as kWh per point from the lifetime
+  energy counters; the geometric mean of the medians (last 20 runs each way) is the usable capacity, with the
+  losses cancelled, and their ratio the round-trip efficiency. Needs 3 runs each way (with only one energy
+  counter, 3 runs that way, giving a one-way figure with the losses counted in): until then the sensors are
+  unknown with `status: insufficient`. Attributes: `status`, `charge_runs`, `discharge_runs`,
+  `round_trip_efficiency_pct`, `initial_usable_kwh`; Measured SoH: `status`, `reported_soh_pct`,
+  `warranty_floor_pct`. The runs are kept in Home Assistant's storage (`battery_ledger.capacity.<entry>`), start
+  again when the state of charge sensor changes, and are removed with the setup. Method credit:
+  [Energy Pilot](https://github.com/Clahen86/Energy-pilot) (MIT).
+- Card, Health: without a reported SoH, **Actual SoH (measured)** shows the measured SoH (with the above/below
+  warranty chip and bar). While it's being measured, that tile shows "Measuring capacity:" with a bullet for each
+  direction not yet done ("2 of 3 Charges", "1 of 3 Discharges") in place of the no-SoH message.
+  With a reported SoH, "Measured: 95.8%" shows under it as a cross-check.
+- Detect: **Energy dashboard battery**. A battery in Home Assistant's Energy dashboard whose energy sensors no
+  sensor profile found is offered too; its energy in and out sensors become charged and discharged energy, and you
+  search the Store for the model.
+
+### Changed
+- Card: tighter spacing between lines, rows and sections, about 7% shorter.
+- New setups are named **"<Brand> Battery Ledger"** by default (was "<Brand> Battery"), which is the card's title.
+  Existing setups keep their name; rename one under Settings → Devices & services → BatteryLedger. Entity IDs and
+  friendly names don't change.
+- Config entry version 1.6 (no change to stored data; the state of charge sensor is an optional new field).
+
 ## v0.1.19 (2026-11-20)
 
 ### TL;DR
