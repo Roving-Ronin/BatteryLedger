@@ -89,6 +89,9 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
   `translations/en.json` (the Pull Requests workflow checks they match). Description placeholders carry
   data only (numbers, names, dates, IDs, ✓/✗). Where wording differs by case, use a separate step or
   error key rather than building text in code. Don't use ICU `plural`/`select` syntax: core HA doesn't.
+- The **SoH sensor's help text** (`soh_entity` data_description, config and options) names the brands and
+  integrations without an SoH sensor. Update it, and `test_soh_help_text_matches_the_store`, whenever the Store
+  adds a brand, battery or sensor profile, or an integration gains an SoH sensor (the test fails until you do).
 - Sensor attribute `notes` are codes (`ledger.NOTE_*`), documented in the README.
 - Dates in descriptions are ISO (`2025-07-18`). The date picker's display format comes from each
   user's HA profile, not from the integration.

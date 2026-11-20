@@ -863,3 +863,25 @@ async def test_energy_dashboard_battery_detected(hass: HomeAssistant):
     keys = {str(k): k for k in r["data_schema"].schema}
     assert keys["charged_energy_entity"].description["suggested_value"] == "sensor.my_battery_in"
     assert keys["discharged_energy_entity"].description["suggested_value"] == "sensor.my_battery_out"
+
+
+def test_soh_help_text_matches_the_store():
+    """The SoH sensor's help text names who doesn't report SoH. If this fails, the Store's sensor profiles changed
+    (a brand or integration added, or an SoH sensor found for one): update `soh_entity` in strings.json (config and
+    options) and en.json, then the two sets here."""
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).parent.parent / "custom_components" / "battery_ledger"
+    profiles = json.loads((root / "data" / "index_snapshot.json").read_text())["profiles"]
+    brands = {b for p in profiles for b in p["brands"]}
+    with_soh = {b for p in profiles if "soh" in p["roles"]
+                for b in p["brands"] if b not in p.get("unavailable", {}).get("soh", [])}
+    assert brands - with_soh == {"Huawei", "iStore"}
+    assert {p["id"] for p in profiles if "soh" not in p["roles"]} == {
+        "deye-esphome-lewa-reka", "deye-solarman-davidrapan", "fronius-modbus-redpomodoro"}
+    strings = json.loads((root / "strings.json").read_text())
+    for flow in ("config", "options"):
+        text = strings[flow]["step"]["system"]["data_description"]["soh_entity"]
+        for name in ("Huawei", "iStore", "Deye", "Solarman", "ESPHome", "Fronius Modbus"):
+            assert name in text
