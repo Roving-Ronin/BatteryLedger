@@ -129,7 +129,16 @@ Later, under **Configure**:
 - **Battery costs:** what each battery group cost.
 - **Service life and export cost:** Estimated Service Life and the export cost basis (also as the
   `number.battery_ledger_estimated_service_life` and `select.battery_ledger_export_cost_basis` entities).
+- **Update the Store list now:** download the latest Store list straight away (otherwise once a day). If a
+  battery you use has been revised, Settings → Repairs offers the change for you to review.
 - **Export setup:** download a setup file to keep (see [Moving to a new server](#moving-to-a-new-server)).
+
+**Reconfigure** (the setup's ⋮ menu under Settings → Devices & services → BatteryLedger) downloads the latest
+Store list, then runs the whole setup again: Detect, Store search or manual entry, then the sensors. The battery
+models you choose come from that list, so they include any Store revisions (no Repairs review needed). Each battery group's warranty start date and cost,
+the sensors and the setup's name are filled in from the current setup. The last step replaces the setup;
+Estimated Service Life, Export Cost Basis, the card settings, the entities and the measured capacity (with the same
+state of charge sensor) are kept. Close the window part way through to leave the setup as it was.
 
 Changes recalculate every sensor. Costs use your Home Assistant currency (Settings → System → General).
 

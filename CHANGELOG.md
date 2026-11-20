@@ -4,6 +4,30 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.2.1 (2026-11-20)
+
+### TL;DR
+- **Reconfigure** in the setup's ⋮ menu: the latest Store list, then the whole setup again, with dates, costs,
+  sensors and name filled in
+- **Update the Store list now** in Configure (it was only in Add service)
+- Sensors form: state of charge before state of health, which now says who doesn't report SoH
+
+### Added
+- **Reconfigure** (Settings → Devices & services → BatteryLedger → ⋮): downloads the latest Store list (or keeps
+  the one it has if the Store can't be reached), then runs the setup steps again (Detect, Store search or manual,
+  then sensors). Each battery group's warranty start date and cost (and units, for the same model), the current
+  sensors (detected ones take their place) and the setup's name are filled in. Battery models chosen there are
+  the Store's latest, revisions included. The last step replaces the setup's battery groups, modules and sensors,
+  and the sensor and currency overrides from Configure; Estimated Service Life and Export Cost Basis are kept, as
+  are the entities, card settings and measured capacity (if the state of charge sensor is the same).
+- Configure → **Update the Store list now**: downloads the Store list straight away. A revised spec in use raises
+  its Repairs notice at once instead of at the next daily check.
+
+### Changed
+- Sensors form (setup, Reconfigure and Configure): **Battery state of charge sensor** comes before **Battery state
+  of health sensor**, whose help text now says who doesn't report SoH (Huawei and iStore batteries, the Deye
+  integrations and Fronius Modbus) and which integrations do for those brands.
+
 ## v0.2.0 (2026-11-20)
 
 ### TL;DR

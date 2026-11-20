@@ -6,6 +6,10 @@ Setup flow:
                  ├─ store_refresh → back to the menu                   ├─ group (once per model) → add_more (menu)
                  └─ manual ────────────────────────────────────────────┘        add_more: add another / sensors
     sensors (pick integration / detected system) → [modules] → system → entry
+
+Reconfigure (the setup's ⋮ menu): downloads the Store list, then the same steps from the reconfigure menu, with the
+setup's warranty start dates, costs, sensors and name filled in; the last step replaces the setup's data (ESL and
+export cost basis kept). Specs chosen here are the Store's latest, revisions included.
 """
 
 from __future__ import annotations
@@ -150,8 +154,8 @@ def _system_schema(defaults: dict[str, Any], *, with_name: bool) -> vol.Schema:
         vol.Optional(CONF_CHARGED_ENTITY): _energy_entity_selector(),
         vol.Optional(CONF_DISCHARGED_ENTITY): _energy_entity_selector(),
         vol.Optional(CONF_CAPACITY_ENTITY): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
-        vol.Optional(CONF_SOH_ENTITY): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
         vol.Optional(CONF_SOC_ENTITY): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
+        vol.Optional(CONF_SOH_ENTITY): sel.EntitySelector(sel.EntitySelectorConfig(domain="sensor")),
     })
     return vol.Schema(fields)
 
@@ -344,6 +348,7 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         self._towers: list[tuple[Reading, list[tuple[dict, int]]]] = []
         self._tower_index = 0
         self._imported: dict[str, Any] | None = None  # a pasted export (import_setup)
+        self._reconf: ConfigEntry | None = None  # the setup being set up again (reconfigure)
 
     @staticmethod
     @callback
@@ -362,6 +367,27 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                 "count": str(len(index.specs)),
                 "updated": (index.generated or DASH)[:10],
                 "store_url": STORE_SITE_URL,
+            },
+        )
+
+    async def async_step_reconfigure(self, user_input: dict | None = None) -> ConfigFlowResult:
+        """Set up again: choose the batteries and sensors afresh, with the current setup's details filled in."""
+        self._reconf = self._get_reconfigure_entry()
+        self._groups, self._queue, self._queue_units, self._pending_spec = [], [], [], None
+        self._system, self._modules = None, []
+        index = await async_get_store_index(self.hass)
+        try:  # setting up again: take the latest specs and sensor profiles
+            await index.async_refresh()
+        except StoreIndexError as err:
+            _LOGGER.debug("Store list not updated for reconfigure: %s", err)  # the list it has is used
+        return self.async_show_menu(
+            step_id="reconfigure",
+            menu_options=["detect", "store_search", "manual"],
+            description_placeholders={
+                "count": str(len(index.specs)),
+                "updated": (index.generated or DASH)[:10],
+                "store_url": STORE_SITE_URL,
+                "groups": "\n".join(f"- {_group_label(g)}" for g in self._reconf.data.get(CONF_GROUPS, [])) or DASH,
             },
         )
 
@@ -888,7 +914,17 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
                                     description_placeholders=placeholders)
 
     async def _group_prefill(self, spec: dict) -> dict[str, Any]:
-        return await _async_group_prefill(self.hass, spec, len(self._groups), self._pending_units)
+        out = await _async_group_prefill(self.hass, spec, len(self._groups), self._pending_units)
+        old_groups = self._reconf.data.get(CONF_GROUPS, []) if self._reconf else []
+        if len(self._groups) < len(old_groups):
+            # Setting up again: the same-numbered group's warranty start and cost (and units, for the same model)
+            old = old_groups[len(self._groups)]
+            out[CONF_INSTALL_DATE] = old[CONF_INSTALL_DATE]
+            if old.get(CONF_COST):
+                out[CONF_COST] = old[CONF_COST]
+            if out.get(CONF_UNITS) is None and old[CONF_SPEC]["id"] == spec["id"]:
+                out[CONF_UNITS] = old[CONF_UNITS]
+        return out
 
     async def async_step_add_more(self, user_input: dict | None = None) -> ConfigFlowResult:
         summary = "\n".join(
@@ -1032,6 +1068,17 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
             errors = _check_system(user_input)
             if not errors:
                 name = user_input.pop("name").strip() or NAME
+                if self._reconf:
+                    entry = self._reconf
+                    data = {**user_input, CONF_GROUPS: self._groups,
+                            CONF_PROFILE: self._system.profile_id if self._system else None,
+                            CONF_MODULES: self._modules}
+                    if entry.data.get(CONF_CURRENCY):  # a pre-1.3 setup's own currency
+                        data[CONF_CURRENCY] = entry.data[CONF_CURRENCY]
+                    # Sensor and currency overrides from Configure are replaced by this setup; ESL and export kept
+                    options = {k: entry.options[k] for k in (CONF_ESL_YEARS, CONF_EXPORT_SETTING)
+                               if entry.options.get(k) is not None}
+                    return self.async_update_reload_and_abort(entry, title=name, data=data, options=options)
                 if self._imported and self._imported.get("card_settings"):
                     _restore_card_settings_when_added(self.hass, self._groups, self._imported["card_settings"])
                 options = {}
@@ -1047,14 +1094,25 @@ class BatteryLedgerConfigFlow(ConfigFlow, domain=DOMAIN):
         first = self._groups[0][CONF_SPEC]
         # Brand in title form + "Battery Ledger": e.g. "Sigenergy Battery Ledger", the card's title.
         defaults = {"name": f"{first['brand']} Battery Ledger"}
+        if self._reconf:
+            current = {**self._reconf.data, **self._reconf.options}
+            defaults["name"] = self._reconf.title
+            if current.get(CONF_CURRENCY_STYLE) in (CURRENCY_STYLE_CODE, CURRENCY_STYLE_SYMBOL):
+                defaults[CONF_CURRENCY_STYLE] = current[CONF_CURRENCY_STYLE]
         if self._imported:
             defaults["name"] = self._imported.get("name") or defaults["name"]
             if self._imported.get(CONF_CURRENCY_STYLE) in (CURRENCY_STYLE_CODE, CURRENCY_STYLE_SYMBOL):
                 defaults[CONF_CURRENCY_STYLE] = self._imported[CONF_CURRENCY_STYLE]
         schema = _system_schema(defaults, with_name=True)
         suggested = dict(user_input or {})
+        if user_input is None and self._reconf:
+            # The sensors the setup uses now, where they still exist; detected ones below take their place
+            current = {**self._reconf.data, **self._reconf.options}
+            suggested = {k: current[k] for k in set(ROLE_TO_CONF.values())
+                         if current.get(k) and self.hass.states.get(current[k])}
         if user_input is None and self._system:
-            suggested = {ROLE_TO_CONF[r]: eid for r, (_lvl, eid) in self._system.roles.items() if r in ROLE_TO_CONF}
+            suggested.update({ROLE_TO_CONF[r]: eid for r, (_lvl, eid) in self._system.roles.items()
+                              if r in ROLE_TO_CONF})
         if user_input is None and self._imported:
             # The sensors the saved setup used, where they exist on this server
             suggested.update({k: eid for k, eid in self._imported["sensors"].items() if self.hass.states.get(eid)})
@@ -1099,7 +1157,32 @@ class BatteryLedgerOptionsFlow(OptionsFlow):
         self._new_modules: dict[str, dict] = {}
 
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
-        return self.async_show_menu(step_id="init", menu_options=["system", "groups", "costs", "service_life", "export_setup"])
+        return self.async_show_menu(step_id="init", menu_options=[
+            "system", "groups", "costs", "service_life", "store_refresh", "export_setup"])
+
+    async def async_step_store_refresh(self, user_input: dict | None = None) -> ConfigFlowResult:
+        """Download the Store list now; a revised spec in use is offered through Repairs, as usual."""
+        from . import check_spec_updates
+
+        index = await async_get_store_index(self.hass)
+        try:
+            count = await index.async_refresh()
+        except StoreIndexError as err:
+            return self.async_show_form(
+                step_id="store_refresh_failed", data_schema=vol.Schema({}),
+                description_placeholders={"error": str(err), "count": str(len(index.specs)),
+                                          "updated": (index.generated or DASH)[:10]})
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            check_spec_updates(self.hass, index, entry)
+        return self.async_show_form(
+            step_id="store_refresh_ok", data_schema=vol.Schema({}),
+            description_placeholders={"count": str(count), "updated": (index.generated or DASH)[:10]})
+
+    async def async_step_store_refresh_ok(self, user_input: dict | None = None) -> ConfigFlowResult:
+        return await self.async_step_init()
+
+    async def async_step_store_refresh_failed(self, user_input: dict | None = None) -> ConfigFlowResult:
+        return await self.async_step_init()
 
     async def async_step_service_life(self, user_input: dict | None = None) -> ConfigFlowResult:
         """Estimated Service Life and what Cost Per kWh (Export) publishes (also the number / select entities)."""

@@ -707,3 +707,96 @@ async def test_measured_capacity_from_soc(hass: HomeAssistant, hass_storage):
     await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()
     assert f"{DOMAIN}.capacity.{entry.entry_id}" not in hass_storage
+
+
+def _suggested(result, key):
+    k = next(k for k in result["data_schema"].schema if str(k) == key)
+    return (k.description or {}).get("suggested_value")
+
+
+async def test_reconfigure_sets_up_again_with_details_filled_in(hass: HomeAssistant):
+    """Reconfigure runs the setup again with the groups' dates and costs, the sensors and the name filled in;
+    it replaces the setup's data and its sensor overrides, and keeps ESL and the export cost basis."""
+    hass.states.async_set(CHARGED, "12000", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(DISCHARGED, "11000", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(RATED, "48.36", {"unit_of_measurement": "kWh"})
+    entry = await _startup_entry(hass)
+    group = {**entry.data["groups"][0], "cost": 26062}
+    hass.config_entries.async_update_entry(
+        entry, title="Sigenergy Battery", data={**entry.data, "groups": [group]},
+        options={"esl_years": 18.0, "export_cost_basis": "esl", "reported_capacity_entity": None})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    r = await entry.start_reconfigure_flow(hass)
+    assert r["type"] is FlowResultType.MENU and r["step_id"] == "reconfigure"
+    assert "6 × Sigenergy SigenStor BAT 8.0" in r["description_placeholders"]["groups"]
+    assert "import_setup" not in r["menu_options"] and "store_refresh" not in r["menu_options"]  # offline: list kept
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"next_step_id": "store_search"})
+    r = await hass.config_entries.flow.async_configure(
+        r["flow_id"], {"search": "bat 8", "brand": "Sigenergy", "region": "AU", "phase": "3"})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"series": "Sigenergy|SigenStor"})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"spec_ids": ["sigenergy-sigenstor-bat-8-0-anz"]})
+    assert r["step_id"] == "group"
+    assert _suggested(r, "install_date") == group["install_date"]
+    assert _suggested(r, "cost") == 26062 and _suggested(r, "units") == 6
+    r = await hass.config_entries.flow.async_configure(
+        r["flow_id"], {"units": 5, "install_date": group["install_date"], "cost": 21000})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"next_step_id": "sensors"})
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"integration": "manual"})
+    assert r["step_id"] == "system"
+    assert _suggested(r, "charged_energy_entity") == CHARGED and _suggested(r, "discharged_energy_entity") == DISCHARGED
+    assert _suggested(r, "reported_capacity_entity") is None  # cleared under Configure: the override counts
+    name_key = next(k for k in r["data_schema"].schema if str(k) == "name")
+    assert name_key.default() == "Sigenergy Battery"
+    r = await hass.config_entries.flow.async_configure(
+        r["flow_id"], {"name": "Sigenergy Battery Ledger", "charged_energy_entity": CHARGED,
+                       "discharged_energy_entity": DISCHARGED, "reported_capacity_entity": RATED})
+    assert r["type"] is FlowResultType.ABORT and r["reason"] == "reconfigure_successful"
+    await hass.async_block_till_done()
+
+    assert entry.title == "Sigenergy Battery Ledger"
+    assert entry.data["groups"][0]["units"] == 5 and entry.data["groups"][0]["cost"] == 21000
+    assert entry.data["reported_capacity_entity"] == RATED
+    assert entry.options == {"esl_years": 18.0, "export_cost_basis": "esl"}
+    assert float(hass.states.get("sensor.battery_ledger_initial_usable_capacity").state) < 46
+
+
+async def test_reconfigure_downloads_the_store_list(hass: HomeAssistant):
+    """Reconfigure always downloads the Store list first (not just when it's a day old)."""
+    from unittest.mock import patch
+
+    hass.states.async_set(CHARGED, "12000", {"unit_of_measurement": "kWh"})
+    entry = await _startup_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    with patch("custom_components.battery_ledger.store_client.StoreIndex.async_refresh", return_value=34) as refresh:
+        r = await entry.start_reconfigure_flow(hass)
+    assert r["step_id"] == "reconfigure" and refresh.call_count == 1
+
+
+async def test_options_store_refresh(hass: HomeAssistant):
+    """Configure → Update the Store list now, then back to the settings menu."""
+    hass.states.async_set(CHARGED, "12000", {"unit_of_measurement": "kWh"})
+    entry = await _startup_entry(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    r = await hass.config_entries.options.async_init(entry.entry_id)
+    assert "store_refresh" in r["menu_options"]
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "store_refresh"})
+    assert r["step_id"] == "store_refresh_failed"  # offline_store fixture
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {})
+    assert r["type"] is FlowResultType.MENU and r["step_id"] == "init"
+
+    # Online: the result, and a revised spec in use raises its Repairs notice straight away
+    from unittest.mock import patch
+
+    index = await async_get_store_index(hass)
+    spec_id = entry.data["groups"][0]["spec"]["id"]
+    revised = {**index.get(spec_id), "spec_version": index.get(spec_id)["spec_version"] + 1}
+    with patch("custom_components.battery_ledger.store_client.StoreIndex.async_refresh", return_value=35), \
+            patch("custom_components.battery_ledger.store_client.StoreIndex.get",
+                  side_effect=lambda sid: revised if sid == spec_id else None):
+        r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "store_refresh"})
+    assert r["step_id"] == "store_refresh_ok" and r["description_placeholders"]["count"] == "35"
+    assert ir.async_get(hass).async_get_issue(DOMAIN, f"spec_updated_{entry.entry_id}_{spec_id}") is not None

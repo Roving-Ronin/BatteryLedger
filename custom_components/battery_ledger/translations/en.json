@@ -93,15 +93,15 @@
           "charged_energy_entity": "Lifetime charged energy sensor",
           "discharged_energy_entity": "Lifetime discharged energy sensor",
           "reported_capacity_entity": "Rated capacity sensor (optional)",
-          "soh_entity": "Battery state of health sensor (optional)",
           "currency_style": "Show cost per kWh with",
-          "soc_entity": "Battery state of charge sensor (optional)"
+          "soc_entity": "Battery state of charge sensor (optional)",
+          "soh_entity": "Battery state of health sensor (optional)"
         },
         "data_description": {
           "reported_capacity_entity": "The battery capacity your inverter reports, used to check the configured units match the hardware.",
-          "soh_entity": "The health % your inverter reports, compared against the warranty floor.",
           "currency_style": "Currency code: {currency} and {currency}/kWh, shown as money in each user's own currency format. Currency symbol: {symbol} and {symbol}/kWh, as in the original YAML package.",
-          "soc_entity": "The whole battery's charge level (%). With the lifetime energy sensors it measures the battery's usable capacity, and so its health where the battery reports none."
+          "soc_entity": "The whole battery's charge level (%). With the lifetime energy sensors it measures the battery's usable capacity, and so its health where the battery reports none.",
+          "soh_entity": "The health % your battery reports, compared against the warranty floor. Not reported by Huawei or iStore batteries, or by the Deye integrations (Solarman, ESPHome) and Fronius Modbus (Fronius, and BYD on a GEN24): Energy Manager gives one for Deye and Fronius, and BYD Battery Box for BYD. Without one, the state of charge sensor above lets BatteryLedger measure it."
         }
       },
       "sensors": {
@@ -179,6 +179,15 @@
         "data": {
           "file": "Setup file (.json)"
         }
+      },
+      "reconfigure": {
+        "title": "Set up again",
+        "description": "Choose your batteries and sensors again, as at setup, from the latest Store list (the battery models you choose include any Store revisions). Each battery group's warranty start date and cost, the sensors and the setup's name are filled in from the current setup, for you to keep or change. Submitting the last step replaces the current setup; Estimated Service Life, Export Cost Basis, the card settings and the measured capacity (if the state of charge sensor stays the same) are kept. Close this window to leave the setup as it is.\n\nCurrent battery groups:\n{groups}\n\n[BatteryLedger Store]({store_url}): {count} batteries, list dated {updated} (the list already on this server if the Store couldn't be reached).",
+        "menu_options": {
+          "detect": "Detect from my battery's integration",
+          "store_search": "Search the BatteryLedger Store",
+          "manual": "Enter details manually"
+        }
       }
     },
     "error": {
@@ -200,6 +209,9 @@
     },
     "progress": {
       "wait_sensors": "Waiting for the sensors that were turned on to report."
+    },
+    "abort": {
+      "reconfigure_successful": "[%key:common::config_flow::abort::reconfigure_successful%]"
     }
   },
   "options": {
@@ -211,6 +223,7 @@
           "groups": "Battery groups",
           "costs": "Battery costs",
           "service_life": "Service life and export cost",
+          "store_refresh": "Update the Store list now",
           "export_setup": "Export setup"
         }
       },
@@ -220,14 +233,15 @@
           "charged_energy_entity": "Lifetime charged energy sensor",
           "discharged_energy_entity": "Lifetime discharged energy sensor",
           "reported_capacity_entity": "Rated capacity sensor (optional)",
-          "soh_entity": "Battery state of health sensor (optional)",
           "currency_style": "Show cost per kWh with",
-          "soc_entity": "Battery state of charge sensor (optional)"
+          "soc_entity": "Battery state of charge sensor (optional)",
+          "soh_entity": "Battery state of health sensor (optional)"
         },
         "description": "Costs use your Home Assistant currency, **{currency}**.",
         "data_description": {
           "currency_style": "Currency code: {currency} and {currency}/kWh, shown as money in each user's own currency format. Currency symbol: {symbol} and {symbol}/kWh, as in the original YAML package.",
-          "soc_entity": "The whole battery's charge level (%). With the lifetime energy sensors it measures the battery's usable capacity, and so its health where the battery reports none."
+          "soc_entity": "The whole battery's charge level (%). With the lifetime energy sensors it measures the battery's usable capacity, and so its health where the battery reports none.",
+          "soh_entity": "The health % your battery reports, compared against the warranty floor. Not reported by Huawei or iStore batteries, or by the Deye integrations (Solarman, ESPHome) and Fronius Modbus (Fronius, and BYD on a GEN24): Energy Manager gives one for Deye and Fronius, and BYD Battery Box for BYD. Without one, the state of charge sensor above lets BatteryLedger measure it."
         }
       },
       "groups": {
@@ -303,6 +317,14 @@
       "export_setup": {
         "title": "Export setup",
         "description": "[Download {file}]({url}) (link valid for 5 minutes) and keep it somewhere safe. To set this battery up again on another Home Assistant server, add BatteryLedger there and choose **Import a saved setup**.\n\nThe file holds the {groups} battery group(s) with their copied specs, warranty start dates and costs, the sensors chosen, the battery group of each of the {modules} tracked modules (by serial number), the name, currency style and card settings. It's your own record: it includes serial numbers and costs, so don't post it publicly (for help, use Download diagnostics instead).\n\nA Home Assistant backup already includes BatteryLedger; this is for setting up without restoring one."
+      },
+      "store_refresh_ok": {
+        "title": "Store list updated",
+        "description": "The BatteryLedger Store list now has {count} batteries (dated {updated}). If a battery you use has been revised, Settings → Repairs offers the change for you to review. Submit to go back."
+      },
+      "store_refresh_failed": {
+        "title": "Couldn't update the Store list",
+        "description": "The Store couldn't be reached, so BatteryLedger keeps using the list it already has ({count} batteries, dated {updated}).\n\nDetail: `{error}`\n\nSubmit to go back."
       }
     },
     "error": {
