@@ -362,8 +362,11 @@ class _TowerSteps:
             if not self._tower_total:
                 return await self._async_towers_done([])
             return await self.async_step_tower()
+        groups = self._tower_groups()
+        # Data only: each tower's number and the battery group it's filled in for, then its sensors
         found = "\n".join(
-            f"- {i + 1}: {' · '.join(e for e in (t.get(TOWER_SOC), t.get(TOWER_CHARGED), t.get(TOWER_DISCHARGED)) if e)}"
+            f"{i + 1}. {_group_label(groups[min(int(t.get(TOWER_GROUP, 0)), len(groups) - 1)])}\n"
+            + "\n".join(f"   - {e}" for e in (t.get(TOWER_SOC), t.get(TOWER_CHARGED), t.get(TOWER_DISCHARGED)) if e)
             for i, t in enumerate(self._tower_defaults)) or DASH
         return self.async_show_form(
             step_id="towers",
@@ -1281,11 +1284,30 @@ class BatteryLedgerOptionsFlow(_TowerSteps, OptionsFlow):
 
     async def async_step_towers_start(self, user_input: dict | None = None) -> ConfigFlowResult:
         self._tower_defaults = [dict(t) for t in self.config_entry.data.get(CONF_TOWERS) or []]
+        if not self._tower_defaults:
+            # None saved yet (e.g. a setup from before 0.3.0): look for them, as setup does
+            self._tower_defaults = _towers_from_detected(await self._async_detect_system(), self._tower_groups())
         self._tower_list, self._tower_total = [], 0
         return await self.async_step_towers()
 
     def _tower_groups(self) -> list[dict]:
         return self.config_entry.data[CONF_GROUPS]
+
+    async def _async_detect_system(self) -> DetectedSystem | None:
+        """The setup's own system from its integration's sensor profile: the one with the setup's energy / SoC
+        sensors, else the only one with towers."""
+        index = await async_get_store_index(self.hass)
+        profile = next((p for p in index.profiles if p["id"] == self.config_entry.data.get(CONF_PROFILE)), None)
+        if profile is None:
+            return None
+        systems = [sy for sy in detect(profile, _registry_entities(self.hass)) if sy.measurable_towers()]
+        current = {**self.config_entry.data, **self.config_entry.options}
+        mine = {current.get(k) for k in (CONF_CHARGED_ENTITY, CONF_DISCHARGED_ENTITY, CONF_SOC_ENTITY)} - {None}
+        for sy in systems:
+            if mine & ({eid for _lvl, eid in sy.roles.values()}
+                       | {e for roles in sy.inverters.values() for found in roles.values() for e in found}):
+                return sy
+        return systems[0] if len(systems) == 1 else None
 
     async def _async_towers_done(self, towers: list[dict]) -> ConfigFlowResult:
         self.hass.config_entries.async_update_entry(

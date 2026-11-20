@@ -929,3 +929,47 @@ def test_soh_help_text_matches_the_store():
         text = strings[flow]["step"]["system"]["data_description"]["soh_entity"]
         for name in ("Huawei", "iStore", "Deye", "Solarman", "ESPHome", "Fronius Modbus", "three-phase", "pack"):
             assert name in text
+
+
+async def test_configure_towers_detected_for_an_existing_setup(hass: HomeAssistant):
+    """A setup from before 0.3.0 has no towers saved: Configure → Battery towers finds them (two LUNA2000-5-S0
+    stacks on one inverter, a battery group each) and fills in tower n as group n."""
+    from custom_components.battery_ledger.const import CONFIG_ENTRY_MINOR_VERSION, CONFIG_ENTRY_VERSION
+    from custom_components.battery_ledger.store_client import async_get_store_index
+
+    registry = er.async_get(hass)
+    for ent in huawei_tower_entities():
+        object_id = ent.entity_id.split(".", 1)[1]
+        registry.async_get_or_create("sensor", ent.platform, ent.unique_id, suggested_object_id=object_id)
+        hass.states.async_set(ent.entity_id, "50", {"unit_of_measurement": "%" if "capacity" in object_id else "kWh"})
+    hass.states.async_set("sensor.emma_total_charged_energy", "5000", {"unit_of_measurement": "kWh"})
+    index = await async_get_store_index(hass)
+    spec = index.get("huawei-luna2000-5-s0-au")
+    entry = MockConfigEntry(domain=DOMAIN, title="Huawei", version=CONFIG_ENTRY_VERSION,
+                            minor_version=CONFIG_ENTRY_MINOR_VERSION, data={
+                                "name": "Huawei", "sensor_profile": "huawei-solar-wlcrs",
+                                "groups": [{"spec": spec, "units": 3, "install_date": "2023-05-01"},
+                                           {"spec": spec, "units": 3, "install_date": "2025-02-01"}],
+                                "charged_energy_entity": "sensor.emma_total_charged_energy"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    r = await hass.config_entries.options.async_init(entry.entry_id)
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"next_step_id": "towers_start"})
+    assert r["step_id"] == "towers" and r["description_placeholders"]["count"] == "2"
+    found = r["description_placeholders"]["found"]
+    assert found.startswith("1. 3 × Huawei LUNA2000-5-S0 · 2023-05-01\n   - sensor.battery_1_state_of_capacity")
+    assert "2. 3 × Huawei LUNA2000-5-S0 · 2025-02-01\n   - sensor.battery_2_state_of_capacity" in found
+    r = await hass.config_entries.options.async_configure(r["flow_id"], {"count": 2})
+    k = next(k for k in r["data_schema"].schema if str(k) == "group")
+    assert k.description["suggested_value"] == "0"
+    first = {"soc_entity": "sensor.battery_1_state_of_capacity", "charged_entity": "sensor.battery_1_total_charge",
+             "discharged_entity": "sensor.battery_1_total_discharge", "group": "0"}
+    r = await hass.config_entries.options.async_configure(r["flow_id"], first)
+    k = next(k for k in r["data_schema"].schema if str(k) == "group")
+    assert k.description["suggested_value"] == "1"
+    r = await hass.config_entries.options.async_configure(
+        r["flow_id"], {**{key: v.replace("battery_1", "battery_2") for key, v in first.items()}, "group": "1"})
+    await hass.async_block_till_done()
+    assert [t["group"] for t in entry.data["towers"]] == [0, 1]

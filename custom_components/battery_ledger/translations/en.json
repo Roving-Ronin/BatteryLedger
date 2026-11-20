@@ -193,7 +193,7 @@
       },
       "towers": {
         "title": "Battery towers",
-        "description": "Battery towers (stacks) that report their own state of charge and lifetime energy, such as each battery unit on a Huawei inverter, each Sigenergy inverter's battery or each BYD tower. BatteryLedger measures each tower's usable capacity, and so each battery group's health. With towers, the battery state of charge sensor isn't used for measuring.\n\nFound: {count}\n{found}\n\nSet 0 for none.",
+        "description": "Battery towers (stacks) that report their own state of charge and lifetime energy, such as each battery unit on a Huawei inverter, each Sigenergy inverter's battery or each BYD tower. BatteryLedger measures each tower's usable capacity, and so each battery group's health. With towers, the battery state of charge sensor isn't used for measuring.\n\nFound {count}, by tower number, with the battery group each is filled in for and its sensors:\n\n{found}\n\nSet 0 for none.",
         "data": {
           "count": "Number of towers"
         }
@@ -355,7 +355,7 @@
       },
       "towers": {
         "title": "Battery towers",
-        "description": "Battery towers (stacks) that report their own state of charge and lifetime energy, such as each battery unit on a Huawei inverter, each Sigenergy inverter's battery or each BYD tower. BatteryLedger measures each tower's usable capacity, and so each battery group's health. With towers, the battery state of charge sensor isn't used for measuring.\n\nFound: {count}\n{found}\n\nSet 0 for none.",
+        "description": "Battery towers (stacks) that report their own state of charge and lifetime energy, such as each battery unit on a Huawei inverter, each Sigenergy inverter's battery or each BYD tower. BatteryLedger measures each tower's usable capacity, and so each battery group's health. With towers, the battery state of charge sensor isn't used for measuring.\n\nFound {count}, by tower number, with the battery group each is filled in for and its sensors:\n\n{found}\n\nSet 0 for none.",
         "data": {
           "count": "Number of towers"
         }

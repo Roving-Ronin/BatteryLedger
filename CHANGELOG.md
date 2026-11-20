@@ -4,6 +4,22 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.3.1 (2026-11-20)
+
+### TL;DR
+- Configure → **Battery towers** finds the towers on setups made before 0.3.0 (it showed 0)
+- The towers step lists each tower with its battery group, and its sensors as bullets
+
+### Fixed
+- Configure → Battery towers showed **0** on a setup from before 0.3.0, because it only filled in towers already
+  saved. With none saved it now looks for them through the setup's integration, as setup does, and fills in
+  tower n as battery group n when there's a group per tower (e.g. two Huawei stacks on one inverter, a group
+  each). Reconfigure is no longer needed for this.
+
+### Changed
+- Battery towers step: the towers found are a numbered list, each with the battery group it's filled in for,
+  and its sensors as bullets underneath.
+
 ## v0.3.0 (2026-11-20)
 
 ### TL;DR
