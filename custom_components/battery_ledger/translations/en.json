@@ -95,13 +95,15 @@
           "reported_capacity_entity": "Rated capacity sensor (optional)",
           "currency_style": "Show cost per kWh with",
           "soc_entity": "Battery state of charge sensor (optional)",
-          "soh_entity": "Battery state of health sensor (optional)"
+          "soh_entity": "Battery state of health sensor (optional)",
+          "pack_soh_entities": "Battery pack state of health sensors (optional)"
         },
         "data_description": {
           "reported_capacity_entity": "The battery capacity your inverter reports, used to check the configured units match the hardware.",
           "currency_style": "Currency code: {currency} and {currency}/kWh, shown as money in each user's own currency format. Currency symbol: {symbol} and {symbol}/kWh, as in the original YAML package.",
           "soc_entity": "The whole battery's charge level (%). With the lifetime energy sensors it measures the battery's usable capacity, and so its health where the battery reports none.",
-          "soh_entity": "The health % your battery reports, compared against the warranty floor. Not reported by Huawei or iStore batteries, or by the Deye integrations (Solarman, ESPHome) and Fronius Modbus (Fronius, and BYD on a GEN24): Energy Manager gives one for Deye and Fronius, and BYD Battery Box for BYD. Without one, the state of charge sensor above lets BatteryLedger measure it."
+          "soh_entity": "The health % your battery reports, compared against the warranty floor. Not reported by Huawei or iStore batteries, the Deye ESPHome integration, Solarman on single-phase Deye inverters, or Fronius Modbus (Fronius, and BYD on a GEN24): Energy Manager gives one for Deye and Fronius, and BYD Battery Box for BYD. Solarman on three-phase Deye (P3) inverters gives each pack's SoH instead (below). Without any, the state of charge sensor above lets BatteryLedger measure it.",
+          "pack_soh_entities": "Each battery pack's own health % from its BMS, e.g. Solarman on a three-phase Deye (P3) inverter. Used when there's no battery state of health sensor: BatteryLedger shows their average."
         }
       },
       "sensors": {
@@ -188,6 +190,26 @@
           "store_search": "Search the BatteryLedger Store",
           "manual": "Enter details manually"
         }
+      },
+      "towers": {
+        "title": "Battery towers",
+        "description": "Battery towers (stacks) that report their own state of charge and lifetime energy, such as each battery unit on a Huawei inverter, each Sigenergy inverter's battery or each BYD tower. BatteryLedger measures each tower's usable capacity, and so each battery group's health. With towers, the battery state of charge sensor isn't used for measuring.\n\nFound: {count}\n{found}\n\nSet 0 for none.",
+        "data": {
+          "count": "Number of towers"
+        }
+      },
+      "tower": {
+        "title": "Battery tower {number} of {total}",
+        "description": "This tower's own sensors, and the battery group it belongs to.",
+        "data": {
+          "soc_entity": "Tower state of charge sensor",
+          "charged_entity": "Tower lifetime charged energy sensor",
+          "discharged_entity": "Tower lifetime discharged energy sensor",
+          "group": "Battery group"
+        },
+        "data_description": {
+          "charged_entity": "At least one of charged and discharged energy. With both, losses are cancelled out of the measured capacity."
+        }
       }
     },
     "error": {
@@ -205,7 +227,9 @@
       "import_not_json": "That file couldn't be read as a saved setup (JSON). Choose the file Export setup saved.",
       "import_not_export": "That file isn't a BatteryLedger saved setup.",
       "import_newer": "That setup was saved by a newer version of BatteryLedger. Update BatteryLedger, then import it.",
-      "import_invalid": "That saved setup has a battery group that can't be used (missing details, a unit count the battery doesn't allow, or a warranty start date in the future)."
+      "import_invalid": "That saved setup has a battery group that can't be used (missing details, a unit count the battery doesn't allow, or a warranty start date in the future).",
+      "tower_no_soc": "Choose this tower's state of charge sensor.",
+      "tower_no_energy": "Choose at least one of this tower's lifetime charged and discharged energy sensors."
     },
     "progress": {
       "wait_sensors": "Waiting for the sensors that were turned on to report."
@@ -221,6 +245,7 @@
         "menu_options": {
           "system": "Sensors and currency",
           "groups": "Battery groups",
+          "towers_start": "Battery towers",
           "costs": "Battery costs",
           "service_life": "Service life and export cost",
           "store_refresh": "Update the Store list now",
@@ -235,13 +260,15 @@
           "reported_capacity_entity": "Rated capacity sensor (optional)",
           "currency_style": "Show cost per kWh with",
           "soc_entity": "Battery state of charge sensor (optional)",
-          "soh_entity": "Battery state of health sensor (optional)"
+          "soh_entity": "Battery state of health sensor (optional)",
+          "pack_soh_entities": "Battery pack state of health sensors (optional)"
         },
         "description": "Costs use your Home Assistant currency, **{currency}**.",
         "data_description": {
           "currency_style": "Currency code: {currency} and {currency}/kWh, shown as money in each user's own currency format. Currency symbol: {symbol} and {symbol}/kWh, as in the original YAML package.",
           "soc_entity": "The whole battery's charge level (%). With the lifetime energy sensors it measures the battery's usable capacity, and so its health where the battery reports none.",
-          "soh_entity": "The health % your battery reports, compared against the warranty floor. Not reported by Huawei or iStore batteries, or by the Deye integrations (Solarman, ESPHome) and Fronius Modbus (Fronius, and BYD on a GEN24): Energy Manager gives one for Deye and Fronius, and BYD Battery Box for BYD. Without one, the state of charge sensor above lets BatteryLedger measure it."
+          "soh_entity": "The health % your battery reports, compared against the warranty floor. Not reported by Huawei or iStore batteries, the Deye ESPHome integration, Solarman on single-phase Deye inverters, or Fronius Modbus (Fronius, and BYD on a GEN24): Energy Manager gives one for Deye and Fronius, and BYD Battery Box for BYD. Solarman on three-phase Deye (P3) inverters gives each pack's SoH instead (below). Without any, the state of charge sensor above lets BatteryLedger measure it.",
+          "pack_soh_entities": "Each battery pack's own health % from its BMS, e.g. Solarman on a three-phase Deye (P3) inverter. Used when there's no battery state of health sensor: BatteryLedger shows their average."
         }
       },
       "groups": {
@@ -325,13 +352,35 @@
       "store_refresh_failed": {
         "title": "Couldn't update the Store list",
         "description": "The Store couldn't be reached, so BatteryLedger keeps using the list it already has ({count} batteries, dated {updated}).\n\nDetail: `{error}`\n\nSubmit to go back."
+      },
+      "towers": {
+        "title": "Battery towers",
+        "description": "Battery towers (stacks) that report their own state of charge and lifetime energy, such as each battery unit on a Huawei inverter, each Sigenergy inverter's battery or each BYD tower. BatteryLedger measures each tower's usable capacity, and so each battery group's health. With towers, the battery state of charge sensor isn't used for measuring.\n\nFound: {count}\n{found}\n\nSet 0 for none.",
+        "data": {
+          "count": "Number of towers"
+        }
+      },
+      "tower": {
+        "title": "Battery tower {number} of {total}",
+        "description": "This tower's own sensors, and the battery group it belongs to.",
+        "data": {
+          "soc_entity": "Tower state of charge sensor",
+          "charged_entity": "Tower lifetime charged energy sensor",
+          "discharged_entity": "Tower lifetime discharged energy sensor",
+          "group": "Battery group"
+        },
+        "data_description": {
+          "charged_entity": "At least one of charged and discharged energy. With both, losses are cancelled out of the measured capacity."
+        }
       }
     },
     "error": {
       "no_energy_entity": "Choose at least one of the charged or discharged energy sensors.",
       "bad_units": "That unit count isn't valid for this battery. Allowed: {allowed}.",
       "future_date": "The warranty start date can't be in the future.",
-      "last_group": "This is the only battery group. To start again with another battery, delete this setup and add BatteryLedger again."
+      "last_group": "This is the only battery group. To start again with another battery, delete this setup and add BatteryLedger again.",
+      "tower_no_soc": "Choose this tower's state of charge sensor.",
+      "tower_no_energy": "Choose at least one of this tower's lifetime charged and discharged energy sensors."
     },
     "abort": {
       "export_done": "Nothing was changed."

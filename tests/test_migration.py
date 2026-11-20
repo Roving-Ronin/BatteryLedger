@@ -142,7 +142,7 @@ async def test_1_4_adds_service_life_options(hass: HomeAssistant):
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert (entry.version, entry.minor_version) == (1, 6)
+    assert (entry.version, entry.minor_version) == (1, 7)
     assert entry.options == {"currency_style": "code", "esl_years": None, "export_cost_basis": "warranty"}
     # Idempotent: a second run changes nothing
     from custom_components.battery_ledger import async_migrate_entry
@@ -157,5 +157,31 @@ async def test_1_5_to_1_6_keeps_everything(hass: HomeAssistant):
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert (entry.version, entry.minor_version) == (1, 6)
+    assert (entry.version, entry.minor_version) == (1, 7)
     assert entry.options == options and "soc_entity" not in entry.data
+
+
+async def test_1_6_to_1_7_keeps_everything(hass: HomeAssistant):
+    """1.6 -> 1.7: optional battery towers and pack SoH sensors; stored data unchanged."""
+    data = {**V1_DATA, "soc_entity": "sensor.battery_soc"}
+    entry = MockConfigEntry(domain=DOMAIN, title="Acme", data=data, options={}, version=1, minor_version=6)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert (entry.version, entry.minor_version) == (1, 7)
+    assert dict(entry.data) == data
+
+
+def test_setup_file_keeps_towers_and_pack_soh():
+    """Export → import: towers (sensors and group) and pack SoH sensors come back; bad towers are dropped."""
+    from datetime import date
+
+    from custom_components.battery_ledger.transfer import build_export, export_text, parse_export
+
+    towers = [{"soc_entity": "sensor.battery_1_soc", "charged_entity": "sensor.battery_1_charge",
+               "discharged_entity": None, "group": 0}]
+    data = {**V1_DATA, "towers": towers + [{"soc_entity": "sensor.x", "group": 5}],
+            "pack_soh_entities": ["sensor.p1_soh", "sensor.p2_soh"]}
+    parsed = parse_export(export_text(build_export("Acme", data, {}, date(2026, 11, 20))))
+    assert parsed["towers"] == towers
+    assert parsed["pack_soh_entities"] == ["sensor.p1_soh", "sensor.p2_soh"]

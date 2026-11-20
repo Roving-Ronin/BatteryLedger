@@ -34,7 +34,7 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
 |---|---|
 | `ledger.py` | **All warranty / degradation / cost maths.** Pure Python, no HA imports, unit-tested directly. Never re-implement this maths elsewhere |
 | `detect.py` | Finds sensors from Store sensor profiles (unique-ID templates), per-inverter readings, and assigns modules to battery groups. Pure |
-| `capacity.py` | Measured usable capacity / SoH from state-of-charge runs against the energy counters (after Energy Pilot). Pure; its state is saved per entry by `runtime.py` |
+| `capacity.py` | Measured usable capacity / SoH from state-of-charge runs against the energy counters (after Energy Pilot); `combine()` adds up battery towers. Pure; its state is saved per entry (per tower SoC sensor) by `runtime.py` |
 | `suggest.py` | Suggests battery model and unit count from capacity, pack/module counts and inverter model text, for the user to confirm. Pure |
 | `store_client.py` | Downloads, caches and searches the Store index; bundled snapshot fallback |
 | `runtime.py` | Per-entry: reads source sensors, converts units, calls `ledger.compute`, signals sensors |
@@ -56,6 +56,9 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
   Sigen station IDs, config entry IDs, install dates, costs or energy totals. Anything submitted from
   Home Assistant is previewed to the user first.
 - Module serials stay local. Attributes that contain them are listed in `_unrecorded_attributes`.
+- **Battery towers** are only for integrations that give each tower its own SoC *and* energy counters
+  (`DetectedSystem.measurable_towers`); SoC-only towers (GoodWe's or Deye's second battery) are measured as one
+  battery through the whole-battery SoC sensor. Check a new integration's source before adding tower roles.
 
 ### Entities
 - Entity IDs are `sensor.battery_ledger_<key>` (`ENTITY_ID_PREFIX`), keys and attribute names taken from

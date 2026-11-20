@@ -118,3 +118,24 @@ class CapacityLearner:
         if len(one) >= MIN_RUNS:
             return Measured(round(median(one) * 100, 2), None, n_in, n_out, STATUS_ONE_WAY)
         return Measured(None, None, n_in, n_out, STATUS_INSUFFICIENT)
+
+
+def combine(towers: list[Measured]) -> Measured:
+    """The whole battery from its towers: capacities added up once every tower has one; efficiency weighted by
+    capacity; the run counts of the tower furthest behind, so "how far it's got" is the slowest tower's."""
+    if not towers:
+        return Measured(None, None, None, None, STATUS_INSUFFICIENT)
+    known = [t for t in towers if t.usable_kwh is not None]
+    status = (STATUS_INSUFFICIENT if len(known) < len(towers)
+              else STATUS_ONE_WAY if any(t.status == STATUS_ONE_WAY for t in towers) else STATUS_OK)
+    usable = round(sum(t.usable_kwh for t in known), 2) if status != STATUS_INSUFFICIENT else None
+    with_eff = [t for t in known if t.efficiency_pct is not None]
+    eff = (round(sum(t.efficiency_pct * t.usable_kwh for t in with_eff) / sum(t.usable_kwh for t in with_eff), 1)
+           if usable is not None and with_eff and len(with_eff) == len(towers) else None)
+
+    def slowest(runs: list[int | None]) -> int | None:
+        counted = [r for r in runs if r is not None]
+        return min(counted) if counted else None
+
+    return Measured(usable, eff, slowest([t.charge_runs for t in towers]),
+                    slowest([t.discharge_runs for t in towers]), status)

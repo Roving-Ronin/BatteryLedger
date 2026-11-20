@@ -4,6 +4,40 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.3.0 (2026-11-20)
+
+### TL;DR
+- **Battery towers**: each tower (stack) measured from its own SoC and energy, so each battery group gets its own
+  measured SoH (Huawei, Sigenergy, BYD)
+- **Battery pack SoH**: the average of each pack's SoH where there's no whole-battery SoH (Solarman on three-phase
+  Deye)
+- The SoH sensor's help text is corrected for Deye
+
+### Added
+- **Battery towers.** Detect finds towers with their own state of charge and lifetime energy (Store roles
+  `tower_soc`, `tower_charged_energy`, `tower_discharged_energy`): each battery unit on each Huawei inverter
+  (wlcrs, 2 per inverter), each Sigenergy inverter's battery (Sigenergy Local Modbus, sigenergy2mqtt) and each BYD
+  tower (up to 3). Setup shows a **Battery towers** step (how many, then each tower's sensors and battery group;
+  with a group per tower, tower n is filled in as group n), as does Reconfigure when the setup has towers;
+  Configure → **Battery towers** changes them for any setup (no fixed number; 0 removes them). Each tower is
+  measured on its own; Measured Usable Capacity is their sum, with a `towers` attribute (each tower's capacity,
+  SoH, efficiency, runs, status, group), and Measured SoH gains a `groups` attribute with each group's measured SoH
+  (also `measured_usable_kwh` / `measured_soh_pct` in each group of the `groups` attributes). With towers, the
+  whole battery's SoC sensor isn't used for measuring. A tower's runs are kept by its SoC sensor.
+- Card: picking a battery group shows that group's measured SoH (and usable kWh against that group's capacity
+  when new) when towers are measured.
+- **Battery pack state of health sensors (optional)** on the sensors form: each pack's own SoH (Store role
+  `pack_soh`; Solarman on three-phase Deye P3 inverters, up to 20 packs). With no battery state of health sensor,
+  their average (packs reporting 0 or nothing left out) is the reported SoH, so SoH Above Warranty Floor and the
+  card's Actual SoH (battery) work for these batteries.
+- Setup files (Export / Import setup) and diagnostics include the towers and pack SoH sensors.
+
+### Changed
+- The battery state of health sensor's help text: Solarman on three-phase Deye inverters gives each pack's SoH
+  (it said the Deye integrations had none). Solarman's own "Battery SOH", an estimate from total charge, isn't
+  used.
+- Config entry version 1.7 (no change to stored data; towers and pack SoH sensors are optional new fields).
+
 ## v0.2.1 (2026-11-20)
 
 ### TL;DR

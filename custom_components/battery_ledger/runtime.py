@@ -20,7 +20,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import EnergyConverter
 
-from .capacity import CapacityLearner
+from .capacity import CapacityLearner, combine
 from .const import (
     CONF_CAPACITY_ENTITY,
     CONF_CHARGED_ENTITY,
@@ -36,7 +36,13 @@ from .const import (
     LIVE_OPTIONS,
     CONF_INSTALL_DATE,
     CONF_MODULES,
+    CONF_PACK_SOH,
     CONF_SOC_ENTITY,
+    CONF_TOWERS,
+    TOWER_CHARGED,
+    TOWER_DISCHARGED,
+    TOWER_GROUP,
+    TOWER_SOC,
     DOMAIN,
     CONF_SOH_ENTITY,
     CONF_SPEC,
@@ -89,20 +95,37 @@ class LedgerRuntime:
         # Measured usable capacity, learned from state-of-charge runs (only with a SoC sensor)
         self.learner: CapacityLearner | None = None
         self._learner_soc: str | None = None  # the SoC sensor it learned from
+        # With battery towers: one learner per tower instead, each kept by its tower's SoC sensor
+        self.tower_learners: list[CapacityLearner] = []
         self._capacity_store: Store = Store(hass, CAPACITY_STORE_VERSION, capacity_store_key(entry.entry_id))
 
+    @property
+    def towers(self) -> list[dict]:
+        return self.config.get(CONF_TOWERS) or []
+
     async def async_load(self) -> None:
-        """Load what the capacity learner has recorded; it starts again when the SoC sensor changes."""
+        """Load what the capacity learners have recorded. Towers, if set up, are measured instead of the whole
+        battery's SoC sensor; each learner starts again when its SoC sensor changes."""
+        towers = self.towers
         soc_entity = self.config.get(CONF_SOC_ENTITY)
-        if not soc_entity:
+        if not towers and not soc_entity:
             return
         data = await self._capacity_store.async_load() or {}
-        if data.get("soc_entity") != soc_entity:
-            data = {}
+        if towers:
+            saved = data.get("towers") if isinstance(data.get("towers"), dict) else {}
+            self.tower_learners = [CapacityLearner(saved.get(t[TOWER_SOC])) for t in towers]
+            return
         self._learner_soc = soc_entity
-        self.learner = CapacityLearner(data.get("learner"))
+        self.learner = CapacityLearner(data.get("learner") if data.get("soc_entity") == soc_entity else None)
+
+    @property
+    def measuring(self) -> bool:
+        return self.learner is not None or bool(self.tower_learners)
 
     def _capacity_data(self) -> dict[str, Any]:
+        if self.tower_learners:
+            return {"towers": {t[TOWER_SOC]: dict(lr.state)
+                               for t, lr in zip(self.towers, self.tower_learners, strict=True)}}
         return {"soc_entity": self._learner_soc, "learner": dict(self.learner.state)}
 
     def _save_capacity(self) -> None:
@@ -111,7 +134,7 @@ class LedgerRuntime:
 
     async def async_save_capacity(self) -> None:
         """On unload: write now, so a reload doesn't lose a run recorded since the last save."""
-        if self.learner is not None:
+        if self.measuring:
             await self._capacity_store.async_save(self._capacity_data())
 
     def remember_entry(self) -> None:
@@ -158,6 +181,9 @@ class LedgerRuntime:
         cfg = self.config
         ids = [cfg.get(k) for k in (CONF_CHARGED_ENTITY, CONF_DISCHARGED_ENTITY,
                                      CONF_CAPACITY_ENTITY, CONF_SOH_ENTITY, CONF_SOC_ENTITY)]
+        ids += list(cfg.get(CONF_PACK_SOH) or [])
+        for t in cfg.get(CONF_TOWERS) or []:
+            ids += [t.get(TOWER_SOC), t.get(TOWER_CHARGED), t.get(TOWER_DISCHARGED)]
         for m in self.modules:
             ids += [m.get(MOD_DISCHARGED), m.get(MOD_SOC)]
         return [e for e in ids if e]
@@ -273,6 +299,10 @@ class LedgerRuntime:
         soh = self._read_number(cfg.get(CONF_SOH_ENTITY))
         if soh is not None and soh <= 0:
             soh = None  # 0% is a source that doesn't report SoH (e.g. publishing 0), not a dead battery
+        if soh is None and cfg.get(CONF_PACK_SOH):
+            # No whole-battery SoH: the average of the packs that report one
+            packs = [v for e in cfg[CONF_PACK_SOH] if (v := self._read_number(e)) is not None and v > 0]
+            soh = sum(packs) / len(packs) if packs else None
 
         module_kwh: dict[int, dict[str, float]] = {}
         module_soc: dict[str, float] = {}
@@ -284,6 +314,16 @@ class LedgerRuntime:
             if soc is not None:
                 module_soc[m[MOD_ID]] = soc
 
+        tower_measured = []
+        if self.tower_learners:
+            recorded = False
+            for t, learner in zip(self.towers, self.tower_learners, strict=True):
+                if self._valid(self.hass.states.get(t[TOWER_SOC])):  # a fresh reading only, as below
+                    recorded |= learner.observe(self._read_number(t[TOWER_SOC]), self._read_kwh(t.get(TOWER_CHARGED)),
+                                                self._read_kwh(t.get(TOWER_DISCHARGED)))
+                tower_measured.append((int(t.get(TOWER_GROUP, 0)), learner.measured()))
+            if recorded:
+                self._save_capacity()
         if self.learner is not None:
             # Only a fresh SoC reading: a remembered one beside new energy figures would invent a run
             soc_state = self.hass.states.get(self._learner_soc)
@@ -304,7 +344,9 @@ class LedgerRuntime:
                 module_soc=module_soc,
                 esl_years=self.config.get(CONF_ESL_YEARS),
                 export_setting=self.config.get(CONF_EXPORT_SETTING) or EXPORT_WARRANTY,
-                measured=self.learner.measured() if self.learner is not None else None,
+                measured=combine([m for _g, m in tower_measured]) if tower_measured
+                else self.learner.measured() if self.learner is not None else None,
+                tower_measured=tower_measured,
             ))
             self.problem = None
         except (SpecError, KeyError, ValueError) as err:

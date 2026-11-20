@@ -25,6 +25,12 @@ from .const import (
     CONF_GROUPS,
     CONF_INSTALL_DATE,
     CONF_MODULES,
+    CONF_PACK_SOH,
+    CONF_TOWERS,
+    TOWER_CHARGED,
+    TOWER_DISCHARGED,
+    TOWER_GROUP,
+    TOWER_SOC,
     CONF_PROFILE,
     CONF_SOC_ENTITY,
     CONF_SOH_ENTITY,
@@ -71,6 +77,8 @@ def build_export(title: str, data: dict[str, Any], options: dict[str, Any], toda
         CONF_GROUPS: groups,
         "sensors": {k: current[k] for k in SENSOR_KEYS if current.get(k)},
         CONF_MODULES: [{MOD_ID: m[MOD_ID], MOD_GROUP: m[MOD_GROUP]} for m in data.get(CONF_MODULES) or []],
+        CONF_TOWERS: [dict(t) for t in data.get(CONF_TOWERS) or []],
+        CONF_PACK_SOH: list(current.get(CONF_PACK_SOH) or []),
         "card_settings": card_settings,
         CONF_ESL_YEARS: current.get(CONF_ESL_YEARS),
         CONF_EXPORT_SETTING: current.get(CONF_EXPORT_SETTING),
@@ -123,6 +131,14 @@ def parse_export(text: str) -> dict[str, Any]:
         if isinstance(m, dict) and isinstance(m.get(MOD_ID), str) and isinstance(m.get(MOD_GROUP), int) \
                 and 0 <= m[MOD_GROUP] < len(checked):
             modules[m[MOD_ID]] = m[MOD_GROUP]
+    towers = []
+    for t in export.get(CONF_TOWERS) or []:
+        if isinstance(t, dict) and isinstance(t.get(TOWER_SOC), str) and isinstance(t.get(TOWER_GROUP), int) \
+                and 0 <= t[TOWER_GROUP] < len(checked):
+            towers.append({TOWER_SOC: t[TOWER_SOC], TOWER_GROUP: t[TOWER_GROUP],
+                           **{k: t[k] if isinstance(t.get(k), str) else None
+                              for k in (TOWER_CHARGED, TOWER_DISCHARGED)}})
+    packs = [e for e in export.get(CONF_PACK_SOH) or [] if isinstance(e, str)]
     name = export.get("name")
     card = export.get("card_settings")
     return {
@@ -132,6 +148,8 @@ def parse_export(text: str) -> dict[str, Any]:
         CONF_GROUPS: checked,
         "sensors": {k: v for k, v in sensors.items() if k in SENSOR_KEYS and isinstance(v, str)},
         CONF_MODULES: modules,  # module serial -> group index
+        CONF_TOWERS: towers,
+        CONF_PACK_SOH: packs,
         "card_settings": card if isinstance(card, dict) else None,
         CONF_ESL_YEARS: _esl(export.get(CONF_ESL_YEARS)),
         CONF_EXPORT_SETTING: export.get(CONF_EXPORT_SETTING)

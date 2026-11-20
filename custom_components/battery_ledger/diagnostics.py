@@ -19,7 +19,13 @@ from .const import (
     CONF_COST,
     CONF_DISCHARGED_ENTITY,
     CONF_MODULES,
+    CONF_PACK_SOH,
     CONF_SOC_ENTITY,
+    CONF_TOWERS,
+    TOWER_CHARGED,
+    TOWER_DISCHARGED,
+    TOWER_GROUP,
+    TOWER_SOC,
     CONF_SOH_ENTITY,
     MOD_DISCHARGED,
     MOD_ID,
@@ -70,6 +76,9 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         "sources": {key: _source(hass, current.get(key)) for key in
                     (CONF_CHARGED_ENTITY, CONF_DISCHARGED_ENTITY, CONF_CAPACITY_ENTITY, CONF_SOH_ENTITY,
                      CONF_SOC_ENTITY)},
+        "towers": [{key: _source(hass, t.get(key)) for key in (TOWER_SOC, TOWER_CHARGED, TOWER_DISCHARGED)}
+                   | {"group": t.get(TOWER_GROUP)} for t in current.get(CONF_TOWERS) or []],
+        "pack_soh": [_source(hass, e) for e in current.get(CONF_PACK_SOH) or []],
         "result": asdict(result) if result is not None else None,
         "store": {"source": index.source, "generated": index.generated, "specs": len(index.specs)},
     }, TO_REDACT))

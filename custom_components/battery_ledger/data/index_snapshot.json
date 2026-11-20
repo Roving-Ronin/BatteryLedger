@@ -1,7 +1,7 @@
 {
  "index_format": 1,
  "schema_version": 1,
- "generated": "2026-11-20T01:30:34+00:00",
+ "generated": "2026-11-20T03:04:05+00:00",
  "count": 34,
  "brands": [
   "AlphaESS",
@@ -2017,7 +2017,7 @@
   {
    "schema_version": 1,
    "id": "byd-battery-box-redpomodoro",
-   "profile_version": 3,
+   "profile_version": 4,
    "name": "BYD Battery Box (redpomodoro)",
    "integration": {
     "platform": "byd_battery_box",
@@ -2088,6 +2088,84 @@
       "default_entity_ids": [
        "sensor.battery_management_unit_state_of_charge"
       ]
+     }
+    ],
+    "tower_soc": [
+     {
+      "level": "inverter",
+      "unique_id": "bydb_bms1_soc",
+      "default_entity_ids": [
+       "sensor.bms_1_state_of_charge"
+      ],
+      "tower": 1
+     },
+     {
+      "level": "inverter",
+      "unique_id": "bydb_bms2_soc",
+      "default_entity_ids": [
+       "sensor.bms_2_state_of_charge"
+      ],
+      "tower": 2
+     },
+     {
+      "level": "inverter",
+      "unique_id": "bydb_bms3_soc",
+      "default_entity_ids": [
+       "sensor.bms_3_state_of_charge"
+      ],
+      "tower": 3
+     }
+    ],
+    "tower_charged_energy": [
+     {
+      "level": "inverter",
+      "unique_id": "bydb_bms1_charge_lfte",
+      "default_entity_ids": [
+       "sensor.bms_1_charge_total_energy"
+      ],
+      "tower": 1
+     },
+     {
+      "level": "inverter",
+      "unique_id": "bydb_bms2_charge_lfte",
+      "default_entity_ids": [
+       "sensor.bms_2_charge_total_energy"
+      ],
+      "tower": 2
+     },
+     {
+      "level": "inverter",
+      "unique_id": "bydb_bms3_charge_lfte",
+      "default_entity_ids": [
+       "sensor.bms_3_charge_total_energy"
+      ],
+      "tower": 3
+     }
+    ],
+    "tower_discharged_energy": [
+     {
+      "level": "inverter",
+      "unique_id": "bydb_bms1_discharge_lfte",
+      "default_entity_ids": [
+       "sensor.bms_1_discharge_total_energy"
+      ],
+      "tower": 1
+     },
+     {
+      "level": "inverter",
+      "unique_id": "bydb_bms2_discharge_lfte",
+      "default_entity_ids": [
+       "sensor.bms_2_discharge_total_energy"
+      ],
+      "tower": 2
+     },
+     {
+      "level": "inverter",
+      "unique_id": "bydb_bms3_discharge_lfte",
+      "default_entity_ids": [
+       "sensor.bms_3_discharge_total_energy"
+      ],
+      "tower": 3
      }
     ]
    },
@@ -2414,7 +2492,7 @@
   {
    "schema_version": 1,
    "id": "huawei-solar-wlcrs",
-   "profile_version": 6,
+   "profile_version": 7,
    "name": "Huawei Solar (wlcrs)",
    "integration": {
     "platform": "huawei_solar",
@@ -2545,6 +2623,60 @@
        "sensor.batteries_state_of_capacity"
       ]
      }
+    ],
+    "tower_soc": [
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_1_state_of_capacity",
+      "default_entity_ids": [
+       "sensor.battery_1_state_of_capacity"
+      ],
+      "tower": 1
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_2_state_of_capacity",
+      "default_entity_ids": [
+       "sensor.battery_2_state_of_capacity"
+      ],
+      "tower": 2
+     }
+    ],
+    "tower_charged_energy": [
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_1_total_charge",
+      "default_entity_ids": [
+       "sensor.battery_1_total_charge"
+      ],
+      "tower": 1
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_2_total_charge",
+      "default_entity_ids": [
+       "sensor.battery_2_total_charge"
+      ],
+      "tower": 2
+     }
+    ],
+    "tower_discharged_energy": [
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_1_total_discharge",
+      "default_entity_ids": [
+       "sensor.battery_1_total_discharge"
+      ],
+      "tower": 1
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{serial}_storage_unit_2_total_discharge",
+      "default_entity_ids": [
+       "sensor.battery_2_total_discharge"
+      ],
+      "tower": 2
+     }
     ]
    },
    "unavailable": {
@@ -2560,7 +2692,7 @@
   {
    "schema_version": 1,
    "id": "sigen-local-modbus",
-   "profile_version": 4,
+   "profile_version": 5,
    "name": "Sigenergy ESS (TypQxQ Local Modbus)",
    "integration": {
     "platform": "sigen",
@@ -2678,6 +2810,36 @@
        "sensor.sigen_inverter_battery_state_of_charge"
       ]
      }
+    ],
+    "tower_soc": [
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_{device}_inverter_ess_battery_soc",
+      "default_entity_ids": [
+       "sensor.sigen_inverter_battery_state_of_charge"
+      ],
+      "tower": 1
+     }
+    ],
+    "tower_charged_energy": [
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_{device}_inverter_ess_accumulated_charge_energy",
+      "default_entity_ids": [
+       "sensor.sigen_inverter_total_charge_energy"
+      ],
+      "tower": 1
+     }
+    ],
+    "tower_discharged_energy": [
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_{device}_inverter_ess_accumulated_discharge_energy",
+      "default_entity_ids": [
+       "sensor.sigen_inverter_total_discharge_energy"
+      ],
+      "tower": 1
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
@@ -2687,7 +2849,7 @@
   {
    "schema_version": 1,
    "id": "sigenergy2mqtt",
-   "profile_version": 4,
+   "profile_version": 5,
    "name": "sigenergy2mqtt (MQTT)",
    "integration": {
     "platform": "mqtt",
@@ -2814,6 +2976,36 @@
        "sensor.sigen_0_inverter_1_battery_soc"
       ]
      }
+    ],
+    "tower_soc": [
+     {
+      "level": "inverter",
+      "unique_id": "{prefix}_{plant}_{inverter}_30601",
+      "default_entity_ids": [
+       "sensor.sigen_0_inverter_1_battery_soc"
+      ],
+      "tower": 1
+     }
+    ],
+    "tower_charged_energy": [
+     {
+      "level": "inverter",
+      "unique_id": "{prefix}_{plant}_{inverter}_30568",
+      "default_entity_ids": [
+       "sensor.sigen_0_inverter_1_accumulated_charge_energy"
+      ],
+      "tower": 1
+     }
+    ],
+    "tower_discharged_energy": [
+     {
+      "level": "inverter",
+      "unique_id": "{prefix}_{plant}_{inverter}_30574",
+      "default_entity_ids": [
+       "sensor.sigen_0_inverter_1_accumulated_discharge_energy"
+      ],
+      "tower": 1
+     }
     ]
    },
    "submitted_by": "Roving-Ronin",
@@ -2823,7 +3015,7 @@
   {
    "schema_version": 1,
    "id": "deye-solarman-davidrapan",
-   "profile_version": 2,
+   "profile_version": 3,
    "name": "Solarman (davidrapan) for Deye",
    "integration": {
     "platform": "solarman",
@@ -2857,6 +3049,148 @@
       "unique_id": "{entry}_battery_sensor",
       "default_entity_ids": [
        "sensor.inverter_battery"
+      ]
+     }
+    ],
+    "pack_soh": [
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_1_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_1_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_2_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_2_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_3_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_3_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_4_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_4_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_5_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_5_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_6_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_6_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_7_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_7_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_8_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_8_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_9_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_9_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_10_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_10_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_11_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_11_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_12_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_12_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_13_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_13_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_14_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_14_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_15_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_15_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_16_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_16_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_17_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_17_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_18_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_18_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_19_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_19_soh"
+      ]
+     },
+     {
+      "level": "inverter",
+      "unique_id": "{entry}_battery_20_soh_sensor",
+      "default_entity_ids": [
+       "sensor.inverter_battery_20_soh"
       ]
      }
     ]

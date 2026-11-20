@@ -87,6 +87,49 @@ def test_inverter_level_used_when_no_plant_sensor():
     assert "discharged_energy" in system.ambiguous
 
 
+def huawei_tower_entities(inverters=("HV2350000001",)):
+    """wlcrs: each inverter's battery units 1 and 2 with their own SoC and lifetime energy."""
+    ents = []
+    for n, serial in enumerate(inverters):
+        ents.append(RegistryEntity(f"sensor.batteries_state_of_capacity{'_' + str(n + 1) if n else ''}",
+                                   "huawei_solar", f"{serial}_storage_state_of_capacity"))
+        for unit in (1, 2):
+            sfx = f"_{n + 1}" if n else ""
+            ents += [RegistryEntity(f"sensor.battery_{unit}_state_of_capacity{sfx}", "huawei_solar",
+                                    f"{serial}_storage_unit_{unit}_state_of_capacity"),
+                     RegistryEntity(f"sensor.battery_{unit}_total_charge{sfx}", "huawei_solar",
+                                    f"{serial}_storage_unit_{unit}_total_charge"),
+                     RegistryEntity(f"sensor.battery_{unit}_total_discharge{sfx}", "huawei_solar",
+                                    f"{serial}_storage_unit_{unit}_total_discharge")]
+    return ents
+
+
+def test_detect_towers_per_inverter():
+    """Every battery unit on every inverter is a tower with its own SoC and energy counters."""
+    [system] = detect(PROFILES["huawei-solar-wlcrs"], huawei_tower_entities(("HV2350000001", "HV2350000002")))
+    towers = system.measurable_towers()
+    assert len(towers) == 4
+    assert towers[0] == {"tower_soc": "sensor.battery_1_state_of_capacity",
+                         "tower_charged_energy": "sensor.battery_1_total_charge",
+                         "tower_discharged_energy": "sensor.battery_1_total_discharge"}
+    assert towers[3]["tower_soc"] == "sensor.battery_2_state_of_capacity_2"
+    # Sigen: one tower (stack) per inverter
+    ents = [RegistryEntity(f"sensor.sigen_0_inverter_{i}_battery_soc", "mqtt", f"sigen_0_00{i}_30601") for i in (1, 2)]
+    ents += [RegistryEntity(f"sensor.sigen_0_inverter_{i}_charge", "mqtt", f"sigen_0_00{i}_30568") for i in (1, 2)]
+    [system] = detect(PROFILES["sigenergy2mqtt"], ents)
+    assert [t["tower_soc"] for t in system.measurable_towers()] == [
+        "sensor.sigen_0_inverter_1_battery_soc", "sensor.sigen_0_inverter_2_battery_soc"]
+
+
+def test_detect_pack_soh():
+    entry = "01JCX4ZQ8T5V2M3N4P5Q6R7S8T"
+    ents = [RegistryEntity(f"sensor.inverter_battery_{n}_soh", "solarman", f"{entry}_battery_{n}_soh_sensor")
+            for n in (1, 2, 3)]
+    ents.append(RegistryEntity("sensor.inverter_battery_soh", "solarman", f"{entry}_battery_soh_sensor"))  # estimate
+    [system] = detect(PROFILES["deye-solarman-davidrapan"], ents)
+    assert system.pack_soh == [f"sensor.inverter_battery_{n}_soh" for n in (1, 2, 3)]
+
+
 def test_assign_modules_by_capacity():
     out, unassigned, counts = assign_modules({"a": 8.06, "b": 9.04, "c": 8.06}, [(8.06, 2), (9.04, 1)])
     assert out == {"a": 0, "b": 1, "c": 0} and unassigned == [] and counts == [(2, 2), (1, 1)]
@@ -880,8 +923,9 @@ def test_soh_help_text_matches_the_store():
     assert brands - with_soh == {"Huawei", "iStore"}
     assert {p["id"] for p in profiles if "soh" not in p["roles"]} == {
         "deye-esphome-lewa-reka", "deye-solarman-davidrapan", "fronius-modbus-redpomodoro"}
+    assert {p["id"] for p in profiles if "pack_soh" in p["roles"]} == {"deye-solarman-davidrapan"}
     strings = json.loads((root / "strings.json").read_text())
     for flow in ("config", "options"):
         text = strings[flow]["step"]["system"]["data_description"]["soh_entity"]
-        for name in ("Huawei", "iStore", "Deye", "Solarman", "ESPHome", "Fronius Modbus"):
+        for name in ("Huawei", "iStore", "Deye", "Solarman", "ESPHome", "Fronius Modbus", "three-phase", "pack"):
             assert name in text

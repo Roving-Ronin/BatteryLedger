@@ -119,6 +119,10 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # 0.2.0 (entry 1.6): an optional battery state of charge sensor (soc_entity; absent = none), for measured
         # usable capacity. Nothing to change in stored data.
         minor = 6
+    if version == 1 and minor < 7:
+        # 0.3.0 (entry 1.7): optional battery towers (towers; absent = none) and pack SoH sensors
+        # (pack_soh_entities; absent = none). Nothing to change in stored data.
+        minor = 7
 
     # Future steps go here, oldest first.
 

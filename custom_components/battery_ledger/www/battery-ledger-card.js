@@ -640,7 +640,14 @@ class BatteryLedgerCard extends HTMLElement {
     const curve = g ? g.warranty_floor_pct : this._num("estimated_usable_capacity");  // warranty-allowed SoH today
     const curveKwh = g ? g.warranty_floor_kwh : parseFloat(this._attr("estimated_usable_capacity", "remaining_usable_kwh"));
     const bms = parseFloat(this._attr("soh_above_warranty_floor", "reported_soh_pct"));
-    const measured = this._num("measured_soh");
+    // Measured SoH: with towers, a chosen group's own (from its towers); otherwise the whole battery's
+    const towers = this._attr("measured_usable_capacity", "towers");
+    const groupMeasured = g && Array.isArray(towers) && towers.length ? g.measured_soh_pct : undefined;
+    const measured = groupMeasured !== undefined ? (Number.isFinite(groupMeasured) ? groupMeasured : null)
+      : this._num("measured_soh");
+    // A group's own measured SoH is against that group's usable capacity when new (floor kWh ÷ floor %)
+    const capacityNew = Number.isFinite(groupMeasured) && g.warranty_floor_pct
+      ? g.warranty_floor_kwh / g.warranty_floor_pct * 100 : initial;
     // The battery's own SoH first; without one, the SoH measured from charge and discharge runs
     const fromMeasured = !Number.isFinite(bms) && measured !== null;
     const soh = fromMeasured ? measured : bms;
@@ -677,7 +684,7 @@ class BatteryLedgerCard extends HTMLElement {
     const actualTile = hasSoh
       ? `<div class="tile"${this._ent(sohEnt)}><div class="lbl">${esc(fromMeasured ? t.actual_soh_measured : t.actual_soh)}</div>
           <div class="big">${this._fmt(soh, 1)}%</div>
-          <div class="lbl">${initial !== null ? esc(fill(t.usable, { kwh: this._fmt(initial * soh / 100, 1) })) : ""}</div>${measuredLine}</div>`
+          <div class="lbl">${capacityNew !== null ? esc(fill(t.usable, { kwh: this._fmt(capacityNew * soh / 100, 1) })) : ""}</div>${measuredLine}</div>`
       : `<div class="tile"><div class="lbl">${esc(t.actual_soh)}</div>${measuring ? measuredLine
           : `<div class="lbl" style="margin-top:6px">${this._noSohHtml(t, setup.soh || {}, setup)}</div>`}</div>`;
     const curveTile = `<div class="tile"${this._ent("estimated_usable_capacity")}><div class="lbl">${esc(t.warranty_allows)}</div>

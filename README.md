@@ -117,8 +117,10 @@ Or add it manually:
 5. **System:** whether cost per
    kWh and cost sensors show the currency symbol (`$`, `$/kWh`, the default) or code
    (`AUD`, `AUD/kWh`, which Home Assistant formats as money in each user's locale), and the sensors (filled in from step 3 if detected): lifetime
-   **charged** and/or **discharged** energy, and optionally rated capacity (hardware check), battery state of
-   health and battery **state of charge** (for [measured capacity](#measured-usable-capacity-and-soh)).
+   **charged** and/or **discharged** energy, and optionally rated capacity (hardware check), battery **state of
+   charge** (for [measured capacity](#measured-usable-capacity-and-soh)), battery state of health, and **battery
+   pack state of health** sensors (each pack's own SoH, e.g. Solarman on a three-phase Deye; with no whole-battery
+   SoH sensor, their average is used).
 
 Later, under **Configure**:
 - **Sensors and currency:** the source sensors and the currency display.
@@ -126,6 +128,8 @@ Later, under **Configure**:
   and battery modules), or add batteries installed later, such as a second stack. The added group's warranty
   start and cost are filled in from Energy Manager's `input_datetime.battery_install_date_2` and
   `input_number.battery_install_cost_2` when you use them. See [Battery groups](#battery-groups).
+- **Battery towers:** each tower's state of charge and energy sensors and its battery group, for measuring each
+  tower (see [Measured usable capacity and SoH](#measured-usable-capacity-and-soh)). 0 removes them.
 - **Battery costs:** what each battery group cost.
 - **Service life and export cost:** Estimated Service Life and the export cost basis (also as the
   `number.battery_ledger_estimated_service_life` and `select.battery_ledger_export_cost_basis` entities).
@@ -323,7 +327,20 @@ battery really holds, using the method from [Energy Pilot](https://github.com/Cl
   (`one_direction`), and the losses aren't cancelled; the other direction's runs attribute is empty.
 - **Measured SoH** is the measured usable capacity ÷ the usable capacity when new (`initial_usable_capacity`).
 
-The runs are kept across restarts and start again if you choose a different state of charge sensor. Like the BMS's
+**Battery towers.** Where each tower (stack) reports its own state of charge and lifetime energy, BatteryLedger
+measures each tower instead of the whole battery: each battery unit on a Huawei inverter (2 per inverter, wlcrs),
+each Sigenergy inverter's battery (Sigenergy Local Modbus, sigenergy2mqtt) and each BYD tower (BYD Battery Box, up
+to 3 on HVS / HVM). Detect finds them and setup shows a **Battery towers** step (how many, then each tower's
+sensors and battery group); Configure → Battery towers changes them for any setup. The whole battery's measured
+capacity is the towers' added up, and each battery group gets its own measured SoH (its towers' capacity ÷ the
+group's usable capacity when new), in Measured SoH's `groups` attribute and on the card when you pick a group.
+Measured Usable Capacity's `towers` attribute has each tower's capacity, SoH (against its share of the group, the
+group's towers taken as equal in size), efficiency, runs and status; the card's run counts are the slowest tower's.
+With towers, the whole battery's state of charge sensor isn't used for measuring. GoodWe's and Deye's second
+battery report SoC and power but no energy of their own, so they're measured as one battery.
+
+The runs are kept across restarts and start again if you choose a different state of charge sensor (per tower:
+a different tower SoC sensor). Like the BMS's
 own SoH, it's an estimate: it's only as good as the state of charge reading, which is least accurate in the middle
 of the range and right after the BMS recalibrates.
 

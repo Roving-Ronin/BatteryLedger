@@ -8,7 +8,7 @@ DOMAIN = "battery_ledger"
 # the copied battery specs) bumps one of these and adds one step to async_migrate_entry
 # in __init__.py, with a test feeding it an entry in the old format.
 CONFIG_ENTRY_VERSION = 1
-CONFIG_ENTRY_MINOR_VERSION = 6
+CONFIG_ENTRY_MINOR_VERSION = 7
 NAME = "BatteryLedger"
 
 STORE_INDEX_URL = "https://roving-ronin.github.io/BatteryLedger-Store/index.json"
@@ -62,6 +62,16 @@ MOD_ID = "id"
 MOD_GROUP = "group"
 MOD_DISCHARGED = "discharged_entity"
 MOD_SOC = "soc_entity"
+
+# Battery towers (stacks) with their own SoC and energy counters (entry 1.7+): each one's usable capacity is measured
+CONF_TOWERS = "towers"
+TOWER_SOC = "soc_entity"
+TOWER_CHARGED = "charged_entity"
+TOWER_DISCHARGED = "discharged_entity"
+TOWER_GROUP = "group"
+MAX_TOWERS = 32
+# Each battery pack's SoH sensor (entry 1.7+): their average stands in for a missing whole-battery SoH sensor
+CONF_PACK_SOH = "pack_soh_entities"
 
 SPEC_SOURCE_MANUAL = "manual"
 MANUAL_ID_PREFIX = "custom-"
