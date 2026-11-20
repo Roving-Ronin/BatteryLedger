@@ -4,6 +4,16 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.3.3 (2026-11-20)
+
+### TL;DR
+- Card: the Financials tiles are always 2 × 2 (Export Cost no longer sits on a row of its own on a wider card)
+
+### Fixed
+- Card, Financials: on a card wide enough for three tiles in a row, Export Cost wrapped onto a row by itself.
+  The four tiles are now always two by two: Value used to date and Remaining Value, then Cost per kWh and
+  Export Cost.
+
 ## v0.3.2 (2026-11-20)
 
 ### TL;DR

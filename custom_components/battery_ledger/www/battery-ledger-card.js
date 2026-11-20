@@ -164,6 +164,8 @@ const STYLE = `
   .bar .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; }
   .spread { display: flex; justify-content: space-between; gap: 8px; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+  /* Financials: always 2 × 2 (value used, remaining value; cost per kWh, export cost), however wide the card */
+  section.financials .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tile { background: var(--bl-tile); border-radius: 8px; padding: 8px 12px; min-width: 0; }
   .big { font-size: 22px; font-weight: 500; line-height: 1.3; }
   /* Money tiles: the figure is centred in the space below its label (the cost per kWh tile is taller). */
