@@ -138,7 +138,13 @@ ROI_SAVINGS_ENTITY = "savings_entity"  # battery only: a running-total savings s
 ROI_OTHER_COSTS = "other_costs"
 ROI_BEFORE = "before"  # savings before these figures start
 ROI_START = "start_date"  # savings counted from (default: the first battery group's install date)
-ROI_OFF = "off"  # Configure → ROI: turn it off
+ROI_OFF = "off"  # Configure → ROI: turned off (kept, so the Repairs notice asking for a choice doesn't come back)
+
+
+def roi_enabled(config: dict) -> bool:
+    """ROI chosen and not turned off."""
+    roi = config.get(CONF_ROI)
+    return bool(roi) and roi.get(ROI_MODE) != ROI_OFF
 HEA_DOMAIN = "home_energy_advisor"
 HEA_BATTERY_SAVINGS_SUFFIX = "_whole_home_battery_savings"  # HEA's Battery Savings unique ID: {entry}_whole_home_...
 HEA_COMPARE = "compare_plans"

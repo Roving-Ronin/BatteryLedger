@@ -629,6 +629,7 @@
               "hea_not_available": "Home Energy Advisor not available",
               "plan_not_found": "Plan not found in Home Energy Advisor",
               "daily_charge_missing": "Home Energy Advisor's current plan needs its daily charge",
+              "current_plan_not_priced": "Home Energy Advisor couldn't price its current plan for some days",
               "no_savings_sensor": "No reading from the savings sensor"
             }
           }
@@ -692,6 +693,49 @@
         },
         "abort": {
           "spec_gone": "This spec is no longer in use or no longer in the Store."
+        }
+      }
+    },
+    "roi_not_set_up": {
+      "title": "BatteryLedger: choose how to work out return on investment ({entry})",
+      "fix_flow": {
+        "step": {
+          "roi": {
+            "title": "ROI (return on investment)",
+            "description": "BatteryLedger 0.4 can work out what your installation has saved, and from that the return on investment, when it pays for itself and the savings over its life (shown in the card's Return on Investment section). It needs a choice before it can start, so please choose one here (Configure → ROI changes it later).\n\nSavings, against what the batteries (and the rest of the installation) cost, give the return on investment and when it pays for itself. Costs are in {currency}.\n\n**Whole installation** uses Home Energy Advisor (1.7 or later): each day, what everything the house used would have cost on the plan you'd be on without solar or battery, less what your current plan actually cost. **Battery only** uses a running total of the battery's own savings, such as Home Energy Advisor's Battery Savings, against the battery groups' costs.\n\nChoose **Off** if you don't want it: this notice won't come back.",
+            "data": {
+              "mode": "Savings",
+              "start_date": "Count savings from (optional)",
+              "before": "Savings before these figures (optional)",
+              "other_costs": "Other system costs (optional)"
+            },
+            "data_description": {
+              "start_date": "Leave empty to start from the first battery group's install date.",
+              "before": "For any time before Home Assistant's statistics (whole installation) or before the savings sensor started (battery only), e.g. from your bills.",
+              "other_costs": "Whole installation only: solar panels, inverter, installation, so the return covers everything the savings come from."
+            }
+          },
+          "roi_plan": {
+            "title": "Plan without solar or battery",
+            "description": "The Home Energy Advisor plan you'd be on if you had no solar or battery. Each day's saving is that plan's cost of everything the house used, all from the grid, less what your current plan actually cost.",
+            "data": {
+              "plan_id": "Plan"
+            }
+          },
+          "roi_sensor": {
+            "title": "Battery savings sensor",
+            "description": "A sensor that keeps a running total of the battery's savings, such as Home Energy Advisor's Battery Savings (filled in when it's found).",
+            "data": {
+              "savings_entity": "Battery savings sensor"
+            }
+          }
+        },
+        "error": {
+          "hea_not_available": "Home Energy Advisor (1.7 or later) isn't installed, loaded or answering. Install or update it, or choose Battery only.",
+          "hea_no_plans": "Home Energy Advisor has no plans besides your current one. Add the plan you'd be on without solar or battery in Home Energy Advisor first."
+        },
+        "abort": {
+          "entry_gone": "This BatteryLedger setup no longer exists."
         }
       }
     }

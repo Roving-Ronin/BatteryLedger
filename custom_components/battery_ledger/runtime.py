@@ -39,6 +39,7 @@ from .const import (
     CONF_MODULES,
     CONF_PACK_SOH,
     CONF_ROI,
+    roi_enabled,
     CONF_SOC_ENTITY,
     CONF_TOWERS,
     ROI_SAVINGS_ENTITY,
@@ -110,7 +111,8 @@ class LedgerRuntime:
 
     async def async_load(self) -> None:
         """Load the savings kept for ROI, and what the capacity learners have recorded."""
-        if roi := self.config.get(CONF_ROI):
+        if roi_enabled(self.config):
+            roi = self.config[CONF_ROI]
             self.savings = SavingsTracker(
                 self.hass, self.entry.entry_id, roi,
                 min(date.fromisoformat(g[CONF_INSTALL_DATE]) for g in self.groups), self._savings_changed)

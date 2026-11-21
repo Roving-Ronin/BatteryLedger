@@ -269,7 +269,7 @@ If a source drops out later, its last reading is used until it's back.
 | `soh_above_warranty_floor` | Reported state of health minus the warranty floor, in percentage points (if a SoH sensor is set) | `reported_soh_pct`, `warranty_floor_pct` |
 | `most_used_module_throughput` | Highest per-module share of its warranted throughput (module tracking) | `worst_module`, `modules`, `module_total_vs_plant_pct` |
 | `module_soc_spread` | Highest minus lowest module state of charge right now (module tracking) | `module_soc` |
-| `savings_to_date` | Savings so far, the typed earlier savings included (Configure → ROI) | `today`, `this_week`, `this_month`, `this_year`, `before_figures`, `days_counted`, `days_since_install`, `plan_without`, `status`, `calculated` |
+| `savings_to_date` | Savings so far, the typed earlier savings included (Configure → ROI) | `today`, `this_week`, `this_month`, `this_year`, `before_figures`, `days_counted`, `days_not_priced`, `days_since_install`, `plan_without`, `status`, `calculated` |
 | `return_on_investment` | (Savings − investment) ÷ investment, % (Configure → ROI) | `investment`, `net_position`, `roi_at_warranty_end`, `roi_at_eosl` |
 | `break_even_date` | When savings reach the investment at the average rate so far (Configure → ROI) | `days_to_go`, `daily_rate`, `confidence` |
 | `projected_lifetime_savings` | Savings by End of Service Life at the average rate so far (Configure → ROI) | `at_warranty_end`, `at_eosl`, `per_year`, `warranty_end`, `end_of_service_life`, `confidence`, `groups` (the same to each battery group's own dates) |
@@ -360,7 +360,8 @@ of the range and right after the BMS recalibrates.
 
 ## Return on investment
 
-Configure → **ROI** works out what the installation has saved, against what it cost:
+Configure → **ROI** works out what the installation has saved, against what it cost. Until a setup has a choice
+(Off included), Settings → Repairs shows a notice asking for one; its **Fix** opens the same form.
 
 - **Whole installation** (needs [Home Energy Advisor](https://github.com/consultingtedds/ha-home-energy-advisor)
   1.7 or later, with your tariff plans in it): each day's saving is what everything the house used would have cost
@@ -383,7 +384,9 @@ The rate is the average saving per day: over the days counted once there are 30 
 so far over the days since the start. The break-even date and projected lifetime savings carry it on to the last
 battery group's warranty end and End of Service Life. With less than a year of savings, `confidence` is `low`:
 seasons move the rate a lot. The savings sensor's `status` says why figures aren't coming (Home Energy Advisor
-missing, the plan deleted, or its current plan still needing its daily charge). The savings are kept in Home
+missing, the plan deleted, or its current plan still needing its daily charge). Days Home Energy Advisor can't
+price its current plan for (its price sensors had no statistics then, e.g. no `state_class`) are left out rather
+than counted as $0: `status` `current_plan_not_priced` and `days_not_priced` show how many. The savings are kept in Home
 Assistant's storage (`battery_ledger.savings.<entry>`) and removed with the setup.
 
 ## What the numbers mean (and don't)

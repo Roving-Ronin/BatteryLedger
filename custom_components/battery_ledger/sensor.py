@@ -29,6 +29,7 @@ from .const import (
     CONF_TOWERS,
     ROI_BEFORE,
     ROI_PLAN_NAME,
+    roi_enabled,
     DOMAIN,
     ENTITY_ID_PREFIX,
     MOD_SOC,
@@ -206,6 +207,7 @@ def _savings_attrs(r: LedgerResult, runtime) -> dict[str, Any]:
             "this_year": roi.this_year, "before_figures": float(cfg.get(ROI_BEFORE) or 0),
             "days_counted": roi.days_counted, "days_since_install": roi.days_since_start,
             "plan_without": cfg.get(ROI_PLAN_NAME), "status": t.status if t else None,
+            "days_not_priced": len(t.not_priced) if t else 0,
             "calculated": t.calculated.isoformat() if t and t.calculated else None}
 
 
@@ -250,7 +252,7 @@ async def async_setup_entry(
         descriptions.append(HEALTH_MARGIN_SENSOR)
     if runtime.config.get(CONF_SOC_ENTITY) or runtime.config.get(CONF_TOWERS):
         descriptions.extend(MEASURED_SENSORS)
-    if runtime.config.get(CONF_ROI):
+    if roi_enabled(runtime.config):
         descriptions.extend(ROI_SENSORS)
     if runtime.modules:
         descriptions.append(WORST_MODULE_SENSOR)
