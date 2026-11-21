@@ -43,9 +43,12 @@ async def test_card_setups_and_settings(hass: HomeAssistant, hass_ws_client):
     await client.send_json_auto_id({"type": "battery_ledger/card/save_settings",
                                     "entry_id": entry.entry_id, "settings": oldest})
     res = await client.receive_json()
-    assert res["success"] and res["result"]["settings"] == {**older, "date_style": "ha"}
+    # ... and the ROI section (0.4.0), not in those settings, is shown by default
+    assert res["success"] and res["result"]["settings"] == {
+        **older, "date_style": "ha", "sections": {**older["sections"], "roi": True}}
 
-    settings = {**older, "cost_decimals": 5, "date_style": "day_month_year"}
+    settings = {**older, "cost_decimals": 5, "date_style": "day_month_year",
+                "sections": {**older["sections"], "roi": True}}
     await client.send_json_auto_id({"type": "battery_ledger/card/save_settings",
                                     "entry_id": entry.entry_id, "settings": settings})
     res = await client.receive_json()
@@ -137,4 +140,4 @@ def test_old_section_names_read_as_new():
     from custom_components.battery_ledger.card import _with_defaults
 
     got = _with_defaults({"cost_decimals": 3, "sections": {"throughput": False, "cost": False, "bogus": True}})
-    assert got["sections"] == {"warranty": True, "usage": False, "financials": False, "health": True}
+    assert got["sections"] == {"warranty": True, "usage": False, "financials": False, "health": True, "roi": True}

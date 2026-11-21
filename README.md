@@ -131,6 +131,7 @@ Later, under **Configure**:
 - **Battery towers:** each tower's state of charge and energy sensors and its battery group, for measuring each
   tower (see [Measured usable capacity and SoH](#measured-usable-capacity-and-soh)). 0 removes them.
 - **Battery costs:** what each battery group cost.
+- **ROI (return on investment):** savings and payback; see [Return on investment](#return-on-investment).
 - **Service life and export cost:** Estimated Service Life and the export cost basis (also as the
   `number.battery_ledger_estimated_service_life` and `select.battery_ledger_export_cost_basis` entities).
 - **Update the Store list now:** download the latest Store list straight away (otherwise once a day). If a
@@ -223,6 +224,10 @@ The card has four sections:
   to be left when the warranty ends.
 - **Financials:** value used to date (the `cost_consumed_to_date` sensor), remaining value, cost per kWh (by usage and
   by age), and **Export Cost** with its basis; admins choose the **Export Cost Basis** there.
+- **ROI:** savings to date (today, this week, this month, this year), return on investment to date, the break-even
+  date and projected lifetime savings, once Configure → ROI is set up (the average saving per day is the break-even
+  date's `daily_rate`). With a
+  battery group picked, the projections run to that group's own warranty end and End of Service Life.
 - **Health:** your battery's reported state of health against the warranty curve (Estimated Usable
   Capacity, what the warranty allows at this age and usage), on a scale from the end-of-warranty capacity
   to 100%. A battery that reports no SoH shows the measured SoH instead (**Actual SoH (measured)**), and
@@ -264,6 +269,10 @@ If a source drops out later, its last reading is used until it's back.
 | `soh_above_warranty_floor` | Reported state of health minus the warranty floor, in percentage points (if a SoH sensor is set) | `reported_soh_pct`, `warranty_floor_pct` |
 | `most_used_module_throughput` | Highest per-module share of its warranted throughput (module tracking) | `worst_module`, `modules`, `module_total_vs_plant_pct` |
 | `module_soc_spread` | Highest minus lowest module state of charge right now (module tracking) | `module_soc` |
+| `savings_to_date` | Savings so far, the typed earlier savings included (Configure → ROI) | `today`, `this_week`, `this_month`, `this_year`, `before_figures`, `days_counted`, `days_since_install`, `plan_without`, `status`, `calculated` |
+| `return_on_investment` | (Savings − investment) ÷ investment, % (Configure → ROI) | `investment`, `net_position`, `roi_at_warranty_end`, `roi_at_eosl` |
+| `break_even_date` | When savings reach the investment at the average rate so far (Configure → ROI) | `days_to_go`, `daily_rate`, `confidence` |
+| `projected_lifetime_savings` | Savings by End of Service Life at the average rate so far (Configure → ROI) | `at_warranty_end`, `at_eosl`, `per_year`, `warranty_end`, `end_of_service_life`, `confidence`, `groups` (the same to each battery group's own dates) |
 | `measured_usable_capacity` | Usable capacity measured from charge and discharge runs (if a state of charge sensor is set; see below) | `status`, `charge_runs`, `discharge_runs`, `round_trip_efficiency_pct`, `initial_usable_kwh` |
 | `measured_soh` | Measured usable capacity ÷ usable capacity when new (if a state of charge sensor is set) | `status`, `reported_soh_pct`, `warranty_floor_pct` |
 
@@ -348,6 +357,34 @@ The runs are kept across restarts and start again if you choose a different stat
 a different tower SoC sensor). Like the BMS's
 own SoH, it's an estimate: it's only as good as the state of charge reading, which is least accurate in the middle
 of the range and right after the BMS recalibrates.
+
+## Return on investment
+
+Configure → **ROI** works out what the installation has saved, against what it cost:
+
+- **Whole installation** (needs [Home Energy Advisor](https://github.com/consultingtedds/ha-home-energy-advisor)
+  1.7 or later, with your tariff plans in it): each day's saving is what everything the house used would have cost
+  on **the plan you'd be on without solar or battery** (chosen from Home Energy Advisor's plans), all bought from
+  the grid, less what your current plan actually cost, daily charges and export income included. Home Energy
+  Advisor works this out on request (its `compare_plans` action) rather than keeping it in a sensor, so
+  BatteryLedger asks it for each day since the install date, newest first and a few seconds apart, then redoes the
+  last 35 days each night (late data, corrections) and today every 15 minutes. Every Monday it checks each finished month
+  in one call against the sum of its days and redoes a month that no longer matches, so a price you correct in
+  Home Energy Advisor flows through. Choosing a different plan works everything out again. The investment is the
+  battery groups' costs plus **Other system costs** (panels, inverter, installation).
+- **Battery only**: a running total of the battery's own savings, such as Home Energy Advisor's Battery Savings
+  (found and filled in), against the battery groups' costs. It's noted once a day, so each day's saving is the
+  difference.
+- **Savings before these figures**: an amount you type, for anything before Home Assistant's statistics (or before
+  the savings sensor started), e.g. from your bills. **Count savings from**: the default is the first battery
+  group's install date.
+
+The rate is the average saving per day: over the days counted once there are 30 of them, before that the savings
+so far over the days since the start. The break-even date and projected lifetime savings carry it on to the last
+battery group's warranty end and End of Service Life. With less than a year of savings, `confidence` is `low`:
+seasons move the rate a lot. The savings sensor's `status` says why figures aren't coming (Home Energy Advisor
+missing, the plan deleted, or its current plan still needing its daily charge). The savings are kept in Home
+Assistant's storage (`battery_ledger.savings.<entry>`) and removed with the setup.
 
 ## What the numbers mean (and don't)
 

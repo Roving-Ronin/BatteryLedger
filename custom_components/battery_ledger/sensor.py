@@ -22,10 +22,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     CONF_CAPACITY_ENTITY,
     CONF_PACK_SOH,
+    CONF_ROI,
     CONF_SOC_ENTITY,
     CONF_SOH_ENTITY,
     CONF_SPEC,
     CONF_TOWERS,
+    ROI_BEFORE,
+    ROI_PLAN_NAME,
     DOMAIN,
     ENTITY_ID_PREFIX,
     MOD_SOC,
@@ -149,7 +152,7 @@ EXTRA_SENSORS: tuple[LedgerSensorDescription, ...] = (
 )
 
 SENSORS = YAML_SENSORS + EXTRA_SENSORS
-MONEY_KEYS = {"cost_consumed_to_date"}
+MONEY_KEYS = {"cost_consumed_to_date", "savings_to_date", "projected_lifetime_savings"}
 
 WORST_MODULE_SENSOR = _pct(
     "most_used_module_throughput", "mdi:battery-alert-variant-outline", lambda r: r.worst_module_pct,
@@ -192,6 +195,50 @@ MEASURED_SENSORS: tuple[LedgerSensorDescription, ...] = (
 )
 
 
+def _iso(d) -> str | None:
+    return d.isoformat() if d else None
+
+
+def _savings_attrs(r: LedgerResult, runtime) -> dict[str, Any]:
+    roi, t = r.roi, runtime.savings
+    cfg = runtime.config.get(CONF_ROI) or {}
+    return {"today": roi.today, "this_week": roi.this_week, "this_month": roi.this_month,
+            "this_year": roi.this_year, "before_figures": float(cfg.get(ROI_BEFORE) or 0),
+            "days_counted": roi.days_counted, "days_since_install": roi.days_since_start,
+            "plan_without": cfg.get(ROI_PLAN_NAME), "status": t.status if t else None,
+            "calculated": t.calculated.isoformat() if t and t.calculated else None}
+
+
+# Only with Configure → ROI set up
+ROI_SENSORS: tuple[LedgerSensorDescription, ...] = (
+    LedgerSensorDescription(
+        key="savings_to_date", translation_key="savings_to_date", icon="mdi:piggy-bank-outline",
+        suggested_display_precision=2, state_class=SensorStateClass.TOTAL, unit_fn=lambda code, label: label,
+        value_fn=lambda r: r.roi.savings if r.roi else None, available_without_value=True),
+    LedgerSensorDescription(
+        key="return_on_investment", translation_key="return_on_investment", icon="mdi:chart-line",
+        native_unit_of_measurement=PERCENTAGE, suggested_display_precision=1,
+        state_class=SensorStateClass.MEASUREMENT, value_fn=lambda r: r.roi.roi_pct if r.roi else None,
+        attrs_fn=lambda r: {"investment": r.roi.investment, "net_position": r.roi.net_position,
+                            "roi_at_warranty_end": r.roi.roi_at_warranty_end, "roi_at_eosl": r.roi.roi_at_eosl}
+        if r.roi else {}),
+    LedgerSensorDescription(
+        key="break_even_date", translation_key="break_even_date", icon="mdi:calendar-check",
+        device_class=SensorDeviceClass.DATE, value_fn=lambda r: r.roi.break_even if r.roi else None,
+        attrs_fn=lambda r: {"days_to_go": r.roi.days_to_go, "daily_rate": r.roi.daily_rate,
+                            "confidence": "normal" if r.roi.confident else "low"} if r.roi else {}),
+    LedgerSensorDescription(
+        key="projected_lifetime_savings", translation_key="projected_lifetime_savings", icon="mdi:cash-plus",
+        suggested_display_precision=2, unit_fn=lambda code, label: label,
+        value_fn=lambda r: r.roi.at_eosl if r.roi else None,
+        attrs_fn=lambda r: {"at_warranty_end": r.roi.at_warranty_end, "at_eosl": r.roi.at_eosl,
+                            "per_year": r.roi.per_year, "warranty_end": _iso(r.roi.warranty_end),
+                            "end_of_service_life": _iso(r.roi.eosl),
+                            "confidence": "normal" if r.roi.confident else "low",
+                            "groups": r.roi.groups} if r.roi else {}),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -203,6 +250,8 @@ async def async_setup_entry(
         descriptions.append(HEALTH_MARGIN_SENSOR)
     if runtime.config.get(CONF_SOC_ENTITY) or runtime.config.get(CONF_TOWERS):
         descriptions.extend(MEASURED_SENSORS)
+    if runtime.config.get(CONF_ROI):
+        descriptions.extend(ROI_SENSORS)
     if runtime.modules:
         descriptions.append(WORST_MODULE_SENSOR)
     if sum(1 for m in runtime.modules if m.get(MOD_SOC)) > 1:
@@ -278,6 +327,8 @@ class LedgerSensor(SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         res = self.runtime.result
+        if res is not None and res.roi is not None and self.entity_description.key == "savings_to_date":
+            return _savings_attrs(res, self.runtime)  # with the tracker's status and the typed amount
         if res is None or self.entity_description.attrs_fn is None:
             return None
         return self.entity_description.attrs_fn(res)

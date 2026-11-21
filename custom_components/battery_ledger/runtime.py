@@ -21,6 +21,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import EnergyConverter
 
 from .capacity import CapacityLearner, combine
+from .savings import SavingsTracker
 from .const import (
     CONF_CAPACITY_ENTITY,
     CONF_CHARGED_ENTITY,
@@ -37,8 +38,10 @@ from .const import (
     CONF_INSTALL_DATE,
     CONF_MODULES,
     CONF_PACK_SOH,
+    CONF_ROI,
     CONF_SOC_ENTITY,
     CONF_TOWERS,
+    ROI_SAVINGS_ENTITY,
     TOWER_CHARGED,
     TOWER_DISCHARGED,
     TOWER_GROUP,
@@ -97,6 +100,8 @@ class LedgerRuntime:
         self._learner_soc: str | None = None  # the SoC sensor it learned from
         # With battery towers: one learner per tower instead, each kept by its tower's SoC sensor
         self.tower_learners: list[CapacityLearner] = []
+        # Savings for return on investment (Configure → ROI), when set up
+        self.savings: SavingsTracker | None = None
         self._capacity_store: Store = Store(hass, CAPACITY_STORE_VERSION, capacity_store_key(entry.entry_id))
 
     @property
@@ -104,6 +109,20 @@ class LedgerRuntime:
         return self.config.get(CONF_TOWERS) or []
 
     async def async_load(self) -> None:
+        """Load the savings kept for ROI, and what the capacity learners have recorded."""
+        if roi := self.config.get(CONF_ROI):
+            self.savings = SavingsTracker(
+                self.hass, self.entry.entry_id, roi,
+                min(date.fromisoformat(g[CONF_INSTALL_DATE]) for g in self.groups), self._savings_changed)
+            await self.savings.async_load()
+        await self._async_load_capacity()
+
+    @callback
+    def _savings_changed(self) -> None:
+        if self.ready and self._pending is None:
+            self._pending = async_call_later(self.hass, RECALC_DEBOUNCE_SECONDS, self._run_pending)
+
+    async def _async_load_capacity(self) -> None:
         """Load what the capacity learners have recorded. Towers, if set up, are measured instead of the whole
         battery's SoC sensor; each learner starts again when its SoC sensor changes."""
         towers = self.towers
@@ -133,7 +152,9 @@ class LedgerRuntime:
         self._capacity_store.async_delay_save(lambda: data, CAPACITY_SAVE_DELAY)
 
     async def async_save_capacity(self) -> None:
-        """On unload: write now, so a reload doesn't lose a run recorded since the last save."""
+        """On unload: write now, so a reload doesn't lose a run recorded (or a day's savings) since the last save."""
+        if self.savings is not None:
+            await self.savings.async_flush()
         if self.measuring:
             await self._capacity_store.async_save(self._capacity_data())
 
@@ -186,10 +207,14 @@ class LedgerRuntime:
             ids += [t.get(TOWER_SOC), t.get(TOWER_CHARGED), t.get(TOWER_DISCHARGED)]
         for m in self.modules:
             ids += [m.get(MOD_DISCHARGED), m.get(MOD_SOC)]
+        ids.append((cfg.get(CONF_ROI) or {}).get(ROI_SAVINGS_ENTITY))
         return [e for e in ids if e]
 
     @callback
     def async_start(self) -> None:
+        if self.savings is not None:
+            self.savings.async_start()
+            self._unsubs.append(self.savings.async_stop)
         self._unsubs.append(async_track_state_change_event(self.hass, self._watched(), self._on_state))
         self._unsubs.append(async_track_time_interval(self.hass, self._on_tick, RECALC_INTERVAL))
         if self._sources_ready():
@@ -251,6 +276,14 @@ class LedgerRuntime:
     def _run_pending(self, _now) -> None:
         self._pending = None
         self.recalculate()
+
+    def _roi_input(self):
+        if self.savings is None:
+            return None
+        entity = self.config[CONF_ROI].get(ROI_SAVINGS_ENTITY)
+        if entity:  # battery only: a running-total savings sensor
+            self.savings.observe(self._read_number(entity), dt_util.now().date())
+        return self.savings.roi_input()
 
     @callback
     def _on_tick(self, _now) -> None:
@@ -347,6 +380,7 @@ class LedgerRuntime:
                 measured=combine([m for _g, m in tower_measured]) if tower_measured
                 else self.learner.measured() if self.learner is not None else None,
                 tower_measured=tower_measured,
+                roi=self._roi_input(),
             ))
             self.problem = None
         except (SpecError, KeyError, ValueError) as err:

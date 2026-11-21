@@ -39,6 +39,7 @@ fail (`offline_store`), so tests use the bundled snapshot; keep it that way.
 | `ledger.py` | **All warranty / degradation / cost maths.** Pure Python, no HA imports, unit-tested directly. Never re-implement this maths elsewhere |
 | `detect.py` | Finds sensors from Store sensor profiles (unique-ID templates), per-inverter readings, and assigns modules to battery groups. Pure |
 | `capacity.py` | Measured usable capacity / SoH from state-of-charge runs against the energy counters (after Energy Pilot); `combine()` adds up battery towers. Pure; its state is saved per entry (per tower SoC sensor) by `runtime.py` |
+| `savings.py` | Savings for ROI, kept per day: Home Energy Advisor's `compare_plans` action (whole installation) or a savings sensor (battery only); storage, backfill and refresh. The ROI maths itself is `ledger.compute_roi` |
 | `suggest.py` | Suggests battery model and unit count from capacity, pack/module counts and inverter model text, for the user to confirm. Pure |
 | `store_client.py` | Downloads, caches and searches the Store index; bundled snapshot fallback |
 | `runtime.py` | Per-entry: reads source sensors, converts units, calls `ledger.compute`, signals sensors |

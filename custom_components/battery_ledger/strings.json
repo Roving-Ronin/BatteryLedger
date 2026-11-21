@@ -247,6 +247,7 @@
           "groups": "Battery groups",
           "towers_start": "Battery towers",
           "costs": "Battery costs",
+          "roi": "ROI (return on investment)",
           "service_life": "Service life and export cost",
           "store_refresh": "Update the Store list now",
           "export_setup": "Export setup"
@@ -372,6 +373,35 @@
         "data_description": {
           "charged_entity": "At least one of charged and discharged energy. With both, losses are cancelled out of the measured capacity."
         }
+      },
+      "roi": {
+        "title": "ROI (return on investment)",
+        "description": "Savings, against what the batteries (and the rest of the installation) cost, give the return on investment and when it pays for itself. Costs are in {currency}.\n\n**Whole installation** uses Home Energy Advisor (1.7 or later): each day, what everything the house used would have cost on the plan you'd be on without solar or battery, less what your current plan actually cost. **Battery only** uses a running total of the battery's own savings, such as Home Energy Advisor's Battery Savings, against the battery groups' costs.",
+        "data": {
+          "mode": "Savings",
+          "start_date": "Count savings from (optional)",
+          "before": "Savings before these figures (optional)",
+          "other_costs": "Other system costs (optional)"
+        },
+        "data_description": {
+          "start_date": "Leave empty to start from the first battery group's install date.",
+          "before": "For any time before Home Assistant's statistics (whole installation) or before the savings sensor started (battery only), e.g. from your bills.",
+          "other_costs": "Whole installation only: solar panels, inverter, installation, so the return covers everything the savings come from."
+        }
+      },
+      "roi_plan": {
+        "title": "Plan without solar or battery",
+        "description": "The Home Energy Advisor plan you'd be on if you had no solar or battery. Each day's saving is that plan's cost of everything the house used, all from the grid, less what your current plan actually cost.",
+        "data": {
+          "plan_id": "Plan"
+        }
+      },
+      "roi_sensor": {
+        "title": "Battery savings sensor",
+        "description": "A sensor that keeps a running total of the battery's savings, such as Home Energy Advisor's Battery Savings (filled in when it's found).",
+        "data": {
+          "savings_entity": "Battery savings sensor"
+        }
       }
     },
     "error": {
@@ -380,7 +410,9 @@
       "future_date": "The warranty start date can't be in the future.",
       "last_group": "This is the only battery group. To start again with another battery, delete this setup and add BatteryLedger again.",
       "tower_no_soc": "Choose this tower's state of charge sensor.",
-      "tower_no_energy": "Choose at least one of this tower's lifetime charged and discharged energy sensors."
+      "tower_no_energy": "Choose at least one of this tower's lifetime charged and discharged energy sensors.",
+      "hea_not_available": "Home Energy Advisor (1.7 or later) isn't installed, loaded or answering. Install or update it, or choose Battery only.",
+      "hea_no_plans": "Home Energy Advisor has no plans besides your current one. Add the plan you'd be on without solar or battery in Home Energy Advisor first."
     },
     "abort": {
       "export_done": "Nothing was changed."
@@ -436,6 +468,13 @@
         "usage": "Warranty by usage",
         "esl": "Estimated Service Life (ESL)",
         "cheapest": "Cheapest"
+      }
+    },
+    "roi_mode": {
+      "options": {
+        "installation": "Whole installation (Home Energy Advisor)",
+        "battery": "Battery only (a savings sensor)",
+        "off": "Off"
       }
     }
   },
@@ -575,6 +614,49 @@
               "ok": "Measured",
               "one_direction": "Measured one way only",
               "insufficient": "Learning"
+            }
+          }
+        }
+      },
+      "savings_to_date": {
+        "name": "Savings to Date",
+        "state_attributes": {
+          "status": {
+            "name": "Status",
+            "state": {
+              "ok": "Up to date",
+              "backfilling": "Working out past days",
+              "hea_not_available": "Home Energy Advisor not available",
+              "plan_not_found": "Plan not found in Home Energy Advisor",
+              "daily_charge_missing": "Home Energy Advisor's current plan needs its daily charge",
+              "no_savings_sensor": "No reading from the savings sensor"
+            }
+          }
+        }
+      },
+      "return_on_investment": {
+        "name": "Return on Investment"
+      },
+      "break_even_date": {
+        "name": "Break Even Date",
+        "state_attributes": {
+          "confidence": {
+            "name": "Confidence",
+            "state": {
+              "low": "Low (less than a year of savings)",
+              "normal": "Normal"
+            }
+          }
+        }
+      },
+      "projected_lifetime_savings": {
+        "name": "Projected Lifetime Savings",
+        "state_attributes": {
+          "confidence": {
+            "name": "Confidence",
+            "state": {
+              "low": "Low (less than a year of savings)",
+              "normal": "Normal"
             }
           }
         }

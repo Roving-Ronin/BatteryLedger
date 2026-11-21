@@ -10,7 +10,7 @@ const CARD_VERSION = new URL(import.meta.url).searchParams.get("v") || "dev";  /
 const LOGO_URL = `${new URL("battery-ledger-logo.png", import.meta.url).pathname}?v=${encodeURIComponent(CARD_VERSION)}`;
 const WS_SETUPS = "battery_ledger/card/setups";
 const WS_SAVE = "battery_ledger/card/save_settings";
-const SECTIONS = ["warranty", "usage", "financials", "health"];
+const SECTIONS = ["warranty", "usage", "financials", "roi", "health"];
 const DECIMAL_CHOICES = [2, 3, 4, 5];
 const DATE_STYLES = ["ha", "day_month_year"];
 
@@ -94,6 +94,29 @@ const STRINGS = {
     section_usage: "Usage & Throughput",
     section_financials: "Financials",
     section_health: "Health",
+    section_roi: "ROI",
+    roi: "Return on Investment",
+    roi_savings: "Savings to date:",
+    roi_today: "Today",
+    roi_week: "This week",
+    roi_month: "This month",
+    roi_year: "This year",
+    roi_pct: "ROI to date:",
+    roi_net: "{amount} of {investment}",
+    roi_break_even: "Break even:",
+    roi_paid_back: "Paid back",
+    roi_days_to_go: "in {days} days",
+    roi_lifetime: "Projected lifetime savings:",
+    roi_at_eosl: "by EoSL ({date})",
+    financials: "Financials",
+    roi_at_warranty: "{amount} by warranty end",
+    roi_per_year: "{amount} a year",
+    roi_low_confidence: "Less than a year of savings: projections will move with the seasons.",
+    roi_status_backfilling: "Working out past days…",
+    roi_status_hea_not_available: "Home Energy Advisor isn't available.",
+    roi_status_plan_not_found: "The chosen plan isn't in Home Energy Advisor any more.",
+    roi_status_daily_charge_missing: "Home Energy Advisor's current plan needs its daily charge.",
+    roi_status_no_savings_sensor: "No reading from the savings sensor.",
     cancel: "Cancel",
     save: "Save",
     save_failed: "Couldn't save the settings.",
@@ -153,7 +176,8 @@ const STYLE = `
   .stat.spaced { border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); padding-top: 5px; }
   /* Thin lines between warranty and Remaining Warrantied Usage, and between Financials and Health, when both are
      shown. The section's own 12px gap is split either side of the line, so the card doesn't grow. */
-  section.warranty + section.usage, section.financials + section.health {
+  section.warranty + section.usage, section.financials + section.health, section.financials + section.roi,
+  section.roi + section.health {
     border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); margin-top: 6px; padding-top: 6px; }
   /* The dot hangs in the gap left of the label, so every label's words start in line. */
   .stat .lbl { position: relative; }
@@ -165,7 +189,8 @@ const STYLE = `
   .spread { display: flex; justify-content: space-between; gap: 8px; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
   /* Financials: always 2 × 2 (value used, remaining value; cost per kWh, export cost), however wide the card */
-  section.financials .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  section.financials .tiles, section.roi .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .note { margin-top: 6px; }
   .tile { background: var(--bl-tile); border-radius: 8px; padding: 8px 12px; min-width: 0; }
   .big { font-size: 22px; font-weight: 500; line-height: 1.3; }
   /* Money tiles: the figure is centred in the space below its label (the cost per kWh tile is taller). */
@@ -331,8 +356,11 @@ class BatteryLedgerCard extends HTMLElement {
     if (v === null || v === undefined || !Number.isFinite(Number(v))) return "—";
     const s = this._setup;
     const label = s.currency_label || s.currency || "";
-    if (label && label === s.currency) return `${label} ${this._fmt(v, digits)}`;  // code style, e.g. AUD 2,665.43
-    return `${label}${this._fmt(v, digits)}`;  // symbol style, e.g. $2,665.43
+    // A negative amount with its sign in front: -$24,641.45, not $-24,641.45
+    const sign = Number(v) < 0 ? "-" : "";
+    const amount = this._fmt(Math.abs(Number(v)), digits);
+    if (label && label === s.currency) return `${sign}${label} ${amount}`;  // code style, e.g. AUD 2,665.43
+    return `${sign}${label}${amount}`;  // symbol style, e.g. $2,665.43
   }
 
   _ent(key) {
@@ -369,6 +397,7 @@ class BatteryLedgerCard extends HTMLElement {
       sec.warranty ? this._warranty(t) : "",
       sec.usage ? this._usage(t) : "",
       sec.financials ? this._financials(t, setup) : "",
+      sec.roi !== false ? this._roi(t, setup) : "",
       sec.health ? this._health(t, setup) : "",
       this._footer(t, sec.health),
     ].join("");
@@ -516,7 +545,7 @@ class BatteryLedgerCard extends HTMLElement {
   }
 
   // Several battery groups: All and a chip per group (1, 2, 3 …). A group shows its own warranty, throughput,
-  // warranty-curve and financial figures.
+  // warranty-curve and financial figures, and ROI projections to its own dates.
   _switcher(t) {
     const groups = this._groups();
     if (groups.length < 2) return "";
@@ -605,7 +634,8 @@ class BatteryLedgerCard extends HTMLElement {
         <div class="pair">
         <div class="mid"${this._ent(f.ent.rated)}>${esc(byUsage)} <span class="lbl">${esc(t.rated)}</span></div>
         <div class="mid"${this._ent(f.ent.projected)}>${esc(byAge)} <span class="lbl">${esc(t.projected)}</span></div></div></div>`;
-    return `<section class="financials"><div class="tiles">
+    return `<section class="financials">
+      <div class="section-head"><span class="t">${esc(t.financials)}</span></div><div class="tiles">
       <div class="tile value"${this._ent(f.ent.used)}><div class="lbl">${esc(t.cost_consumed)}</div>
         <div class="big">${esc(this._money(f.used, 2))}</div></div>
       <div class="tile value"${this._ent(f.ent.used)}><div class="lbl">${esc(t.remaining_value)}</div>
@@ -653,6 +683,42 @@ class BatteryLedgerCard extends HTMLElement {
     if (src.configured) return src.source ? fill(t.soh_no_reading, { source: src.source }) : t.soh_no_reading_unknown;
     if (src.available === true) return t.soh_not_set_up;
     return t.soh_not_configured;
+  }
+
+  // Return on investment: only once Configure → ROI is set up (its sensors exist)
+  _roi(t, setup) {
+    if (!setup.entities.savings_to_date) return "";
+    const a = (key) => this._hass.states[setup.entities[key]]?.attributes || {};
+    const s = a("savings_to_date"), r = a("return_on_investment"), b = a("break_even_date"), p = a("projected_lifetime_savings");
+    const roi = this._num("return_on_investment");
+    const breakEven = this._state("break_even_date")?.state;
+    const small = (label, v) => (v === null || v === undefined ? "" : `<div class="mid">${esc(this._money(v, 2))} <span class="lbl">${esc(label)}</span></div>`);
+    const status = s.status && s.status !== "ok" ? `<div class="lbl note">${esc(t[`roi_status_${s.status}`] || s.status)}</div>` : "";
+    const low = b.confidence === "low" ? `<div class="lbl note">${esc(t.roi_low_confidence)}</div>` : "";
+    const beText = !breakEven || breakEven === "unknown" || breakEven === "unavailable" ? "—" : this._date(breakEven);
+    const beSub = b.days_to_go === 0 ? t.roi_paid_back : b.days_to_go ? fill(t.roi_days_to_go, { days: b.days_to_go }) : "";
+    // Projections to the chosen battery group's own warranty end and EoSL; All: the last group's
+    const g = this._picked();
+    const proj = (g && Array.isArray(p.groups) && p.groups[this._group]) || {
+      at_eosl: this._num("projected_lifetime_savings"), at_warranty_end: p.at_warranty_end,
+      end_of_service_life: p.end_of_service_life };
+    return `<section class="roi">
+      <div class="section-head"><span class="t">${esc(t.roi)}</span></div>
+      <div class="tiles">
+        <div class="tile value"${this._ent("savings_to_date")}><div class="lbl">${esc(t.roi_savings)}</div>
+          <div class="big">${esc(this._money(this._num("savings_to_date"), 2))}</div>
+          <div class="pair">${small(t.roi_today, s.today)}${small(t.roi_week, s.this_week)}${small(t.roi_month, s.this_month)}${small(t.roi_year, s.this_year)}</div></div>
+        <div class="tile value"${this._ent("return_on_investment")}><div class="lbl">${esc(t.roi_pct)}</div>
+          <div class="big">${roi === null ? "—" : esc(`${this._fmt(roi, 1)}%`)}</div>
+          ${r.net_position != null && r.investment ? `<div class="lbl">${esc(fill(t.roi_net, { amount: this._money(r.net_position, 2), investment: this._money(r.investment, 2) }))}</div>` : ""}</div>
+        <div class="tile value"${this._ent("break_even_date")}><div class="lbl">${esc(t.roi_break_even)}</div>
+          <div class="big">${esc(beText)}</div>${beSub ? `<div class="lbl">${esc(beSub)}</div>` : ""}</div>
+        <div class="tile value"${this._ent("projected_lifetime_savings")}><div class="lbl">${esc(t.roi_lifetime)}</div>
+          <div class="mid">${esc(this._money(proj.at_eosl, 2))} <span class="lbl">${esc(fill(t.roi_at_eosl, { date: proj.end_of_service_life ? this._date(proj.end_of_service_life) : "—" }))}</span></div>
+          ${proj.at_warranty_end != null ? `<div class="lbl">${esc(fill(t.roi_at_warranty, { amount: this._money(proj.at_warranty_end, 2) }))}</div>` : ""}
+          ${p.per_year != null ? `<div class="lbl">${esc(fill(t.roi_per_year, { amount: this._money(p.per_year, 2) }))}</div>` : ""}</div>
+      </div>${status}${low}
+    </section>`;
   }
 
   _health(t, setup) {

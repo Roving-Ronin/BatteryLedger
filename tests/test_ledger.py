@@ -340,3 +340,78 @@ def test_cost_per_kwh_export_by_age_or_by_usage():
     # No throughput limit: by usage has no figure, so the warranty basis (age) is used
     t = _export_case(400, 10.0, scope_kwh=None, export_setting="usage")
     assert t.export_basis == "age"
+
+
+def _roi_input(days, before=0.0, other=0.0, start=None):
+    return ledger.RoiInput(total=sum(days.values()), days=days, before=before, other_costs=other, start=start)
+
+
+def test_roi_from_daily_savings():
+    """A year of $5 a day against $20,000 of batteries installed a year ago."""
+    install = TODAY - timedelta(days=364)
+    days = {install + timedelta(days=i): 5.0 for i in range(365)}
+    res = ledger.compute(ledger.LedgerInput(
+        groups=[ledger.GroupInput(BAT8, 4, install, cost=20000)], today=TODAY, charged_kwh=4000,
+        roi=_roi_input(days, before=0.0)))
+    r = res.roi
+    assert r.savings == 1825 and r.investment == 20000 and r.net_position == -18175
+    assert r.roi_pct == pytest.approx(-90.9, abs=0.05) and r.daily_rate == 5 and r.confident
+    assert r.days_to_go == 3635 and r.break_even == TODAY + timedelta(days=3635)
+    assert r.today == 5 and r.this_week == 5 * (TODAY.weekday() + 1)
+    assert r.this_month == 5 * TODAY.day and r.this_year == 5 * TODAY.timetuple().tm_yday
+    # Projections run to the warranty end and End of Service Life of the last battery group
+    g = res.groups[0]
+    assert r.warranty_end == g.warranty_end and r.eosl == g.eosl
+    assert r.at_eosl == pytest.approx(1825 + 5 * (g.eosl - TODAY).days)
+    assert r.roi_at_eosl == pytest.approx((r.at_eosl - 20000) / 20000 * 100, abs=0.05)
+    assert r.per_year == pytest.approx(5 * 365.25)
+
+
+
+def test_roi_projections_per_group():
+    """Each group's projections run to its own warranty end and EoSL; the setup's to the last group's."""
+    first_install, added_install = TODAY - timedelta(days=700), TODAY - timedelta(days=100)
+    days = {TODAY - timedelta(days=i): 4.0 for i in range(100)}
+    res = ledger.compute(ledger.LedgerInput(
+        groups=[ledger.GroupInput(BAT8, 4, first_install, cost=20000),
+                ledger.GroupInput(BAT8, 2, added_install, cost=8000)],
+        today=TODAY, charged_kwh=5000, roi=_roi_input(days)))
+    r = res.roi
+    g1, g2 = res.groups
+    assert r.eosl == g2.eosl and r.warranty_end == g2.warranty_end  # the last group's
+    assert [g["end_of_service_life"] for g in r.groups] == [g1.eosl.isoformat(), g2.eosl.isoformat()]
+    assert r.groups[0]["at_eosl"] == pytest.approx(r.savings + 4 * (g1.eosl - TODAY).days)
+    assert r.groups[1]["at_eosl"] == r.at_eosl
+    assert r.groups[0]["roi_at_eosl"] < r.roi_at_eosl
+
+
+def test_roi_whole_installation_and_typed_savings():
+    """Other system costs join the investment; savings before the figures join the savings."""
+    install = TODAY - timedelta(days=9)
+    days = {install + timedelta(days=i): 10.0 for i in range(10)}
+    res = ledger.compute(ledger.LedgerInput(
+        groups=[ledger.GroupInput(BAT8, 2, install, cost=8000)], today=TODAY, charged_kwh=100,
+        roi=_roi_input(days, before=500.0, other=7000.0)))
+    r = res.roi
+    assert r.investment == 15000 and r.savings == 600 and not r.confident
+    # Under 30 days counted: the rate is savings so far (typed included) over the days since the start
+    assert r.daily_rate == 60 and r.days_to_go == 240
+
+
+def test_roi_already_paid_back():
+    install = TODAY - timedelta(days=99)
+    days = {install + timedelta(days=i): 100.0 for i in range(100)}
+    r = ledger.compute(ledger.LedgerInput(
+        groups=[ledger.GroupInput(BAT8, 1, install, cost=5000)], today=TODAY, charged_kwh=100,
+        roi=_roi_input(days))).roi
+    assert r.net_position == 5000 and r.roi_pct == 100 and r.days_to_go == 0
+    assert r.break_even == install + timedelta(days=49)  # the 50th $100 day reached $5,000
+
+
+def test_roi_without_costs():
+    """No battery cost or other costs: savings still count; no ROI, no break-even."""
+    install = TODAY - timedelta(days=40)
+    r = ledger.compute(ledger.LedgerInput(
+        groups=[ledger.GroupInput(BAT8, 1, install)], today=TODAY, charged_kwh=100,
+        roi=_roi_input({TODAY: 3.0}))).roi
+    assert r.savings == 3 and r.investment is None and r.roi_pct is None and r.break_even is None

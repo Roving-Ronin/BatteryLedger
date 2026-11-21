@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 import voluptuous as vol
@@ -26,6 +26,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResu
 from homeassistant.core import callback
 from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.helpers import device_registry as dr
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import selector as sel
 from homeassistant.util import dt as dt_util
@@ -53,6 +54,20 @@ from .const import (
     CONF_MODULES,
     CONF_PROFILE,
     CONF_PACK_SOH,
+    CONF_ROI,
+    HEA_COMPARE,
+    HEA_DOMAIN,
+    ROI_BEFORE,
+    ROI_MODE,
+    ROI_MODE_BATTERY,
+    ROI_MODE_INSTALLATION,
+    ROI_OTHER_COSTS,
+    ROI_PLAN,
+    ROI_PLAN_NAME,
+    ROI_SAVINGS_ENTITY,
+    ROI_START,
+    ROI_OFF,
+    HEA_BATTERY_SAVINGS_SUFFIX,
     CONF_SOC_ENTITY,
     CONF_TOWERS,
     MAX_TOWERS,
@@ -1277,10 +1292,12 @@ class BatteryLedgerOptionsFlow(_TowerSteps, OptionsFlow):
         self._pending_groups: list[dict] = []
         self._module_target = 0
         self._new_modules: dict[str, dict] = {}
+        self._roi: dict = {}
+        self._roi_plans: list[dict] = []
 
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
         return self.async_show_menu(step_id="init", menu_options=[
-            "system", "groups", "towers_start", "costs", "service_life", "store_refresh", "export_setup"])
+            "system", "groups", "towers_start", "costs", "roi", "service_life", "store_refresh", "export_setup"])
 
     async def async_step_towers_start(self, user_input: dict | None = None) -> ConfigFlowResult:
         self._tower_defaults = [dict(t) for t in self.config_entry.data.get(CONF_TOWERS) or []]
@@ -1569,6 +1586,85 @@ class BatteryLedgerOptionsFlow(_TowerSteps, OptionsFlow):
         code = current.get(CONF_CURRENCY) or self.hass.config.currency
         return self.async_show_form(step_id="system", data_schema=schema, errors=errors,
                                     description_placeholders=_currency_placeholders(code))
+
+    # --- Return on investment --------------------------------------------------------------------------------
+    async def async_step_roi(self, user_input: dict | None = None) -> ConfigFlowResult:
+        """Whether and how to work out savings: the whole installation (Home Energy Advisor's plan comparison) or
+        the battery alone (a running-total savings sensor), with the typed amounts."""
+        current = self.config_entry.data.get(CONF_ROI) or {}
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            mode = user_input[ROI_MODE]
+            if mode == ROI_OFF:
+                data = {k: v for k, v in self.config_entry.data.items() if k != CONF_ROI}
+                self.hass.config_entries.async_update_entry(self.config_entry, data=data)
+                return self.async_create_entry(data=dict(self.config_entry.options))
+            self._roi = {ROI_MODE: mode, ROI_START: user_input.get(ROI_START),
+                         ROI_BEFORE: float(user_input.get(ROI_BEFORE) or 0),
+                         ROI_OTHER_COSTS: float(user_input.get(ROI_OTHER_COSTS) or 0)}
+            if mode == ROI_MODE_BATTERY:
+                return await self.async_step_roi_sensor()
+            plans, error = await self._async_hea_plans()
+            if error:
+                errors["base"] = error
+            else:
+                self._roi_plans = plans
+                return await self.async_step_roi_plan()
+        schema = vol.Schema({
+            vol.Required(ROI_MODE, default=current.get(ROI_MODE, ROI_MODE_INSTALLATION)): sel.SelectSelector(
+                sel.SelectSelectorConfig(options=[ROI_MODE_INSTALLATION, ROI_MODE_BATTERY, ROI_OFF],
+                                         translation_key="roi_mode", mode=sel.SelectSelectorMode.LIST)),
+            vol.Optional(ROI_START): sel.DateSelector(),
+            vol.Optional(ROI_BEFORE): _cost_box(),
+            vol.Optional(ROI_OTHER_COSTS): _cost_box(),
+        })
+        suggested = user_input or {k: current[k] for k in (ROI_START, ROI_BEFORE, ROI_OTHER_COSTS) if current.get(k)}
+        code = self.config_entry.data.get(CONF_CURRENCY) or self.hass.config.currency
+        return self.async_show_form(step_id="roi", data_schema=self.add_suggested_values_to_schema(schema, suggested),
+                                    errors=errors, description_placeholders=_currency_placeholders(code))
+
+    async def _async_hea_plans(self) -> tuple[list[dict], str | None]:
+        """Home Energy Advisor's plans, from its comparison of yesterday: those other than the current plan."""
+        start = dt_util.start_of_local_day(dt_util.now().date() - timedelta(days=1))
+        try:
+            answer = await self.hass.services.async_call(
+                HEA_DOMAIN, HEA_COMPARE, {"start": start, "end": start + timedelta(days=1)},
+                blocking=True, return_response=True)
+        except HomeAssistantError:
+            return [], "hea_not_available"
+        plans = [p for p in (answer or {}).get("plans") or [] if not p.get("current") and p.get("id")]
+        return plans, None if plans else "hea_no_plans"
+
+    async def async_step_roi_plan(self, user_input: dict | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            plan = next(p for p in self._roi_plans if p["id"] == user_input[ROI_PLAN])
+            return self._save_roi({**self._roi, ROI_PLAN: plan["id"], ROI_PLAN_NAME: plan.get("name")})
+        current = self.config_entry.data.get(CONF_ROI) or {}
+        ids = [p["id"] for p in self._roi_plans]
+        schema = vol.Schema({vol.Required(ROI_PLAN, default=current.get(ROI_PLAN) if current.get(ROI_PLAN) in ids
+                                          else ids[0]): sel.SelectSelector(sel.SelectSelectorConfig(
+            options=[sel.SelectOptionDict(value=p["id"], label=p.get("name") or p["id"]) for p in self._roi_plans],
+            mode=sel.SelectSelectorMode.DROPDOWN))})
+        return self.async_show_form(step_id="roi_plan", data_schema=schema)
+
+    async def async_step_roi_sensor(self, user_input: dict | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            return self._save_roi({**self._roi, ROI_SAVINGS_ENTITY: user_input[ROI_SAVINGS_ENTITY]})
+        current = (self.config_entry.data.get(CONF_ROI) or {}).get(ROI_SAVINGS_ENTITY)
+        # Home Energy Advisor's Battery Savings (Whole Home), by unique ID
+        found = next((e.entity_id for e in er.async_get(self.hass).entities.values()
+                      if e.platform == HEA_DOMAIN and e.unique_id.endswith(HEA_BATTERY_SAVINGS_SUFFIX)), None)
+        schema = vol.Schema({vol.Required(ROI_SAVINGS_ENTITY): sel.EntitySelector(
+            sel.EntitySelectorConfig(domain="sensor"))})
+        suggested = {ROI_SAVINGS_ENTITY: current or found} if current or found else {}
+        return self.async_show_form(step_id="roi_sensor",
+                                    data_schema=self.add_suggested_values_to_schema(schema, suggested))
+
+    def _save_roi(self, roi: dict) -> ConfigFlowResult:
+        roi = {k: v for k, v in roi.items() if v not in (None, "")}
+        self.hass.config_entries.async_update_entry(self.config_entry,
+                                                    data={**self.config_entry.data, CONF_ROI: roi})
+        return self.async_create_entry(data=dict(self.config_entry.options))
 
     async def async_step_costs(self, user_input: dict | None = None) -> ConfigFlowResult:
         """One form per battery group; the costs are saved with the groups when the last is done."""

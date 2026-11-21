@@ -8,7 +8,7 @@ DOMAIN = "battery_ledger"
 # the copied battery specs) bumps one of these and adds one step to async_migrate_entry
 # in __init__.py, with a test feeding it an entry in the old format.
 CONFIG_ENTRY_VERSION = 1
-CONFIG_ENTRY_MINOR_VERSION = 7
+CONFIG_ENTRY_MINOR_VERSION = 8
 NAME = "BatteryLedger"
 
 STORE_INDEX_URL = "https://roving-ronin.github.io/BatteryLedger-Store/index.json"
@@ -126,3 +126,19 @@ REMOVED_SENSOR_KEYS_1_3 = (
     "rated_life_used", "estimated_remaining_value", "remaining_usable_capacity",
     "degradation_driver", "warranty_status",
 )
+
+# Return on investment (entry 1.8+): Configure → ROI. One dict under CONF_ROI.
+CONF_ROI = "roi"
+ROI_MODE = "mode"
+ROI_MODE_BATTERY = "battery"  # the battery's own savings, against the battery groups' costs
+ROI_MODE_INSTALLATION = "installation"  # the whole installation's, against battery + other system costs
+ROI_PLAN = "plan_id"  # Home Energy Advisor plan the household would be on without solar or battery
+ROI_PLAN_NAME = "plan_name"
+ROI_SAVINGS_ENTITY = "savings_entity"  # battery only: a running-total savings sensor (HEA's Battery Savings)
+ROI_OTHER_COSTS = "other_costs"
+ROI_BEFORE = "before"  # savings before these figures start
+ROI_START = "start_date"  # savings counted from (default: the first battery group's install date)
+ROI_OFF = "off"  # Configure → ROI: turn it off
+HEA_DOMAIN = "home_energy_advisor"
+HEA_BATTERY_SAVINGS_SUFFIX = "_whole_home_battery_savings"  # HEA's Battery Savings unique ID: {entry}_whole_home_...
+HEA_COMPARE = "compare_plans"
