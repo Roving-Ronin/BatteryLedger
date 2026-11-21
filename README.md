@@ -225,8 +225,11 @@ The card has five sections:
 - **Financials:** **Battery value**: what's left of the battery cost, with a bar for the value used so far (the
   `cost_consumed_to_date` sensor). **Cost per kWh**: by usage, by age and the export cost with its basis; admins
   choose the **Export Cost Basis** in the small dropdown beside the tile's label.
-- **Return on Investment:** once Configure → ROI is set up. **Paid back**: savings as a share of the investment,
-  with a bar, the break-even date and time to go, and the ROI at End of Service Life. **Savings to date**: the
+- **Return on Investment:** once Configure → ROI is set up. **Paid back**: savings as a share of the investment and the
+  ROI at End of Service Life, with a bar in savings: the fill is the savings so far (its figure on the bar), the
+  right end the projected savings at the latest of the warranty ends (by age and by usage) and End of Service Life,
+  with markers for break even (white), the warranty end by age (blue) and by usage (green) and EoSL: the amount above
+  each and the date below. Under it, the amount to go and the time to break even. **Savings to date**: the
   prior savings it includes, today, and this week / month / year once each differs from the shorter period, with
   the average saving per day (the break-even date's `daily_rate`) and a year's worth. **Projected lifetime
   savings** at EoSL and at warranty end. With a battery group picked, the projections run to that group's own
@@ -275,7 +278,7 @@ If a source drops out later, its last reading is used until it's back.
 | `savings_to_date` | Savings so far, the typed earlier savings included (Configure → ROI) | `today`, `this_week`, `this_month`, `this_year`, `before_figures`, `days_counted`, `days_not_priced`, `days_since_install`, `plan_without`, `status`, `calculated` |
 | `return_on_investment` | (Savings − investment) ÷ investment, % (Configure → ROI) | `investment`, `net_position`, `roi_at_warranty_end`, `roi_at_eosl` |
 | `break_even_date` | When savings reach the investment at the average rate so far (Configure → ROI) | `days_to_go`, `daily_rate`, `confidence` |
-| `projected_lifetime_savings` | Savings by End of Service Life at the average rate so far (Configure → ROI) | `at_warranty_end`, `at_eosl`, `per_year`, `warranty_end`, `end_of_service_life`, `confidence`, `groups` (the same to each battery group's own dates) |
+| `projected_lifetime_savings` | Savings by End of Service Life at the average rate so far (Configure → ROI) | `at_warranty_end`, `at_eosl`, `per_year`, `warranty_end`, `end_of_service_life`, `usage_end`, `at_usage_end` (the warranty end by usage and the savings by then), `confidence`, `groups` (the same to each battery group's own dates) |
 | `measured_usable_capacity` | Usable capacity measured from charge and discharge runs (if a state of charge sensor is set; see below) | `status`, `charge_runs`, `discharge_runs`, `round_trip_efficiency_pct`, `initial_usable_kwh` |
 | `measured_soh` | Measured usable capacity ÷ usable capacity when new (if a state of charge sensor is set) | `status`, `reported_soh_pct`, `warranty_floor_pct` |
 

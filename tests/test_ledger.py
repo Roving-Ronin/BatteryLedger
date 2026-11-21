@@ -425,3 +425,19 @@ def test_break_even_too_far_out_has_no_date():
     res = ledger.compute_roi(ledger.RoiInput(total=0.02, days={today: 0.02}, start=start), 20000.0, today, start,
                              None, None)
     assert res.break_even is None and res.days_to_go is None
+
+
+def test_projection_at_the_usage_warranty_end():
+    """The card's Paid back bar marks the warranty end by usage too: the savings projected to that date, for the
+    setup and for each battery group."""
+    today = date(2026, 11, 21)
+    start = today - timedelta(days=99)
+    days = {start + timedelta(days=n): 10.0 for n in range(100)}  # $10 a day
+    usage_end, eosl = today + timedelta(days=1000), today + timedelta(days=2000)
+    res = ledger.compute_roi(ledger.RoiInput(total=1000.0, days=days, start=start), 20000.0, today, start,
+                             today + timedelta(days=500), eosl, [(today + timedelta(days=500), eosl, usage_end)],
+                             usage_end)
+    assert res.usage_end == usage_end
+    assert res.at_usage_end == pytest.approx(1000 + 10 * 1000)
+    assert res.groups[0]["usage_end"] == usage_end.isoformat()
+    assert res.groups[0]["at_usage_end"] == pytest.approx(11000)

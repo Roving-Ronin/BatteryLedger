@@ -105,9 +105,13 @@ const STRINGS = {
     export_by: "export ({basis})",
     roi_paid_back_label: "Paid back:",
     roi_paid_of: "{savings} of {investment} · {to_go} to go",
-    roi_paid_all: "{savings} of {investment}",
+    roi_paid_all: "{savings} return on {investment} investment",
+    roi_pct_now: "ROI {pct}",
     roi_end_pct: "{pct} by EoSL",
-    roi_break_even_short: "break even",
+    roi_mark_break_even: "break even",
+    roi_mark_age: "by age",
+    roi_mark_usage: "by usage",
+    roi_mark_eosl: "EoSL",
     roi_prior: "incl. {amount} prior savings",
     roi_rate: "a day · {year} a year",
     roi_paid_back: "Paid back",
@@ -123,7 +127,7 @@ const STRINGS = {
     roi_lifetime: "Projected lifetime savings:",
     roi_at_eosl: "by EoSL ({date})",
     financials: "Financials",
-    roi_by_warranty: "by warranty end",
+    roi_by_warranty: "by warranty end ({date})",
     roi_low_confidence: "Less than a year of savings: projections will move with the seasons.",
     roi_status_backfilling: "Working out past days…",
     roi_status_hea_not_available: "Home Energy Advisor isn't available.",
@@ -164,7 +168,8 @@ const STYLE = `
   :host { --bl-time: var(--info-color, #2b9af3); --bl-tp: var(--success-color, #43a047);
           --bl-warn: var(--warning-color, #ffa600); --bl-bad: var(--error-color, #db4437);
           --bl-ok: var(--success-color, #43a047); --bl-muted: var(--secondary-text-color);
-          --bl-tile: var(--secondary-background-color, rgba(127,127,127,.08)); }
+          --bl-tile: var(--secondary-background-color, rgba(127,127,127,.08));
+          --bl-paid: #26a69a; --bl-mark: #e0e0e0; }
   ha-card { display: block; padding: 16px; position: relative; }
   .head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
   .logo { width: 40px; height: 40px; flex: none; object-fit: contain; }
@@ -256,6 +261,21 @@ const STYLE = `
   .tile .mid + .mid { margin-top: 3px; }
   .tile .mid .lbl { font-weight: 400; }
   .roi-end { color: var(--bl-ok); }
+  .pb { margin: 6px 0 4px; }
+  .pb-ticks { position: relative; font-size: 11px; line-height: 1.25; color: var(--bl-muted); }
+  .pb-ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; text-align: center; }
+  .pb-ticks span.r { transform: translateX(-100%); text-align: right; }
+  .pb-ticks span.l { transform: none; text-align: left; }
+  .pb-money { height: 16px; color: var(--primary-text-color); font-weight: 500; }
+  .pb-dates { height: 30px; margin-top: 4px; }
+  .pb-dates i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
+  .pb-bar { position: relative; height: 18px; border-radius: 9px; background: rgba(127,127,127,.25); margin-top: 2px; }
+  .pb-fill { position: absolute; inset: 0 auto 0 0; border-radius: 9px; background: var(--bl-paid); }
+  .pb-mark { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; border-radius: 1px; z-index: 1; }
+  .pb-in { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; font-size: 12px; font-weight: 600;
+           white-space: nowrap; z-index: 2; }
+  .pb-in.inside { color: #fff; }
+  .tile .big.next { margin-top: 10px; }
   .tile .row.tight { flex-wrap: nowrap; }
   .tile .row.tight > .lbl { white-space: nowrap; }
   select.basis.chip { width: auto; min-width: 0; flex: 0 1 auto; padding: 1px 4px; border-radius: 10px; font-size: 12px; color: var(--bl-muted);
@@ -728,6 +748,47 @@ class BatteryLedgerCard extends HTMLElement {
     return parts.length === 1 ? parts[0] : parts.slice(0, -1).join(t.span_join) + t.span_last + parts.at(-1);
   }
 
+  // Paid back as a bar in savings: the fill is the savings so far (its figure on the bar), the right end the
+  // projected savings at the latest of the warranty ends (by age, by usage) and End of Service Life; markers for
+  // break even (the investment) and those dates, the amount above and the date below each. The projected amounts
+  // come from the sensor; the card only places them.
+  _paidBar(t, savings, inv, breakEven, proj) {
+    if (savings === null) return "";
+    const marks = [
+      inv ? { v: inv, date: breakEven, label: t.roi_mark_break_even, color: "var(--bl-mark)", full: true } : null,
+      proj.at_warranty_end != null ? { v: proj.at_warranty_end, date: proj.warranty_end, label: t.roi_mark_age, color: "var(--bl-time)", dot: true } : null,
+      proj.at_usage_end != null ? { v: proj.at_usage_end, date: proj.usage_end, label: t.roi_mark_usage, color: "var(--bl-tp)", dot: true } : null,
+      proj.at_eosl != null ? { v: proj.at_eosl, date: proj.end_of_service_life, label: t.roi_mark_eosl, color: "var(--bl-muted)" } : null,
+    ].filter(Boolean).sort((x, y) => x.v - y.v);
+    const max = Math.max(savings, ...marks.map((m) => m.v));
+    if (!(max > 0)) return "";
+    const pos = (v) => Math.min(Math.max((v / max) * 100, 0), 100);
+    // Label alignment: centred on the marker, but kept inside the bar at the ends, and drawn to the left of the
+    // marker when the next marker is close (so neighbouring labels don't overlap)
+    marks.forEach((m, i) => {
+      m.p = pos(m.v);
+      const next = marks[i + 1];
+      m.align = m.p >= 92 || (next && pos(next.v) - m.p < 22) ? "r" : m.p <= 8 ? "l" : "";
+    });
+    const at = (m) => m.align === "r" ? `left:calc(${m.p.toFixed(1)}% + 2px)` : `left:${m.p.toFixed(1)}%`;
+    const short = (iso) => {
+      const [y, mo] = iso.split("-").map(Number);
+      const lang = this._hass?.locale?.language || this._hass?.language || "en";
+      return new Intl.DateTimeFormat(lang, { month: "short", year: "numeric" }).format(new Date(y, mo - 1, 1));
+    };
+    const fillPct = pos(savings);
+    const figure = esc(this._cash(savings));
+    // The savings figure inside the fill once there's room for it (about 15% of the bar), else just after it
+    const inside = fillPct >= 15;
+    return `<div class="pb">
+      <div class="pb-ticks pb-money">${marks.map((m) => `<span class="${m.align}" style="${at(m)}">${esc(this._cash(m.v))}</span>`).join("")}</div>
+      <div class="pb-bar"><div class="pb-fill" style="width:${fillPct.toFixed(1)}%"></div>
+        ${marks.map((m) => `<div class="pb-mark" style="left:${m.p.toFixed(1)}%;background:${m.color}"></div>`).join("")}
+        <span class="pb-in${inside ? " inside" : ""}" style="${inside ? `right:calc(${(100 - fillPct).toFixed(1)}% + 8px)` : `left:calc(${fillPct.toFixed(1)}% + 6px)`}">${figure}</span></div>
+      <div class="pb-ticks pb-dates">${marks.map((m) => `<span class="${m.align}" style="${at(m)}">${m.date ? esc(m.full ? this._date(m.date) : short(m.date)) : ""}<br>${m.dot ? `<i style="background:${m.color}"></i>` : ""}${esc(m.label)}</span>`).join("")}</div>
+    </div>`;
+  }
+
   // Return on investment: only once Configure → ROI is set up (its sensors exist)
   _roi(t, setup) {
     if (!setup.entities.savings_to_date) return "";
@@ -745,7 +806,8 @@ class BatteryLedgerCard extends HTMLElement {
     const g = this._picked();
     const proj = (g && Array.isArray(p.groups) && p.groups[this._group]) || {
       at_eosl: this._num("projected_lifetime_savings"), at_warranty_end: p.at_warranty_end,
-      end_of_service_life: p.end_of_service_life, roi_at_eosl: r.roi_at_eosl };
+      end_of_service_life: p.end_of_service_life, warranty_end: p.warranty_end, roi_at_eosl: r.roi_at_eosl,
+      usage_end: p.usage_end, at_usage_end: p.at_usage_end };
 
     // Paid back: savings as a share of the investment, with the break-even date and where ROI ends up at EoSL
     const inv = Number(r.investment) || null;
@@ -753,16 +815,18 @@ class BatteryLedgerCard extends HTMLElement {
     const toGo = inv && savings !== null ? inv - savings : null;
     const endPct = proj.roi_at_eosl != null
       ? `<span class="lbl roi-end">${esc(fill(t.roi_end_pct, { pct: `${proj.roi_at_eosl > 0 ? "+" : ""}${this._fmt(proj.roi_at_eosl, 0)}%` }))}</span>` : "";
-    const beDate = known(breakEven) ? `<span class="mid"${this._ent("break_even_date")}>${esc(this._date(breakEven))} <span class="lbl">${esc(t.roi_break_even_short)}</span></span>` : "";
-    const beSub = b.days_to_go === 0 ? t.roi_paid_back
+    // Paid back: the ROI so far (the return_on_investment sensor) instead of the time to go
+    const roiNow = this._num("return_on_investment");
+    const beSub = b.days_to_go === 0 || (toGo !== null && toGo <= 0)
+      ? (roiNow !== null ? fill(t.roi_pct_now, { pct: `${roiNow > 0 ? "+" : ""}${this._fmt(roiNow, 1)}%` }) : t.roi_paid_back)
       : b.days_to_go && known(breakEven) ? fill(t.roi_in, { span: this._span(t, breakEven) }) : "";
     const paidSub = paid === null ? "" : toGo > 0
       ? fill(t.roi_paid_of, { savings: this._cash(savings), investment: this._cash(inv), to_go: this._cash(toGo) })
       : fill(t.roi_paid_all, { savings: this._cash(savings), investment: this._cash(inv) });
     const paidTile = `<div class="tile stack full"${this._ent("return_on_investment")}>
           <div class="row"><span class="lbl">${esc(t.roi_paid_back_label)}</span>${endPct}</div>
-          <div class="row"><span class="big">${paid === null ? "—" : esc(`${this._fmt(paid, 1)}%`)}</span>${beDate}</div>
-          ${paid === null ? "" : `<div class="bar"><div class="fill" style="width:${Math.min(Math.max(paid, 0), 100).toFixed(1)}%;background:var(--bl-ok)"></div></div>`}
+          <div class="big">${paid === null ? "—" : esc(`${this._fmt(paid, 1)}%`)}</div>
+          ${this._paidBar(t, savings, inv, known(breakEven) ? breakEven : null, proj)}
           <div class="row"><span class="lbl">${esc(paidSub)}</span>${beSub ? `<span class="lbl">${esc(beSub)}</span>` : ""}</div></div>`;
 
     // Savings to date: each period shown once it differs from the shorter one (on the first days they're all the
@@ -785,7 +849,8 @@ class BatteryLedgerCard extends HTMLElement {
     const projTile = `<div class="tile stack"${this._ent("projected_lifetime_savings")}><div class="lbl">${esc(t.roi_lifetime)}</div>
           <div class="big">${esc(this._cash(proj.at_eosl))}</div>
           <div class="lbl">${esc(fill(t.roi_at_eosl, { date: proj.end_of_service_life ? this._date(proj.end_of_service_life) : "—" }))}</div>
-          ${proj.at_warranty_end != null ? `<div class="mid">${esc(this._cash(proj.at_warranty_end))} <span class="lbl">${esc(t.roi_by_warranty)}</span></div>` : ""}</div>`;
+          ${proj.at_warranty_end != null ? `<div class="big next">${esc(this._cash(proj.at_warranty_end))}</div>
+          <div class="lbl">${esc(fill(t.roi_by_warranty, { date: proj.warranty_end ? this._date(proj.warranty_end) : "—" }))}</div>` : ""}</div>`;
     return `<section class="roi">
       <div class="section-head"><span class="t">${esc(t.roi)}</span></div>
       <div class="tiles">${paidTile}${savingsTile}${projTile}</div>${status}${low}
