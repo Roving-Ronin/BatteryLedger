@@ -4,6 +4,20 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.4.1 (2026-11-21)
+
+### TL;DR
+- After a restart, savings no longer show "Home Energy Advisor isn't available" for up to 15 minutes
+- Fixed a setup error just after midnight while savings are still small
+
+### Fixed
+- Whole installation, after a restart: BatteryLedger now waits for Home Assistant to finish starting before asking
+  Home Energy Advisor, and while HEA doesn't answer it asks again every 30 seconds (for up to 30 minutes, then with
+  the 15-minute ask), instead of waiting for the next 15-minute ask. The past days follow as soon as it answers.
+- Return on investment: with only a few cents saved so far (e.g. just after midnight on the first day), the
+  break-even date could be millions of days away, which overflowed and stopped the setup loading. A break-even more
+  than 100 years away now has no date.
+
 ## v0.4.0 (2026-11-21)
 
 ### TL;DR

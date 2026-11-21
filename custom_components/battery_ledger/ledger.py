@@ -178,6 +178,9 @@ class RoiResult:
     groups: list[dict] = field(default_factory=list)
 
 
+BREAK_EVEN_MAX_DAYS = 36525  # 100 years: further out, no break-even date (and date() would overflow)
+
+
 def compute_roi(roi: RoiInput, investment: float | None, today: date, start: date, warranty_end: date | None,
                 eosl: date | None, group_dates: list[tuple[date | None, date | None]] | None = None) -> RoiResult:
     """Return on investment from savings so far. The rate is the average over the days counted once there are
@@ -209,7 +212,8 @@ def compute_roi(roi: RoiInput, investment: float | None, today: date, start: dat
                     break
             break_even = break_even or today
             days_to_go = 0
-        elif rate and rate > 0:
+        elif rate and rate > 0 and -net / rate <= BREAK_EVEN_MAX_DAYS:
+            # Beyond that (e.g. just after midnight, with only a few cents saved so far) there's no useful date
             days_to_go = math.ceil(-net / rate)
             break_even = today + timedelta(days=days_to_go)
 
