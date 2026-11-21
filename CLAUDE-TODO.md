@@ -21,8 +21,16 @@ said go yet.
 - Savings sensor (detected, changeable); for Whole installation, until HEA's new sensor exists, Cost Savings +
   export earnings; optional battery losses cost to subtract.
 - **Returns before these sensors started**: a typed amount added on (the sensors only count from their setup).
-- Sensors: `savings_to_date`, `payback_date`, `net_position` (savings − investment; attributes: projected savings
-  and ROI % at warranty end and EoSL).
+- Sensors (settled 2026-11-21; separate sensors where unit / device class differ, breakdowns as attributes):
+  - `savings_to_date` (money, running total): `today`, `this_week`, `this_month`, `this_year`, `before_figures`,
+    `days_counted` / `days_since_install`, `plan_current`, `plan_without`, `calculated`.
+  - `return_on_investment` (%: (savings − investment) ÷ investment): `investment`, `net_position`,
+    `roi_at_warranty_end`, `roi_at_eosl`.
+  - `break_even_date` (date device class): `days_to_go`, `daily_rate`, `confidence`.
+  - `projected_lifetime_savings` (money, at EoSL at the rate so far): `at_warranty_end`, `at_eosl`, `per_year`.
+- Savings stored **per day** (one `compare_plans` call per day; backfill slowly in the background; redo the last
+  ~35 days nightly; weekly, one call per month compared with the sum of its days, redoing only months that differ;
+  redo everything when the chosen plan changes). Week / month / year are sums of days.
 - Card: a new section **ROI** (Return on Investment), internal key `roi` (section names and keys match, as since
   0.3.2: `usage` = Usage & Throughput, `financials` = Financials); on/off in the card settings like the others.
   Its place among the sections is to settle with the maintainer when it's built (2026-11-20).
