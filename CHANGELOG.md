@@ -4,6 +4,19 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.3.4 (2026-11-21)
+
+### TL;DR
+- Card: Financials follow the battery group switcher, so each group shows its own value used, remaining value,
+  cost per kWh and export cost
+
+### Added
+- Each battery group's own financials, worked out the same way as the setup's but for that group's cost alone:
+  `remaining_value`, `cost_per_kwh_rated` (by usage), `cost_per_kwh_projected` (by age), `cost_per_kwh_export`
+  and its `export_basis`, in each group of the `groups` attribute (Rated Throughput Used). The export cost follows
+  the setup's Export Cost Basis setting. A group without a cost has none.
+- Card: picking a group in the switcher shows that group's Financials; All shows the whole setup's, as before.
+
 ## v0.3.3 (2026-11-20)
 
 ### TL;DR
