@@ -415,3 +415,13 @@ def test_roi_without_costs():
         groups=[ledger.GroupInput(BAT8, 1, install)], today=TODAY, charged_kwh=100,
         roi=_roi_input({TODAY: 3.0}))).roi
     assert r.savings == 3 and r.investment is None and r.roi_pct is None and r.break_even is None
+
+
+def test_break_even_too_far_out_has_no_date():
+    """A few cents saved just after midnight, against a large investment: no break-even date rather than one
+    millions of days away (which overflowed the date)."""
+    today = date(2026, 11, 21)
+    start = today - timedelta(days=20)
+    res = ledger.compute_roi(ledger.RoiInput(total=0.02, days={today: 0.02}, start=start), 20000.0, today, start,
+                             None, None)
+    assert res.break_even is None and res.days_to_go is None

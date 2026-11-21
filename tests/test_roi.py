@@ -8,7 +8,7 @@ import pytest
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.battery_ledger import savings
 from custom_components.battery_ledger.const import CONFIG_ENTRY_MINOR_VERSION, CONFIG_ENTRY_VERSION, DOMAIN
@@ -188,6 +188,25 @@ async def test_backfill_waits_for_home_energy_advisor(hass: HomeAssistant):
     today = dt_util.now().date()
     assert len([d for d in tracker.days if d < today]) == 20
     assert tracker.status == "ok"
+
+
+async def test_retries_every_30_seconds_until_hea_answers(hass: HomeAssistant):
+    """After a restart HEA can take minutes to answer: asked again every 30 seconds (not the next 15-minute ask),
+    and the past days follow once it does."""
+    entry = await _entry(hass, days_ago=5, roi={"mode": "installation", "plan_id": "red", "plan_name": "Red"})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await _settle(hass, entry)
+    tracker = entry.runtime_data.savings
+    assert tracker.status == savings.STATUS_NO_HEA
+
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=31))  # still not there: tried again
+    await _settle(hass, entry)
+    assert tracker.status == savings.STATUS_NO_HEA and tracker._retry is not None
+
+    _fake_hea(hass)
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=62))
+    await _settle(hass, entry)
+    assert tracker.status == "ok" and len(tracker.days) == 6 and tracker._retry is None
 
 
 async def test_days_the_current_plan_isnt_priced(hass: HomeAssistant):

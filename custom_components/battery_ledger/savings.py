@@ -22,7 +22,8 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceNotFound
-from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
+from homeassistant.helpers.event import async_call_later, async_track_time_change, async_track_time_interval
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
@@ -46,6 +47,8 @@ SAVE_DELAY = 30
 LOOK_BACK_DAYS = 35  # late data and Repairs land in the last month or so
 CALL_PAUSE = 2.0  # seconds between calls, so a backfill doesn't load Home Assistant
 TODAY_EVERY = timedelta(minutes=15)  # how often today so far is asked for
+RETRY_EVERY = 30  # seconds: Home Energy Advisor not answering yet (e.g. still starting after a restart)
+RETRY_FOR = timedelta(minutes=30)  # then wait for the next TODAY_EVERY ask instead
 MONTH_TOLERANCE = 0.05  # a month that differs from its days by more than this is redone
 
 # Why there are no (new) figures: shown as the savings sensor's status
@@ -100,6 +103,8 @@ class SavingsTracker:
         self._wake = asyncio.Event()
         self._task: asyncio.Task | None = None
         self._unsubs: list[Callable[[], None]] = []
+        self._retry: Callable[[], None] | None = None
+        self._unanswered_since: datetime | None = None
 
     # --- storage -------------------------------------------------------------------------------------------
     async def async_load(self) -> None:
@@ -154,12 +159,20 @@ class SavingsTracker:
         self._enqueue([today] + sorted((d for d in missing if d not in self.days), reverse=True))
         self._unsubs.append(async_track_time_interval(self.hass, self._on_today, TODAY_EVERY))
         self._unsubs.append(async_track_time_change(self.hass, self._on_night, hour=1, minute=17, second=0))
+        # Only once Home Assistant has started, so Home Energy Advisor has had its turn to load
+        self._unsubs.append(async_at_started(self.hass, self._start_worker))
+
+    @callback
+    def _start_worker(self, _hass: HomeAssistant) -> None:
         self._task = self.hass.async_create_background_task(self._worker(), f"{DOMAIN} savings")
 
     @callback
     def async_stop(self) -> None:
         while self._unsubs:
             self._unsubs.pop()()
+        if self._retry:
+            self._retry()
+            self._retry = None
         if self._task:
             self._task.cancel()
             self._task = None
@@ -180,6 +193,22 @@ class SavingsTracker:
         if today.weekday() == 0:  # Mondays: each finished month, one call each
             months = sorted({(d.year, d.month) for d in self.days if (d.year, d.month) != (today.year, today.month)})
             self._enqueue(months)
+
+    @callback
+    def _retry_soon(self) -> None:
+        """Ask for today again in RETRY_EVERY seconds while Home Energy Advisor isn't answering, for up to RETRY_FOR;
+        an answer then queues the held days again."""
+        now = dt_util.utcnow()
+        self._unanswered_since = self._unanswered_since or now
+        if self._retry or now - self._unanswered_since > RETRY_FOR:
+            return
+
+        @callback
+        def _again(_now: datetime) -> None:
+            self._retry = None
+            self._enqueue([dt_util.now().date()])
+
+        self._retry = async_call_later(self.hass, RETRY_EVERY, _again)
 
     async def _ask(self, start: datetime, end: datetime) -> dict[str, Any] | None:
         try:
@@ -254,7 +283,11 @@ class SavingsTracker:
                 # e.g. HEA still loading after a restart: keep the rest for when today's next ask is answered
                 self._held.extend(i for i in self._queue if i not in self._held and i != dt_util.now().date())
                 self._queue.clear()
-            elif self.status == STATUS_OK and self._held and not isinstance(item, tuple):
+                if self.status == STATUS_NO_HEA:
+                    self._retry_soon()
+            else:
+                self._unanswered_since = None
+            if self.status == STATUS_OK and self._held and not isinstance(item, tuple):
                 self._enqueue(self._held)
                 self._held = []
             if len(self.days) % 10 == 0 or not self._queue:
