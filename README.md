@@ -206,7 +206,10 @@ entry_id: <optional; the first setup is used if left out>
 
 With more than one battery group, a **Battery group** switcher under the title shows **All** (the whole setup)
 or one group (1, 2, 3 …). A group shows its own status, warranty rings, end dates, EoSL, remaining warrantied usage
-and warranty curve (against the battery's reported state of health); Financials stay for the whole setup.
+and warranty curve (against the battery's reported state of health), and its own Financials: value used, remaining
+value, cost per kWh and export cost for that group's cost alone (the Export Cost Basis is one setting for the whole
+setup). These come from the `groups` attribute of `rated_throughput_used` (`remaining_value`,
+`cost_per_kwh_rated`, `cost_per_kwh_projected`, `cost_per_kwh_export`, `export_basis`).
 
 The card has four sections:
 - **Warranty:** two rings show how much of the warranty is used by age (time elapsed) and by usage (throughput).

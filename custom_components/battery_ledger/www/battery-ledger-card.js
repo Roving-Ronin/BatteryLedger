@@ -515,8 +515,8 @@ class BatteryLedgerCard extends HTMLElement {
     return groups.length > 1 && this._group != null && this._group < groups.length ? groups[this._group] : null;
   }
 
-  // Several battery groups: All and a chip per group (1, 2, 3 …). A group shows its own warranty, throughput
-  // and warranty-curve figures; cost stays for the whole setup.
+  // Several battery groups: All and a chip per group (1, 2, 3 …). A group shows its own warranty, throughput,
+  // warranty-curve and financial figures.
   _switcher(t) {
     const groups = this._groups();
     if (groups.length < 2) return "";
@@ -580,41 +580,56 @@ class BatteryLedgerCard extends HTMLElement {
 
   _financials(t, setup) {
     const d = setup.settings.cost_decimals;
+    // A chosen battery group shows its own figures (from the groups attribute); All shows the setup's sensors
+    const g = this._picked();
+    const num = (v) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Number(v));
+    const f = g
+      ? { used: num(g.cost_consumed), remaining: num(g.remaining_value), rated: num(g.cost_per_kwh_rated),
+          projected: num(g.cost_per_kwh_projected), export: num(g.cost_per_kwh_export), basis: g.export_basis,
+          ent: { used: "rated_throughput_used", rated: "rated_throughput_used", projected: "rated_throughput_used",
+                 export: "rated_throughput_used" } }
+      : { used: this._num("cost_consumed_to_date"),
+          remaining: num(parseFloat(this._attr("cost_consumed_to_date", "estimated_remaining_value"))),
+          rated: this._num("cost_per_kwh_rated"), projected: this._num("cost_per_kwh_projected"),
+          export: this._num("cost_per_kwh_export"), basis: this._attr("cost_per_kwh_export", "basis"),
+          ent: { used: "cost_consumed_to_date", rated: "cost_per_kwh_rated", projected: "cost_per_kwh_projected",
+                 export: "cost_per_kwh_export" } };
     // When both cost per kWh figures read the same (e.g. the throughput allowance will all be used before the
     // date end), show the one figure at the size of the others; otherwise both, labelled.
-    const byUsage = this._money(this._num("cost_per_kwh_rated"), d);
-    const byAge = this._money(this._num("cost_per_kwh_projected"), d);
+    const byUsage = this._money(f.rated, d);
+    const byAge = this._money(f.projected, d);
     const costTile = byUsage === byAge
-      ? `<div class="tile value"${this._ent("cost_per_kwh_rated")}><div class="lbl">${esc(t.cost_per_kwh)}</div>
+      ? `<div class="tile value"${this._ent(f.ent.rated)}><div class="lbl">${esc(t.cost_per_kwh)}</div>
         <div class="big">${esc(byUsage)}</div></div>`
       : `<div class="tile value"><div class="lbl">${esc(t.cost_per_kwh)}</div>
         <div class="pair">
-        <div class="mid"${this._ent("cost_per_kwh_rated")}>${esc(byUsage)} <span class="lbl">${esc(t.rated)}</span></div>
-        <div class="mid"${this._ent("cost_per_kwh_projected")}>${esc(byAge)} <span class="lbl">${esc(t.projected)}</span></div></div></div>`;
+        <div class="mid"${this._ent(f.ent.rated)}>${esc(byUsage)} <span class="lbl">${esc(t.rated)}</span></div>
+        <div class="mid"${this._ent(f.ent.projected)}>${esc(byAge)} <span class="lbl">${esc(t.projected)}</span></div></div></div>`;
     return `<section class="financials"><div class="tiles">
-      <div class="tile value"${this._ent("cost_consumed_to_date")}><div class="lbl">${esc(t.cost_consumed)}</div>
-        <div class="big">${esc(this._money(this._num("cost_consumed_to_date"), 2))}</div></div>
-      <div class="tile value"${this._ent("cost_consumed_to_date")}><div class="lbl">${esc(t.remaining_value)}</div>
-        <div class="big">${esc(this._money(parseFloat(this._attr("cost_consumed_to_date", "estimated_remaining_value")), 2))}</div></div>
+      <div class="tile value"${this._ent(f.ent.used)}><div class="lbl">${esc(t.cost_consumed)}</div>
+        <div class="big">${esc(this._money(f.used, 2))}</div></div>
+      <div class="tile value"${this._ent(f.ent.used)}><div class="lbl">${esc(t.remaining_value)}</div>
+        <div class="big">${esc(this._money(f.remaining, 2))}</div></div>
       ${costTile}
-      ${this._export(t, d)}
+      ${this._export(t, d, f)}
     </div></section>`;
   }
 
   // Export Cost (what a home energy manager is given) and its basis, which admins can change.
-  _export(t, d) {
-    const cost = this._num("cost_per_kwh_export");
+  // The basis dropdown is the setup's one setting; a chosen group's export cost follows it.
+  _export(t, d, f) {
+    const cost = f.export;
     const selId = this._setup.entities.export_cost_basis;
     const sel = selId ? this._hass.states[selId] : null;
     if (cost === null && !sel) return "";
-    const basis = this._attr("cost_per_kwh_export", "basis");
+    const basis = f.basis;
     const label = basis ? t[`basis_${basis}`] || basis : "";
     const options = sel?.attributes.options || [];
     const control = !sel ? "" : this._hass.user?.is_admin
       ? `<select class="basis" aria-label="${esc(t.export_basis)}">${options.map((o) => `<option value="${esc(o)}"${o === sel.state ? " selected" : ""}>${esc(t[`option_${o}`] || o)}</option>`).join("")}</select>`
       : `<span class="lbl">${esc(t[`option_${sel.state}`] || sel.state)}</span>`;
-    return `<div class="tile value"><div class="lbl"${this._ent("cost_per_kwh_export")}>${esc(t.export_cost)}</div>
-      <div class="mid"${this._ent("cost_per_kwh_export")}>${esc(this._money(cost, d))} <span class="lbl">${esc(label)}</span></div>
+    return `<div class="tile value"><div class="lbl"${this._ent(f.ent.export)}>${esc(t.export_cost)}</div>
+      <div class="mid"${this._ent(f.ent.export)}>${esc(this._money(cost, d))} <span class="lbl">${esc(label)}</span></div>
       ${sel ? `<div class="basis-row"><div class="lbl">${esc(t.export_basis)}</div>${control}</div>` : ""}
     </div>`;
   }

@@ -185,6 +185,12 @@ class GroupResult:
     usage_end: date | None = None
     cost: float | None = None
     cost_consumed: float | None = None
+    # This group's own financials (as the setup's, for this group alone); None without a cost
+    remaining_value: float | None = None
+    cost_per_kwh_rated: float | None = None
+    cost_per_kwh_projected: float | None = None
+    cost_per_kwh_export: float | None = None
+    export_basis: str | None = None
     # Throughput at the average rate so far until the warranty end date, not capped at the limit.
     projected_uncapped_kwh: float | None = None
     # End of Service Life: warranty start + Estimated Service Life; throughput projected until then
@@ -217,6 +223,11 @@ class GroupResult:
             "energy_source": self.source,
             "cost": _r(self.cost, 2),
             "cost_consumed": _r(self.cost_consumed, 2),
+            "remaining_value": _r(self.remaining_value, 2),
+            "cost_per_kwh_rated": _r(self.cost_per_kwh_rated, 6),
+            "cost_per_kwh_projected": _r(self.cost_per_kwh_projected, 6),
+            "cost_per_kwh_export": _r(self.cost_per_kwh_export, 6),
+            "export_basis": self.export_basis,
             "end_of_service_life": self.eosl.isoformat() if self.eosl else None,
             "projected_throughput_kwh": _r(self.projected_kwh, 0),
             "projected_esl_throughput_kwh": _r(self.projected_esl_kwh, 0),
@@ -334,6 +345,52 @@ def _add_years(start: date, years: float) -> date:
     return end + timedelta(days=round((years - whole) * DAYS_PER_YEAR))
 
 
+def _financials(costed: list[GroupResult], days: int, export_setting: str | None) -> dict:
+    """Value used, remaining value and cost per kWh (by usage, by age, export) for these battery groups (the
+    setup's costed groups, or one group). Each group's cost_consumed must be set."""
+    cost = sum(r.cost for r in costed) if costed else None
+    consumed = sum(r.cost_consumed for r in costed) if costed else None
+    remaining_value = cost - consumed if consumed is not None else None
+    costed_limits = [r.limit_kwh for r in costed]
+    cpk_rated = cost / sum(costed_limits) if cost and costed_limits and None not in costed_limits else None
+    costed_proj = [r.projected_kwh for r in costed]
+    cpk_proj = (cost / sum(costed_proj) if cost and costed_proj and None not in costed_proj and sum(costed_proj) > 0
+                else None)
+
+    # Cost per kWh (Export). Per basis: age (cost ÷ throughput by the warranty end date, not capped), usage
+    # (rated), ESL and SoH trend (cost ÷ throughput over those lives). The warranty basis is the higher of age
+    # and usage: whichever limit ends the warranty first. Usage for the first 30 days, as an early projection
+    # can be far too high for a minimum sell price.
+    def per_kwh(kwhs: list[float | None]) -> float | None:
+        return cost / sum(kwhs) if cost and kwhs and None not in kwhs and sum(kwhs) > 0 else None
+
+    costs: dict[str, float | None] = {
+        BASIS_AGE: per_kwh([r.projected_uncapped_kwh for r in costed]),
+        BASIS_USAGE: cpk_rated,
+        BASIS_ESL: per_kwh([r.projected_esl_kwh for r in costed]),
+        BASIS_SOH_TREND: per_kwh([r.projected_soh_kwh for r in costed]),
+    }
+    cpk_export = export_basis = None
+    if cost and days < LOW_CONFIDENCE_DAYS:
+        if costs[BASIS_USAGE] is not None:
+            export_basis = BASIS_USAGE
+    elif cost:
+        warranty = [b for b in (BASIS_AGE, BASIS_USAGE) if costs[b] is not None]
+        warranty_basis = max(warranty, key=lambda b: costs[b]) if warranty else None
+        chosen = {EXPORT_AGE: BASIS_AGE, EXPORT_USAGE: BASIS_USAGE, EXPORT_ESL: BASIS_ESL}.get(export_setting)
+        if chosen and costs[chosen] is not None:
+            export_basis = chosen  # without that figure (e.g. no throughput limit), the warranty basis
+        elif export_setting == EXPORT_CHEAPEST:
+            choices = [b for b in (warranty_basis, BASIS_ESL, BASIS_SOH_TREND) if b and costs[b] is not None]
+            export_basis = min(choices, key=lambda b: costs[b]) if choices else None
+        else:
+            export_basis = warranty_basis
+    if export_basis:
+        cpk_export = costs[export_basis]
+    return {"cost": cost, "consumed": consumed, "remaining_value": remaining_value, "cpk_rated": cpk_rated,
+            "cpk_proj": cpk_proj, "cpk_export": cpk_export, "export_basis": export_basis, "costs": costs}
+
+
 def compute(inp: LedgerInput) -> LedgerResult:
     if not inp.groups:
         raise SpecError("no battery groups configured")
@@ -440,45 +497,16 @@ def compute(inp: LedgerInput) -> LedgerResult:
     costed = [r for r in results if r.cost is not None]
     for r in costed:
         r.cost_consumed = r.cost * min(r.life_fraction, 1.0)
-    cost = sum(r.cost for r in costed) if costed else None
-    consumed = sum(r.cost_consumed for r in costed) if costed else None
-    remaining_value = cost - consumed if consumed is not None else None
-    costed_limits = [r.limit_kwh for r in costed]
-    cpk_rated = cost / sum(costed_limits) if cost and costed_limits and None not in costed_limits else None
-    costed_proj = [r.projected_kwh for r in costed]
-    cpk_proj = (cost / sum(costed_proj) if cost and costed_proj and None not in costed_proj and sum(costed_proj) > 0
-                else None)
-
-    # Cost per kWh (Export). Per basis: age (cost ÷ throughput by the warranty end date, not capped), usage
-    # (rated), ESL and SoH trend (cost ÷ throughput over those lives). The warranty basis is the higher of age
-    # and usage: whichever limit ends the warranty first. Usage for the first 30 days, as an early projection
-    # can be far too high for a minimum sell price.
-    def per_kwh(kwhs: list[float | None]) -> float | None:
-        return cost / sum(kwhs) if cost and kwhs and None not in kwhs and sum(kwhs) > 0 else None
-
-    costs: dict[str, float | None] = {
-        BASIS_AGE: per_kwh([r.projected_uncapped_kwh for r in costed]),
-        BASIS_USAGE: cpk_rated,
-        BASIS_ESL: per_kwh([r.projected_esl_kwh for r in costed]),
-        BASIS_SOH_TREND: per_kwh([r.projected_soh_kwh for r in costed]),
-    }
-    cpk_export = export_basis = None
-    if cost and max_days < LOW_CONFIDENCE_DAYS:
-        if costs[BASIS_USAGE] is not None:
-            export_basis = BASIS_USAGE
-    elif cost:
-        warranty = [b for b in (BASIS_AGE, BASIS_USAGE) if costs[b] is not None]
-        warranty_basis = max(warranty, key=lambda b: costs[b]) if warranty else None
-        chosen = {EXPORT_AGE: BASIS_AGE, EXPORT_USAGE: BASIS_USAGE, EXPORT_ESL: BASIS_ESL}.get(inp.export_setting)
-        if chosen and costs[chosen] is not None:
-            export_basis = chosen  # without that figure (e.g. no throughput limit), the warranty basis
-        elif inp.export_setting == EXPORT_CHEAPEST:
-            choices = [b for b in (warranty_basis, BASIS_ESL, BASIS_SOH_TREND) if b and costs[b] is not None]
-            export_basis = min(choices, key=lambda b: costs[b]) if choices else None
-        else:
-            export_basis = warranty_basis
-    if export_basis:
-        cpk_export = costs[export_basis]
+    fin = _financials(costed, max_days, inp.export_setting)
+    consumed, remaining_value, costs = fin["consumed"], fin["remaining_value"], fin["costs"]
+    cpk_rated, cpk_proj = fin["cpk_rated"], fin["cpk_proj"]
+    cpk_export, export_basis = fin["cpk_export"], fin["export_basis"]
+    # Each group's own figures, the same way, for the card's group switcher
+    for r in costed:
+        own = _financials([r], r.days_in_service, inp.export_setting)
+        r.remaining_value, r.cost_per_kwh_rated = own["remaining_value"], own["cpk_rated"]
+        r.cost_per_kwh_projected = own["cpk_proj"]
+        r.cost_per_kwh_export, r.export_basis = own["cpk_export"], own["export_basis"]
 
     expected_reported = None
     hardware = None

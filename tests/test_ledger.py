@@ -204,6 +204,30 @@ def test_cost_per_group():
     assert res.cost_per_kwh_rated == pytest.approx(28000 / res.limit_kwh)
     assert g1.as_attributes()["cost"] == 20000 and g2.as_attributes()["cost_consumed"] is not None
 
+    # Each group's own financials, for the card's group switcher
+    assert g1.remaining_value == pytest.approx(20000 - g1.cost_consumed)
+    assert g1.cost_per_kwh_rated == pytest.approx(20000 / g1.limit_kwh)
+    assert g2.cost_per_kwh_rated == pytest.approx(8000 / g2.limit_kwh)
+    assert g1.cost_per_kwh_projected == pytest.approx(20000 / g1.projected_kwh)
+    assert g1.export_basis in ("age", "usage") and g1.cost_per_kwh_export is not None
+    assert g2.as_attributes()["remaining_value"] == pytest.approx(8000 - g2.cost_consumed, abs=0.01)
+
+
+def test_group_financials_match_the_group_alone():
+    """A group's own figures are what the setup shows when that group is its only battery."""
+    first = ledger.GroupInput(BAT8, 4, TODAY - timedelta(days=1461), cost=20000)
+    added = ledger.GroupInput(BAT8, 2, TODAY - timedelta(days=365), cost=8000)
+    both = ledger.compute(ledger.LedgerInput(groups=[first, added], today=TODAY, charged_kwh=3000,
+                                             export_setting="cheapest"))
+    alone = ledger.compute(ledger.LedgerInput(groups=[added], today=TODAY, charged_kwh=both.groups[1].used_kwh,
+                                              export_setting="cheapest"))
+    g2 = both.groups[1]
+    assert g2.remaining_value == pytest.approx(alone.remaining_value)
+    assert g2.cost_per_kwh_rated == pytest.approx(alone.cost_per_kwh_rated)
+    assert g2.cost_per_kwh_projected == pytest.approx(alone.cost_per_kwh_projected)
+    assert g2.cost_per_kwh_export == pytest.approx(alone.cost_per_kwh_export)
+    assert g2.export_basis == alone.export_basis
+
 
 def test_cost_only_on_some_groups():
     """Groups without a cost are left out of the cost figures, not counted as free."""
