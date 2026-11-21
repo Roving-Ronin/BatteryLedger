@@ -32,6 +32,8 @@ from .const import (
 )
 from .card import async_register_card, async_remove_card_settings
 from .runtime import CAPACITY_STORE_VERSION, LedgerRuntime, capacity_store_key
+from .savings import STORE_VERSION as SAVINGS_STORE_VERSION
+from .savings import store_key as savings_store_key
 from .store_client import StoreIndex, async_get_store_index
 
 _LOGGER = logging.getLogger(__name__)
@@ -123,6 +125,9 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # 0.3.0 (entry 1.7): optional battery towers (towers; absent = none) and pack SoH sensors
         # (pack_soh_entities; absent = none). Nothing to change in stored data.
         minor = 7
+    if version == 1 and minor < 8:
+        # 0.4.0 (entry 1.8): optional return on investment settings (roi; absent = off). Nothing to change.
+        minor = 8
 
     # Future steps go here, oldest first.
 
@@ -179,6 +184,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
         ir.async_delete_issue(hass, DOMAIN, issue_id)
     await async_remove_card_settings(hass, entry.entry_id)
     await Store(hass, CAPACITY_STORE_VERSION, capacity_store_key(entry.entry_id)).async_remove()
+    await Store(hass, SAVINGS_STORE_VERSION, savings_store_key(entry.entry_id)).async_remove()
 
 
 def _loaded_entries(hass: HomeAssistant) -> list[ConfigEntry]:

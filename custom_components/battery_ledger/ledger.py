@@ -24,6 +24,7 @@ plant counter.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
@@ -135,6 +136,111 @@ class GroupInput:
     cost: float | None = None
 
 
+ROI_CONFIDENT_DAYS = 365  # a year of savings: before that, seasons skew the rate
+
+
+@dataclass
+class RoiInput:
+    """Savings so far, from the savings tracker. `days` holds each day's saving where known (for the rate and the
+    day / week / month / year figures); `total` is the savings the source has counted (for Home Energy Advisor's
+    action, the sum of the days; for a running-total sensor, its value)."""
+    total: float
+    days: dict[date, float] = field(default_factory=dict)
+    before: float = 0.0  # typed: savings before these figures start
+    other_costs: float = 0.0  # typed: the rest of the installation (panels, inverter...), for whole installation
+    start: date | None = None  # when savings started (default: the first battery group's install date)
+
+
+@dataclass
+class RoiResult:
+    savings: float  # to date, the typed amount included
+    today: float | None
+    this_week: float | None
+    this_month: float | None
+    this_year: float | None
+    days_counted: int
+    days_since_start: int
+    investment: float | None
+    net_position: float | None  # savings − investment
+    roi_pct: float | None
+    daily_rate: float | None
+    break_even: date | None
+    days_to_go: int | None
+    confident: bool
+    warranty_end: date | None
+    eosl: date | None
+    at_warranty_end: float | None
+    at_eosl: float | None
+    per_year: float | None
+    roi_at_warranty_end: float | None
+    roi_at_eosl: float | None
+    # The same projections to each battery group's own warranty end and End of Service Life (the card's switcher)
+    groups: list[dict] = field(default_factory=list)
+
+
+def compute_roi(roi: RoiInput, investment: float | None, today: date, start: date, warranty_end: date | None,
+                eosl: date | None, group_dates: list[tuple[date | None, date | None]] | None = None) -> RoiResult:
+    """Return on investment from savings so far. The rate is the average over the days counted once there are
+    LOW_CONFIDENCE_DAYS of them, before that the savings so far over the days since the start; projections carry
+    it on to the last battery group's warranty end and End of Service Life."""
+    start = roi.start or start
+    savings = roi.total + roi.before
+    counted = {d: v for d, v in roi.days.items() if start <= d <= today}
+    since = max((today - start).days + 1, 1)
+    if len(counted) >= LOW_CONFIDENCE_DAYS:
+        rate = sum(counted.values()) / len(counted)
+    else:
+        rate = savings / since if since >= 1 and savings else None
+
+    def total_from(first: date) -> float | None:
+        return round(sum(v for d, v in counted.items() if d >= first), 2) if counted else None
+
+    week_start = today - timedelta(days=today.weekday())
+    net = savings - investment if investment else None
+    break_even = days_to_go = None
+    if investment:
+        if net >= 0:
+            # Already paid back: the day the running total crossed the investment, where the days say
+            running = savings - sum(counted.values())
+            for d in sorted(counted):
+                running += counted[d]
+                if running >= investment:
+                    break_even = d
+                    break
+            break_even = break_even or today
+            days_to_go = 0
+        elif rate and rate > 0:
+            days_to_go = math.ceil(-net / rate)
+            break_even = today + timedelta(days=days_to_go)
+
+    def at(when: date | None) -> float | None:
+        if when is None or rate is None:
+            return None
+        return savings + rate * max((when - today).days, 0)
+
+    def pct(amount: float | None) -> float | None:
+        return (amount - investment) / investment * 100 if amount is not None and investment else None
+
+    at_w, at_e = at(warranty_end), at(eosl)
+    groups = []
+    for g_warranty, g_eosl in group_dates or []:
+        gw, ge = at(g_warranty), at(g_eosl)
+        groups.append({"warranty_end": g_warranty.isoformat() if g_warranty else None,
+                       "end_of_service_life": g_eosl.isoformat() if g_eosl else None,
+                       "at_warranty_end": _r(gw, 2), "at_eosl": _r(ge, 2),
+                       "roi_at_warranty_end": _r(pct(gw), 1), "roi_at_eosl": _r(pct(ge), 1)})
+    return RoiResult(
+        savings=round(savings, 2), today=counted.get(today), this_week=total_from(week_start),
+        this_month=total_from(today.replace(day=1)), this_year=total_from(today.replace(month=1, day=1)),
+        days_counted=len(counted), days_since_start=since, investment=investment,
+        net_position=round(net, 2) if net is not None else None, roi_pct=_r(pct(savings), 1),
+        daily_rate=_r(rate, 2), break_even=break_even, days_to_go=days_to_go,
+        confident=len(counted) >= ROI_CONFIDENT_DAYS, warranty_end=warranty_end, eosl=eosl,
+        at_warranty_end=_r(at_w, 2), at_eosl=_r(at_e, 2),
+        per_year=_r(rate * DAYS_PER_YEAR, 2) if rate is not None else None,
+        roi_at_warranty_end=_r(pct(at_w), 1), roi_at_eosl=_r(pct(at_e), 1), groups=groups)
+
+
 @dataclass
 class LedgerInput:
     groups: list[GroupInput]
@@ -153,6 +259,8 @@ class LedgerInput:
     measured: Measured | None = None
     # Each battery tower's measurement and the battery group (index) it's in, when towers are measured
     tower_measured: list[tuple[int, Measured]] = field(default_factory=list)
+    # Return on investment (Configure → ROI); None leaves it out
+    roi: RoiInput | None = None
 
 
 @dataclass
@@ -282,6 +390,7 @@ class LedgerResult:
     measured: Measured | None = None
     measured_soh_pct: float | None = None  # measured usable ÷ usable when new
     tower_details: list[dict] = field(default_factory=list)  # each tower's measurement, for the attributes
+    roi: RoiResult | None = None
 
 
 def _pct(frac):
@@ -559,6 +668,11 @@ def compute(inp: LedgerInput) -> LedgerResult:
             "round_trip_efficiency_pct": m.efficiency_pct,
             "charge_runs": m.charge_runs, "discharge_runs": m.discharge_runs})
 
+    # ROI investment: the battery groups' costs, and the rest of the installation where typed (whole installation)
+    investment = None
+    if inp.roi is not None:
+        investment = sum(r.cost for r in costed) + (inp.roi.other_costs or 0.0) or None
+
     return LedgerResult(
         groups=results, limit_kwh=limit_total, used_kwh=used_limited if limited else used_total,
         remaining_kwh=remaining, used_pct=used_pct, projected_kwh=projected_total,
@@ -580,4 +694,10 @@ def compute(inp: LedgerInput) -> LedgerResult:
         measured_soh_pct=inp.measured.usable_kwh / initial_total * 100
         if inp.measured and inp.measured.usable_kwh is not None and initial_total else None,
         projected_esl_kwh=sum(esl_kwh) if (esl_kwh := [r.projected_esl_kwh for r in results]) and None not in esl_kwh
-        else None, eosl=min(r.eosl for r in results) if results else None)
+        else None, eosl=min(r.eosl for r in results) if results else None,
+        # ROI: savings run to the last battery group's warranty end and End of Service Life
+        roi=compute_roi(
+            inp.roi, investment, inp.today, min(g.install_date for g in inp.groups),
+            max((r.warranty_end for r in results if r.warranty_end), default=None),
+            max((r.eosl for r in results if r.eosl), default=None),
+            [(r.warranty_end, r.eosl) for r in results]) if inp.roi else None)

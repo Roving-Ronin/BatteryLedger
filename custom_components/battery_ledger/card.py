@@ -48,7 +48,7 @@ _REGISTERED = f"{DOMAIN}_card_registered"
 _SETTINGS = f"{DOMAIN}_card_settings"
 SETTINGS_STORE_KEY = f"{DOMAIN}.card_settings"
 
-SECTIONS = ("warranty", "usage", "financials", "health")
+SECTIONS = ("warranty", "usage", "financials", "roi", "health")
 # Card sections renamed in 0.3.2: settings saved (or exported) before then are read with the new names
 _OLD_SECTIONS = {"throughput": "usage", "cost": "financials"}
 # How the card shows dates: the user's Home Assistant date format, or day, month name, year (18 Jul 2035).
@@ -64,6 +64,7 @@ CARD_SENSOR_KEYS = (
     "hardware_capacity_validation", "most_used_module_throughput", "module_soc_spread",
     "cost_per_kwh_export", "end_of_service_life", "estimated_usage_at_eosl",
     "measured_usable_capacity", "measured_soh",
+    "savings_to_date", "return_on_investment", "break_even_date", "projected_lifetime_savings",
 )
 # Settings the card can change (number / select entities)
 CARD_CONTROL_KEYS = (("number", "estimated_service_life"), ("select", "export_cost_basis"))

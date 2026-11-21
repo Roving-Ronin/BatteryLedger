@@ -142,7 +142,7 @@ async def test_1_4_adds_service_life_options(hass: HomeAssistant):
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert (entry.version, entry.minor_version) == (1, 7)
+    assert (entry.version, entry.minor_version) == (1, 8)
     assert entry.options == {"currency_style": "code", "esl_years": None, "export_cost_basis": "warranty"}
     # Idempotent: a second run changes nothing
     from custom_components.battery_ledger import async_migrate_entry
@@ -157,7 +157,7 @@ async def test_1_5_to_1_6_keeps_everything(hass: HomeAssistant):
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert (entry.version, entry.minor_version) == (1, 7)
+    assert (entry.version, entry.minor_version) == (1, 8)
     assert entry.options == options and "soc_entity" not in entry.data
 
 
@@ -168,7 +168,7 @@ async def test_1_6_to_1_7_keeps_everything(hass: HomeAssistant):
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert (entry.version, entry.minor_version) == (1, 7)
+    assert (entry.version, entry.minor_version) == (1, 8)
     assert dict(entry.data) == data
 
 
@@ -185,3 +185,14 @@ def test_setup_file_keeps_towers_and_pack_soh():
     parsed = parse_export(export_text(build_export("Acme", data, {}, date(2026, 11, 20))))
     assert parsed["towers"] == towers
     assert parsed["pack_soh_entities"] == ["sensor.p1_soh", "sensor.p2_soh"]
+
+
+async def test_1_7_to_1_8_keeps_everything(hass: HomeAssistant):
+    """1.7 -> 1.8: optional return on investment settings; stored data unchanged."""
+    data = {**V1_DATA, "towers": []}
+    entry = MockConfigEntry(domain=DOMAIN, title="Acme", data=data, options={}, version=1, minor_version=7)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert (entry.version, entry.minor_version) == (1, 8)
+    assert dict(entry.data) == data

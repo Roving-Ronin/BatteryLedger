@@ -4,6 +4,41 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.4.0b1 (2026-11-21)
+
+### TL;DR
+- **Beta**, for testing with real Home Energy Advisor data; the card's ROI section may change before 0.4.0
+- **Return on investment**: savings to date, ROI, break-even date and projected lifetime savings, from Home Energy
+  Advisor's plan comparison (whole installation) or a battery savings sensor (battery only)
+- Card: a new **Return on Investment** section between Financials and Health
+
+### Added
+- Configure → **ROI (return on investment)**: **Whole installation** (Home Energy Advisor 1.7 or later: each day,
+  the chosen plan without solar or battery's cost of everything the house used, all from the grid, less what the
+  current plan actually cost, from its `compare_plans` action), **Battery only** (a running-total savings sensor,
+  Home Energy Advisor's Battery Savings found and filled in) or **Off**; savings before these figures, other system
+  costs (whole installation) and the date savings count from.
+- Savings kept per day: days since install asked for in the background (newest first), the last 35 days redone
+  nightly and today every 15 minutes, each finished month checked every Monday against its days and redone if it differs,
+  everything redone when the chosen plan changes. Days with no recorded data aren't counted as $0. Kept in
+  storage (`battery_ledger.savings.<entry>`), removed with the setup.
+- Sensors (only with ROI set up): `savings_to_date` (today, this week, this month, this year, days counted,
+  status...), `return_on_investment` (%, with investment, net position, ROI at warranty end and at EoSL),
+  `break_even_date` (days to go, daily rate, confidence) and `projected_lifetime_savings` (at warranty end, at
+  EoSL, per year). Projections run to the last battery group's warranty end and End of Service Life; confidence is
+  low with less than a year of savings.
+- Card: **Return on Investment** section (Display Sections: ROI), between Financials and Health with a divider
+  either side: savings to date with today / week / month / year, ROI to date with the net position, break-even
+  date, projected lifetime savings with its End of Service Life date, and why figures aren't
+  coming if they aren't. With a battery group picked in the switcher, the projections run to that group's own
+  warranty end and End of Service Life (All: the last group's); `projected_lifetime_savings` has them per group in
+  its `groups` attribute. Savings and the investment stay the whole installation's.
+
+### Changed
+- Card: the Financials section has a heading, like Return on Investment and Health.
+- Card: a negative amount shows its sign before the currency (-$24,641.45, not $-24,641.45).
+- Config entry version 1.8 (no change to stored data; ROI settings are an optional new field).
+
 ## v0.3.4 (2026-11-21)
 
 ### TL;DR
