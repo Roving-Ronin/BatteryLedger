@@ -141,3 +141,15 @@ def test_old_section_names_read_as_new():
 
     got = _with_defaults({"cost_decimals": 3, "sections": {"throughput": False, "cost": False, "bogus": True}})
     assert got["sections"] == {"warranty": True, "usage": False, "financials": False, "health": True, "roi": True}
+
+
+def test_every_savings_status_has_card_wording():
+    """Each status the savings sensor can report (other than ok) has wording on the card, so the card never shows a
+    raw code."""
+    from custom_components.battery_ledger import savings
+
+    text = Path(CARD_FILE).read_text(encoding="utf-8")
+    statuses = {v for k, v in vars(savings).items() if k.startswith("STATUS_")} - {savings.STATUS_OK}
+    assert statuses
+    for status in statuses:
+        assert f"roi_status_{status}:" in text, status

@@ -125,6 +125,8 @@ const STRINGS = {
     roi_status_plan_not_found: "The chosen plan isn't in Home Energy Advisor any more.",
     roi_status_daily_charge_missing: "Home Energy Advisor's current plan needs its daily charge.",
     roi_status_no_savings_sensor: "No reading from the savings sensor.",
+    roi_status_current_plan_not_priced: "{days} days left out: Home Energy Advisor couldn't price them.",
+    roi_status_current_plan_not_priced_one: "1 day left out: Home Energy Advisor couldn't price it.",
     cancel: "Cancel",
     save: "Save",
     save_failed: "Couldn't save the settings.",
@@ -723,7 +725,9 @@ class BatteryLedgerCard extends HTMLElement {
     const roi = this._num("return_on_investment");
     const breakEven = this._state("break_even_date")?.state;
     const small = (label, v) => (v === null || v === undefined ? "" : `<div class="mid">${esc(this._money(v, 2))} <span class="lbl">${esc(label)}</span></div>`);
-    const status = s.status && s.status !== "ok" ? `<div class="lbl note">${esc(t[`roi_status_${s.status}`] || s.status)}</div>` : "";
+    const statusKey = s.status === "current_plan_not_priced" && s.days_not_priced === 1 ? `${s.status}_one` : s.status;
+    const statusText = s.status && s.status !== "ok" ? fill(t[`roi_status_${statusKey}`] || s.status, { days: s.days_not_priced }) : "";
+    const status = statusText ? `<div class="lbl note">${esc(statusText)}</div>` : "";
     const low = b.confidence === "low" ? `<div class="lbl note">${esc(t.roi_low_confidence)}</div>` : "";
     const beText = !breakEven || breakEven === "unknown" || breakEven === "unavailable" ? "—" : this._date(breakEven);
     const beSub = b.days_to_go === 0 ? t.roi_paid_back
