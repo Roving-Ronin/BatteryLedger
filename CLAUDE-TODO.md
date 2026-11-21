@@ -61,7 +61,6 @@ real entity IDs.
 - **SoH trend:** fill `soh_trend` / `soh_trend_years` (the export cost basis and attribute exist, unfilled):
   years until the warranty floor from the SoH history (reported or measured).
 - **Export Cost tile** on the card: revisit after the maintainer has used it for a while.
-- **Per-group cost per kWh** (cost sensors are per setup today).
 - **Store: wanted sensor profiles** (Store README list): Growatt, Sofar, SolaX, Victron, GivEnergy, Fox ESS, Solis,
   SolarEdge, Tesla Powerwall, Enphase IQ, EcoFlow. Check each integration's source for unique IDs, SoH, SoC and
   per-tower counters before adding (CLAUDE.md rules).
