@@ -4,6 +4,17 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.4.0b3 (2026-11-21)
+
+### TL;DR
+- **Beta.** The card says in words how many days Home Energy Advisor couldn't price, instead of showing
+  `current_plan_not_priced`
+
+### Fixed
+- Card, ROI: the `current_plan_not_priced` status (new in 0.4.0b2) showed as the raw code. It now reads
+  "330 days left out: Home Energy Advisor couldn't price them." (from the savings sensor's `days_not_priced`).
+  A test now checks that every status the savings sensor can report has wording on the card.
+
 ## v0.4.0b2 (2026-11-21)
 
 ### TL;DR
