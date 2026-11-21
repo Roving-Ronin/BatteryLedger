@@ -91,6 +91,11 @@ is already in plan totals) and the typed amount only covers before HA's statisti
 (`sensor.battery_management_unit_…`) may be wrong. Display only (matching is by unique ID). Needs a BYD user's
 real entity IDs.
 
+## For v1.0.0
+- **Card, Savings to date tile** (2026-11-21): hide This week / This month / This year while they equal the line
+  above them (e.g. all $2.43 on the first day, or while the backfill runs). Show each line once its value differs
+  from the shorter period's. Today always shows. Card only; the sensor attributes stay as they are.
+
 ## Later (not started)
 - **SoH trend:** fill `soh_trend` / `soh_trend_years` (the export cost basis and attribute exist, unfilled):
   years until the warranty floor from the SoH history (reported or measured).
