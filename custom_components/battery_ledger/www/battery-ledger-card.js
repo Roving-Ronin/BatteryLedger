@@ -42,7 +42,6 @@ const STRINGS = {
     eosl: "End of Service Life (EoSL):",
     esl_usage: "Estimated usage at EoSL:",
     of_warranted: "{pct}% of warranted",
-    export_cost: "Export Cost:",
     export_basis: "Export Cost Basis:",
     basis_age: "by age",
     basis_usage: "by usage",
@@ -57,8 +56,6 @@ const STRINGS = {
     left_at_end: "Left at warranty end (projected): {kwh} kWh",
     used: "{kwh} kWh used",
     no_throughput_limit: "This warranty has no throughput limit.",
-    cost_consumed: "Value used to date:",
-    remaining_value: "Remaining Value:",
     cost_per_kwh: "Cost per kWh:",
     rated: "by usage",
     projected: "by age",
@@ -101,9 +98,18 @@ const STRINGS = {
     roi_week: "This week",
     roi_month: "This month",
     roi_year: "This year",
-    roi_pct: "ROI to date:",
-    roi_net: "{amount} of {investment}",
-    roi_break_even: "Break even:",
+    battery_value: "Battery value:",
+    value_left: "left",
+    value_used: "{used} used ({pct}%) of {total}",
+    export_short: "export",
+    export_by: "export ({basis})",
+    roi_paid_back_label: "Paid back:",
+    roi_paid_of: "{savings} of {investment} · {to_go} to go",
+    roi_paid_all: "{savings} of {investment}",
+    roi_end_pct: "{pct} by EoSL",
+    roi_break_even_short: "break even",
+    roi_prior: "incl. {amount} prior savings",
+    roi_rate: "a day · {year} a year",
     roi_paid_back: "Paid back",
     roi_in: "in {span}",
     span_year: "{n} year",
@@ -117,8 +123,7 @@ const STRINGS = {
     roi_lifetime: "Projected lifetime savings:",
     roi_at_eosl: "by EoSL ({date})",
     financials: "Financials",
-    roi_at_warranty: "{amount} by warranty end",
-    roi_per_year: "{amount} a year",
+    roi_by_warranty: "by warranty end",
     roi_low_confidence: "Less than a year of savings: projections will move with the seasons.",
     roi_status_backfilling: "Working out past days…",
     roi_status_hea_not_available: "Home Energy Advisor isn't available.",
@@ -203,16 +208,7 @@ const STYLE = `
   .note { margin-top: 6px; }
   .tile { background: var(--bl-tile); border-radius: 8px; padding: 8px 12px; min-width: 0; }
   .big { font-size: 22px; font-weight: 500; line-height: 1.3; }
-  /* Money tiles: the figure is centred in the space below its label (the cost per kWh tile is taller). */
-  .tile.value { display: flex; flex-direction: column; }
-  .tile.value .big { flex: 1; display: flex; align-items: center; }
-  /* Cost per kWh: its two lines centred together in the same space, a little apart. */
-  .tile.value .pair { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px;
-                      margin-top: 4px; }
   .tiles { align-items: stretch; }
-  .tile.value { min-height: 84px; }
-  /* Savings to date: the figure centred in the space above its today / week / month / year lines */
-  .tile.value.savings .pair { flex: 0 0 auto; justify-content: flex-end; }
   .mid { font-size: 15px; font-weight: 500; }
   .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .section-head .t { font-size: 15px; font-weight: 500; }
@@ -253,7 +249,17 @@ const STYLE = `
   /* Light grey: clear of the card's blue (by age), green (by usage), orange (curve) and red (warranty end) */
   .gchip[aria-pressed="true"] { background: #bdbdbd; border-color: #bdbdbd; color: #1c1c1c; font-weight: 500; }
   .group-grid { display: grid; gap: 6px; }
-  .basis-row { margin-top: 8px; display: grid; gap: 4px; min-width: 0; }
+  .tile.stack { display: flex; flex-direction: column; min-height: 84px; }
+  .tile.full { grid-column: 1 / -1; }
+  .tile .bar { background: rgba(127,127,127,.25); height: 10px; margin: 8px 0 6px; }
+  .tile .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .tile .mid + .mid { margin-top: 3px; }
+  .tile .mid .lbl { font-weight: 400; }
+  .roi-end { color: var(--bl-ok); }
+  .tile .row.tight { flex-wrap: nowrap; }
+  .tile .row.tight > .lbl { white-space: nowrap; }
+  select.basis.chip { width: auto; min-width: 0; flex: 0 1 auto; padding: 1px 4px; border-radius: 10px; font-size: 12px; color: var(--bl-muted);
+                      text-overflow: ellipsis; }
   .tile { min-width: 0; }
 `;
 
@@ -635,45 +641,50 @@ class BatteryLedgerCard extends HTMLElement {
           export: this._num("cost_per_kwh_export"), basis: this._attr("cost_per_kwh_export", "basis"),
           ent: { used: "cost_consumed_to_date", rated: "cost_per_kwh_rated", projected: "cost_per_kwh_projected",
                  export: "cost_per_kwh_export" } };
-    // When both cost per kWh figures read the same (e.g. the throughput allowance will all be used before the
-    // date end), show the one figure at the size of the others; otherwise both, labelled.
+    // Battery value: what's left of the cost, with the share used so far as a bar
+    const total = f.used !== null && f.remaining !== null ? f.used + f.remaining : null;
+    const pct = total ? (f.used / total) * 100 : null;
+    const valueTile = `<div class="tile stack"${this._ent(f.ent.used)}><div class="lbl">${esc(t.battery_value)}</div>
+        <div class="big">${esc(this._cash(f.remaining))} <span class="lbl">${esc(t.value_left)}</span></div>
+        ${pct === null ? "" : `<div class="bar"><div class="fill" style="width:${Math.min(Math.max(pct, 0), 100).toFixed(1)}%;background:var(--bl-warn)"></div></div>
+        <div class="lbl">${esc(fill(t.value_used, { used: this._cash(f.used), pct: this._fmt(pct, 0), total: this._cash(total) }))}</div>`}</div>`;
+    // Cost per kWh: by usage, by age (one line when they read the same) and the export cost with its basis
     const byUsage = this._money(f.rated, d);
     const byAge = this._money(f.projected, d);
-    const costTile = byUsage === byAge
-      ? `<div class="tile value"${this._ent(f.ent.rated)}><div class="lbl">${esc(t.cost_per_kwh)}</div>
-        <div class="big">${esc(byUsage)}</div></div>`
-      : `<div class="tile value"><div class="lbl">${esc(t.cost_per_kwh)}</div>
-        <div class="pair">
-        <div class="mid"${this._ent(f.ent.rated)}>${esc(byUsage)} <span class="lbl">${esc(t.rated)}</span></div>
-        <div class="mid"${this._ent(f.ent.projected)}>${esc(byAge)} <span class="lbl">${esc(t.projected)}</span></div></div></div>`;
+    const lines = byUsage === byAge
+      ? `<div class="mid"${this._ent(f.ent.rated)}>${esc(byUsage)}</div>`
+      : `<div class="mid"${this._ent(f.ent.rated)}>${esc(byUsage)} <span class="lbl">${esc(t.rated)}</span></div>
+        <div class="mid"${this._ent(f.ent.projected)}>${esc(byAge)} <span class="lbl">${esc(t.projected)}</span></div>`;
+    const exp = this._export(t, d, f);
+    const costTile = `<div class="tile stack"><div class="row tight"><span class="lbl">${esc(t.cost_per_kwh)}</span>${exp.control}</div>${lines}${exp.line}</div>`;
     return `<section class="financials">
       <div class="section-head"><span class="t">${esc(t.financials)}</span></div><div class="tiles">
-      <div class="tile value"${this._ent(f.ent.used)}><div class="lbl">${esc(t.cost_consumed)}</div>
-        <div class="big">${esc(this._money(f.used, 2))}</div></div>
-      <div class="tile value"${this._ent(f.ent.used)}><div class="lbl">${esc(t.remaining_value)}</div>
-        <div class="big">${esc(this._money(f.remaining, 2))}</div></div>
+      ${valueTile}
       ${costTile}
-      ${this._export(t, d, f)}
     </div></section>`;
   }
 
-  // Export Cost (what a home energy manager is given) and its basis, which admins can change.
-  // The basis dropdown is the setup's one setting; a chosen group's export cost follows it.
+  // Money in whole units from 1,000 up ($10,274), with cents below that ($9.50)
+  _cash(v) {
+    return this._money(v, v !== null && v !== undefined && Math.abs(Number(v)) >= 1000 ? 0 : 2);
+  }
+
+  // The export cost line (what a home energy manager is given), and its basis as a small dropdown for admins
+  // (shown beside the tile's label).
+  // The basis is the setup's one setting; a chosen group's export cost follows it.
   _export(t, d, f) {
     const cost = f.export;
     const selId = this._setup.entities.export_cost_basis;
     const sel = selId ? this._hass.states[selId] : null;
-    if (cost === null && !sel) return "";
-    const basis = f.basis;
-    const label = basis ? t[`basis_${basis}`] || basis : "";
+    if (cost === null && !sel) return { line: "", control: "" };
     const options = sel?.attributes.options || [];
-    const control = !sel ? "" : this._hass.user?.is_admin
-      ? `<select class="basis" aria-label="${esc(t.export_basis)}">${options.map((o) => `<option value="${esc(o)}"${o === sel.state ? " selected" : ""}>${esc(t[`option_${o}`] || o)}</option>`).join("")}</select>`
-      : `<span class="lbl">${esc(t[`option_${sel.state}`] || sel.state)}</span>`;
-    return `<div class="tile value"><div class="lbl"${this._ent(f.ent.export)}>${esc(t.export_cost)}</div>
-      <div class="mid"${this._ent(f.ent.export)}>${esc(this._money(cost, d))} <span class="lbl">${esc(label)}</span></div>
-      ${sel ? `<div class="basis-row"><div class="lbl">${esc(t.export_basis)}</div>${control}</div>` : ""}
-    </div>`;
+    const basisText = (o) => t[`basis_${o}`] || t[`option_${o}`] || o;
+    const control = !sel ? (f.basis ? `<span class="lbl">${esc(basisText(f.basis))}</span>` : "")
+      : this._hass.user?.is_admin
+        ? `<select class="basis chip" aria-label="${esc(t.export_basis)}" title="${esc(t.export_basis)}">${options.map((o) => `<option value="${esc(o)}"${o === sel.state ? " selected" : ""}>${esc(t[`option_${o}`] || o)}</option>`).join("")}</select>`
+        : `<span class="lbl">${esc(t[`option_${sel.state}`] || sel.state)}</span>`;
+    const line = cost === null ? "" : `<div class="mid"${this._ent(f.ent.export)}>${esc(this._money(cost, d))} <span class="lbl">${esc(f.basis ? fill(t.export_by, { basis: t[`basis_${f.basis}`] || f.basis }) : t.export_short)}</span></div>`;
+    return { line, control };
   }
 
   // "Not Configured" with a cog: for admins, a link to this setup on BatteryLedger's integration page,
@@ -722,37 +733,62 @@ class BatteryLedgerCard extends HTMLElement {
     if (!setup.entities.savings_to_date) return "";
     const a = (key) => this._hass.states[setup.entities[key]]?.attributes || {};
     const s = a("savings_to_date"), r = a("return_on_investment"), b = a("break_even_date"), p = a("projected_lifetime_savings");
-    const roi = this._num("return_on_investment");
     const breakEven = this._state("break_even_date")?.state;
-    const small = (label, v) => (v === null || v === undefined ? "" : `<div class="mid">${esc(this._money(v, 2))} <span class="lbl">${esc(label)}</span></div>`);
+    const small = (label, v) => `<div class="mid">${esc(this._money(v, 2))} <span class="lbl">${esc(label)}</span></div>`;
     const statusKey = s.status === "current_plan_not_priced" && s.days_not_priced === 1 ? `${s.status}_one` : s.status;
     const statusText = s.status && s.status !== "ok" ? fill(t[`roi_status_${statusKey}`] || s.status, { days: s.days_not_priced }) : "";
     const status = statusText ? `<div class="lbl note">${esc(statusText)}</div>` : "";
     const low = b.confidence === "low" ? `<div class="lbl note">${esc(t.roi_low_confidence)}</div>` : "";
-    const beText = !breakEven || breakEven === "unknown" || breakEven === "unavailable" ? "—" : this._date(breakEven);
-    const beSub = b.days_to_go === 0 ? t.roi_paid_back
-      : b.days_to_go && breakEven ? fill(t.roi_in, { span: this._span(t, breakEven) }) : "";
+    const known = (v) => v && v !== "unknown" && v !== "unavailable";
+    const savings = this._num("savings_to_date");
     // Projections to the chosen battery group's own warranty end and EoSL; All: the last group's
     const g = this._picked();
     const proj = (g && Array.isArray(p.groups) && p.groups[this._group]) || {
       at_eosl: this._num("projected_lifetime_savings"), at_warranty_end: p.at_warranty_end,
-      end_of_service_life: p.end_of_service_life };
+      end_of_service_life: p.end_of_service_life, roi_at_eosl: r.roi_at_eosl };
+
+    // Paid back: savings as a share of the investment, with the break-even date and where ROI ends up at EoSL
+    const inv = Number(r.investment) || null;
+    const paid = inv && savings !== null ? (savings / inv) * 100 : null;
+    const toGo = inv && savings !== null ? inv - savings : null;
+    const endPct = proj.roi_at_eosl != null
+      ? `<span class="lbl roi-end">${esc(fill(t.roi_end_pct, { pct: `${proj.roi_at_eosl > 0 ? "+" : ""}${this._fmt(proj.roi_at_eosl, 0)}%` }))}</span>` : "";
+    const beDate = known(breakEven) ? `<span class="mid"${this._ent("break_even_date")}>${esc(this._date(breakEven))} <span class="lbl">${esc(t.roi_break_even_short)}</span></span>` : "";
+    const beSub = b.days_to_go === 0 ? t.roi_paid_back
+      : b.days_to_go && known(breakEven) ? fill(t.roi_in, { span: this._span(t, breakEven) }) : "";
+    const paidSub = paid === null ? "" : toGo > 0
+      ? fill(t.roi_paid_of, { savings: this._cash(savings), investment: this._cash(inv), to_go: this._cash(toGo) })
+      : fill(t.roi_paid_all, { savings: this._cash(savings), investment: this._cash(inv) });
+    const paidTile = `<div class="tile stack full"${this._ent("return_on_investment")}>
+          <div class="row"><span class="lbl">${esc(t.roi_paid_back_label)}</span>${endPct}</div>
+          <div class="row"><span class="big">${paid === null ? "—" : esc(`${this._fmt(paid, 1)}%`)}</span>${beDate}</div>
+          ${paid === null ? "" : `<div class="bar"><div class="fill" style="width:${Math.min(Math.max(paid, 0), 100).toFixed(1)}%;background:var(--bl-ok)"></div></div>`}
+          <div class="row"><span class="lbl">${esc(paidSub)}</span>${beSub ? `<span class="lbl">${esc(beSub)}</span>` : ""}</div></div>`;
+
+    // Savings to date: each period shown once it differs from the shorter one (on the first days they're all the
+    // same); the typed earlier savings and the daily rate under them
+    const cents = (v) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
+    const periods = [[t.roi_today, s.today], [t.roi_week, s.this_week], [t.roi_month, s.this_month], [t.roi_year, s.this_year]];
+    let last = null;
+    const lines = periods.map(([label, v], i) => {
+      if (v === null || v === undefined) return "";
+      const show = i === 0 || cents(v) !== last;
+      last = cents(v);
+      return show ? small(label, v) : "";
+    }).join("");
+    const prior = Number(s.before_figures) > 0 ? `<div class="lbl">${esc(fill(t.roi_prior, { amount: this._cash(s.before_figures) }))}</div>` : "";
+    const rate = b.daily_rate != null
+      ? `<div class="mid">${esc(this._money(b.daily_rate, 2))} <span class="lbl">${esc(fill(t.roi_rate, { year: this._cash(p.per_year ?? b.daily_rate * 365) }))}</span></div>` : "";
+    const savingsTile = `<div class="tile stack"${this._ent("savings_to_date")}><div class="lbl">${esc(t.roi_savings)}</div>
+          <div class="big">${esc(this._cash(savings))}</div>${prior}${lines}${rate}</div>`;
+
+    const projTile = `<div class="tile stack"${this._ent("projected_lifetime_savings")}><div class="lbl">${esc(t.roi_lifetime)}</div>
+          <div class="big">${esc(this._cash(proj.at_eosl))}</div>
+          <div class="lbl">${esc(fill(t.roi_at_eosl, { date: proj.end_of_service_life ? this._date(proj.end_of_service_life) : "—" }))}</div>
+          ${proj.at_warranty_end != null ? `<div class="mid">${esc(this._cash(proj.at_warranty_end))} <span class="lbl">${esc(t.roi_by_warranty)}</span></div>` : ""}</div>`;
     return `<section class="roi">
       <div class="section-head"><span class="t">${esc(t.roi)}</span></div>
-      <div class="tiles">
-        <div class="tile value savings"${this._ent("savings_to_date")}><div class="lbl">${esc(t.roi_savings)}</div>
-          <div class="big">${esc(this._money(this._num("savings_to_date"), 2))}</div>
-          <div class="pair">${small(t.roi_today, s.today)}${small(t.roi_week, s.this_week)}${small(t.roi_month, s.this_month)}${small(t.roi_year, s.this_year)}</div></div>
-        <div class="tile value"${this._ent("return_on_investment")}><div class="lbl">${esc(t.roi_pct)}</div>
-          <div class="big">${roi === null ? "—" : esc(`${this._fmt(roi, 1)}%`)}</div>
-          ${r.net_position != null && r.investment ? `<div class="lbl">${esc(fill(t.roi_net, { amount: this._money(r.net_position, 2), investment: this._money(r.investment, 2) }))}</div>` : ""}</div>
-        <div class="tile value"${this._ent("break_even_date")}><div class="lbl">${esc(t.roi_break_even)}</div>
-          <div class="big">${esc(beText)}</div>${beSub ? `<div class="lbl">${esc(beSub)}</div>` : ""}</div>
-        <div class="tile value"${this._ent("projected_lifetime_savings")}><div class="lbl">${esc(t.roi_lifetime)}</div>
-          <div class="mid">${esc(this._money(proj.at_eosl, 2))} <span class="lbl">${esc(fill(t.roi_at_eosl, { date: proj.end_of_service_life ? this._date(proj.end_of_service_life) : "—" }))}</span></div>
-          ${proj.at_warranty_end != null ? `<div class="lbl">${esc(fill(t.roi_at_warranty, { amount: this._money(proj.at_warranty_end, 2) }))}</div>` : ""}
-          ${p.per_year != null ? `<div class="lbl">${esc(fill(t.roi_per_year, { amount: this._money(p.per_year, 2) }))}</div>` : ""}</div>
-      </div>${status}${low}
+      <div class="tiles">${paidTile}${savingsTile}${projTile}</div>${status}${low}
     </section>`;
   }
 

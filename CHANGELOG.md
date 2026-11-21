@@ -4,6 +4,32 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.4.0 (2026-11-21)
+
+### TL;DR
+- **Return on investment**: savings to date, how much of the battery is paid back, the break-even date and
+  projected lifetime savings, from Home Energy Advisor's plan comparison (whole installation) or a battery savings
+  sensor (battery only). Set up in Configure → ROI; a Repairs notice asks each setup to choose
+- Card: a new **Return on Investment** section, and Financials redone as two tiles: **Battery value** (left of the
+  cost, with a bar for what's used) and **Cost per kWh** (by usage, by age and export, with the export basis beside
+  it)
+- Brings together 0.4.0b1, b2 and b3 (below)
+
+### Changed (since 0.4.0b3)
+- Card, Return on Investment:
+  - **Paid back** replaces "ROI to date" and Break even: savings as a share of the investment with a bar, the
+    break-even date and time to go, and where ROI ends up at End of Service Life ("+155% by EoSL", from
+    `roi_at_eosl`; a chosen battery group's own).
+  - **Savings to date**: shows the prior savings it includes, and the daily rate with a year's worth
+    ("$5.28 a day · $1,926 a year", moved from Projected lifetime savings). This week, This month and This year show
+    only once they differ from the shorter period (on the first days they're all the same).
+  - **Projected lifetime savings**: the figure at EoSL as the headline, then by warranty end.
+- Card, Financials: **Battery value** (remaining value, a bar for the value used, and the battery cost) replaces
+  Value used to date and Remaining Value; **Cost per kWh** now includes the export cost, labelled with its basis
+  ("export (ESL)"), and the Export Cost Basis dropdown is a small one beside the tile's label.
+- Card: amounts from 1,000 up are shown without cents ($10,274); smaller amounts and per-kWh costs keep them.
+  The sensors are unchanged.
+
 ## v0.4.0b3 (2026-11-21)
 
 ### TL;DR
