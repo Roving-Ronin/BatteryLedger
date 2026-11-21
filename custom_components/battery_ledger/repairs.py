@@ -1,4 +1,4 @@
-"""Repairs: accept a revised spec from the BatteryLedger Store."""
+"""Repairs: accept a revised spec from the BatteryLedger Store; choose how to work out return on investment."""
 
 from __future__ import annotations
 
@@ -7,9 +7,11 @@ import json
 import voluptuous as vol
 
 from homeassistant.components.repairs import RepairsFlow
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 
+from .config_flow import RoiSteps
 from .const import CONF_GROUPS, CONF_SPEC
 from .store_client import async_get_store_index
 
@@ -78,7 +80,30 @@ class SpecUpdateRepairFlow(RepairsFlow):
         )
 
 
+class RoiRepairFlow(RoiSteps, RepairsFlow):
+    """The ROI choice (the same form as Configure → ROI), asked for through Repairs until one is made."""
+
+    def __init__(self, entry_id: str) -> None:
+        self._entry_id = entry_id
+        self._roi: dict = {}
+        self._roi_plans: list[dict] = []
+
+    @property
+    def _roi_entry(self) -> ConfigEntry:
+        return self.hass.config_entries.async_get_entry(self._entry_id)
+
+    def _roi_done(self) -> FlowResult:
+        return self.async_create_entry(data={})  # the notice goes once the choice is saved
+
+    async def async_step_init(self, user_input: dict | None = None) -> FlowResult:
+        if self._roi_entry is None:
+            return self.async_abort(reason="entry_gone")
+        return await self.async_step_roi()
+
+
 async def async_create_fix_flow(hass: HomeAssistant, issue_id: str, data: dict | None) -> RepairsFlow:
     # An issue without its data (shouldn't happen) still opens a flow, which aborts as spec_gone.
     data = data or {}
+    if issue_id.startswith("roi_not_set_up_"):
+        return RoiRepairFlow(data.get("entry_id", ""))
     return SpecUpdateRepairFlow(data.get("entry_id", ""), data.get("spec_id", ""))

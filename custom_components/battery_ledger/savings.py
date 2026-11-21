@@ -54,6 +54,7 @@ STATUS_BACKFILLING = "backfilling"
 STATUS_NO_HEA = "hea_not_available"  # Home Energy Advisor isn't installed, loaded or answering
 STATUS_NO_PLAN = "plan_not_found"  # the chosen plan isn't in Home Energy Advisor any more
 STATUS_NO_DAILY_CHARGE = "daily_charge_missing"  # HEA's current plan has no daily charge yet
+STATUS_NOT_PRICED = "current_plan_not_priced"  # HEA couldn't price its current plan (e.g. no price statistics)
 STATUS_NO_SENSOR = "no_savings_sensor"
 
 
@@ -72,6 +73,8 @@ def installation_saving(answer: dict[str, Any], plan_id: str) -> tuple[float | N
     if current is None or current.get("daily_charge_missing"):
         return None, STATUS_NO_DAILY_CHARGE
     without, total = chosen.get("without_installation"), current.get("total")
+    if not isinstance(total, int | float) and (current.get("no_price") or current.get("incomplete")):
+        return None, STATUS_NOT_PRICED
     if not isinstance(without, int | float) or not isinstance(total, int | float):
         return None, STATUS_OK  # nothing to price that day (no data, no price): left out
     return round(float(without) - float(total), 4), STATUS_OK
@@ -91,7 +94,9 @@ class SavingsTracker:
         self.total: float = 0.0  # battery only: the sensor's value
         self.status = STATUS_OK
         self.calculated: datetime | None = None
+        self.not_priced: set[date] = set()  # days HEA couldn't price its current plan for (left out, not $0)
         self._queue: list[date | tuple[int, int]] = []  # days, and (year, month) checks
+        self._held: list[date | tuple[int, int]] = []  # put aside while HEA can't answer; queued again once it can
         self._wake = asyncio.Event()
         self._task: asyncio.Task | None = None
         self._unsubs: list[Callable[[], None]] = []
@@ -200,6 +205,11 @@ class SavingsTracker:
             return
         saving, status = installation_saving(answer, self.roi.get(ROI_PLAN))
         self.status = status
+        if status == STATUS_NOT_PRICED:
+            self.not_priced.add(day)
+            self.days.pop(day, None)
+            return
+        self.not_priced.discard(day)
         if status != STATUS_OK:
             return
         if not answer.get("days"):
@@ -241,7 +251,12 @@ class SavingsTracker:
             else:
                 await self._day(item)
             if self.status in (STATUS_NO_HEA, STATUS_NO_PLAN, STATUS_NO_DAILY_CHARGE):
-                self._queue.clear()  # tried again on the next hour / night
+                # e.g. HEA still loading after a restart: keep the rest for when today's next ask is answered
+                self._held.extend(i for i in self._queue if i not in self._held and i != dt_util.now().date())
+                self._queue.clear()
+            elif self.status == STATUS_OK and self._held and not isinstance(item, tuple):
+                self._enqueue(self._held)
+                self._held = []
             if len(self.days) % 10 == 0 or not self._queue:
                 self._on_change()
             if self._queue:

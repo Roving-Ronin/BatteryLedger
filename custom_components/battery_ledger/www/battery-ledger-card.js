@@ -94,7 +94,7 @@ const STRINGS = {
     section_usage: "Usage & Throughput",
     section_financials: "Financials",
     section_health: "Health",
-    section_roi: "ROI",
+    section_roi: "Return on Investment",
     roi: "Return on Investment",
     roi_savings: "Savings to date:",
     roi_today: "Today",
@@ -105,7 +105,15 @@ const STRINGS = {
     roi_net: "{amount} of {investment}",
     roi_break_even: "Break even:",
     roi_paid_back: "Paid back",
-    roi_days_to_go: "in {days} days",
+    roi_in: "in {span}",
+    span_year: "{n} year",
+    span_years: "{n} years",
+    span_month: "{n} month",
+    span_months: "{n} months",
+    span_day: "{n} day",
+    span_days: "{n} days",
+    span_join: ", ",
+    span_last: " & ",
     roi_lifetime: "Projected lifetime savings:",
     roi_at_eosl: "by EoSL ({date})",
     financials: "Financials",
@@ -201,6 +209,8 @@ const STYLE = `
                       margin-top: 4px; }
   .tiles { align-items: stretch; }
   .tile.value { min-height: 84px; }
+  /* Savings to date: the figure centred in the space above its today / week / month / year lines */
+  .tile.value.savings .pair { flex: 0 0 auto; justify-content: flex-end; }
   .mid { font-size: 15px; font-weight: 500; }
   .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .section-head .t { font-size: 15px; font-weight: 500; }
@@ -685,6 +695,26 @@ class BatteryLedgerCard extends HTMLElement {
     return t.soh_not_configured;
   }
 
+  // From today to a date (ISO), in calendar years, months and days: "4 years, 3 months & 12 days"; zero parts left out
+  _span(t, iso) {
+    const [y, m, d] = iso.split("-").map(Number);
+    const now = new Date();
+    let years = y - now.getFullYear(), months = m - 1 - now.getMonth(), days = d - now.getDate();
+    if (days < 0) {
+      months -= 1;
+      days += new Date(y, m - 1, 0).getDate();  // days in the month before the end date's
+    }
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+    const parts = [["year", years], ["month", months], ["day", days]]
+      .filter(([, n]) => n > 0)
+      .map(([unit, n]) => fill(t[n === 1 ? `span_${unit}` : `span_${unit}s`], { n }));
+    if (!parts.length) return fill(t.span_days, { n: 0 });
+    return parts.length === 1 ? parts[0] : parts.slice(0, -1).join(t.span_join) + t.span_last + parts.at(-1);
+  }
+
   // Return on investment: only once Configure → ROI is set up (its sensors exist)
   _roi(t, setup) {
     if (!setup.entities.savings_to_date) return "";
@@ -696,7 +726,8 @@ class BatteryLedgerCard extends HTMLElement {
     const status = s.status && s.status !== "ok" ? `<div class="lbl note">${esc(t[`roi_status_${s.status}`] || s.status)}</div>` : "";
     const low = b.confidence === "low" ? `<div class="lbl note">${esc(t.roi_low_confidence)}</div>` : "";
     const beText = !breakEven || breakEven === "unknown" || breakEven === "unavailable" ? "—" : this._date(breakEven);
-    const beSub = b.days_to_go === 0 ? t.roi_paid_back : b.days_to_go ? fill(t.roi_days_to_go, { days: b.days_to_go }) : "";
+    const beSub = b.days_to_go === 0 ? t.roi_paid_back
+      : b.days_to_go && breakEven ? fill(t.roi_in, { span: this._span(t, breakEven) }) : "";
     // Projections to the chosen battery group's own warranty end and EoSL; All: the last group's
     const g = this._picked();
     const proj = (g && Array.isArray(p.groups) && p.groups[this._group]) || {
@@ -705,7 +736,7 @@ class BatteryLedgerCard extends HTMLElement {
     return `<section class="roi">
       <div class="section-head"><span class="t">${esc(t.roi)}</span></div>
       <div class="tiles">
-        <div class="tile value"${this._ent("savings_to_date")}><div class="lbl">${esc(t.roi_savings)}</div>
+        <div class="tile value savings"${this._ent("savings_to_date")}><div class="lbl">${esc(t.roi_savings)}</div>
           <div class="big">${esc(this._money(this._num("savings_to_date"), 2))}</div>
           <div class="pair">${small(t.roi_today, s.today)}${small(t.roi_week, s.this_week)}${small(t.roi_month, s.this_month)}${small(t.roi_year, s.this_year)}</div></div>
         <div class="tile value"${this._ent("return_on_investment")}><div class="lbl">${esc(t.roi_pct)}</div>

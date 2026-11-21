@@ -14,6 +14,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
 from .const import (
+    CONF_ROI,
     CONF_CURRENCY_STYLE,
     CONF_COST,
     CONF_GROUPS,
@@ -64,6 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BatteryLedgerConfigEntry
     entry.async_on_unload(entry.add_update_listener(_async_reload))
 
     check_spec_updates(hass, index, entry)
+    check_roi_choice(hass, entry)
     return True
 
 
@@ -182,6 +184,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: BatteryLedgerConfigEntr
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     for issue_id in _issue_ids_for(hass, entry.entry_id):
         ir.async_delete_issue(hass, DOMAIN, issue_id)
+    ir.async_delete_issue(hass, DOMAIN, roi_issue_id(entry.entry_id))
     await async_remove_card_settings(hass, entry.entry_id)
     await Store(hass, CAPACITY_STORE_VERSION, capacity_store_key(entry.entry_id)).async_remove()
     await Store(hass, SAVINGS_STORE_VERSION, savings_store_key(entry.entry_id)).async_remove()
@@ -215,6 +218,22 @@ def _ensure_store_refresh(hass: HomeAssistant, index: StoreIndex) -> None:
 
     domain_data["refresh_unsub"] = async_track_time_interval(hass, _refresh, STORE_REFRESH_INTERVAL)
     hass.async_create_background_task(_refresh(), f"{DOMAIN} store refresh")
+
+
+def roi_issue_id(entry_id: str) -> str:
+    return f"roi_not_set_up_{entry_id}"
+
+
+@callback
+def check_roi_choice(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Ask, through Repairs, for a choice about return on investment until one is made (Off counts)."""
+    if CONF_ROI in entry.data:
+        ir.async_delete_issue(hass, DOMAIN, roi_issue_id(entry.entry_id))
+        return
+    ir.async_create_issue(
+        hass, DOMAIN, roi_issue_id(entry.entry_id), is_fixable=True, is_persistent=False,
+        severity=ir.IssueSeverity.WARNING, translation_key="roi_not_set_up",
+        translation_placeholders={"entry": entry.title}, data={"entry_id": entry.entry_id})
 
 
 def _issue_id(entry_id: str, spec_id: str) -> str:

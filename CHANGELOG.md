@@ -4,6 +4,34 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.4.0b2 (2026-11-21)
+
+### TL;DR
+- **Beta.** A Repairs notice asks each setup to choose how to work out return on investment, so nobody misses it
+- Off is remembered as a choice
+- Fixed: past days' savings weren't filled in when Home Energy Advisor loaded after BatteryLedger; days HEA can't
+  price are now shown on the savings sensor's `status`
+
+### Added
+- Settings → Repairs: **"BatteryLedger: choose how to work out return on investment"** for any setup without an
+  ROI choice (every setup from before 0.4.0, and new ones). It explains what ROI gives and what it needs, and
+  **Fix** opens the same form as Configure → ROI (Whole installation, Battery only or Off). Any choice ends it.
+
+### Changed
+- Card settings, Display Sections: **Return on Investment** (was "ROI"), the same as the section's heading.
+- Card, Break even: the time to go is shown in years, months and days from today to the date ("in 4 years,
+  3 months & 11 days"), not as a number of days. The `break_even_date` sensor's `days_to_go` stays in days.
+- Configure → ROI → **Off** is kept as a choice (`roi: {mode: off}`) instead of removing the settings, so the
+  notice doesn't come back. The ROI sensors are still only created when ROI is on.
+
+### Fixed
+- Whole installation: if Home Energy Advisor wasn't loaded yet when BatteryLedger started (after a restart),
+  the past days were dropped until the next restart, so This week, This month and This year all showed the same
+  as Today. They're now kept and asked for as soon as HEA answers (within 15 minutes).
+- Whole installation: days Home Energy Advisor can't price its current plan for (its price sensors had no
+  statistics then, e.g. no `state_class`) were left out silently with `status: ok`. They're still left out (not
+  $0), but `status` is now `current_plan_not_priced` and a new `days_not_priced` attribute says how many.
+
 ## v0.4.0b1 (2026-11-21)
 
 ### TL;DR
