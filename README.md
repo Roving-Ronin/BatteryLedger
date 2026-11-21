@@ -207,12 +207,12 @@ entry_id: <optional; the first setup is used if left out>
 
 With more than one battery group, a **Battery group** switcher under the title shows **All** (the whole setup)
 or one group (1, 2, 3 …). A group shows its own status, warranty rings, end dates, EoSL, remaining warrantied usage
-and warranty curve (against the battery's reported state of health), and its own Financials: value used, remaining
-value, cost per kWh and export cost for that group's cost alone (the Export Cost Basis is one setting for the whole
+and warranty curve (against the battery's reported state of health), and its own Financials: battery value (remaining and
+used), cost per kWh and export cost for that group's cost alone (the Export Cost Basis is one setting for the whole
 setup). These come from the `groups` attribute of `rated_throughput_used` (`remaining_value`,
 `cost_per_kwh_rated`, `cost_per_kwh_projected`, `cost_per_kwh_export`, `export_basis`).
 
-The card has four sections:
+The card has five sections:
 - **Warranty:** two rings show how much of the warranty is used by age (time elapsed) and by usage (throughput).
   The larger one is the warranty driver, shown first with cycles per day. Below are two warranty end dates, each
   above its share: by age, labelled with your battery's warranty period (e.g. **Warranty Ends (10 years)**:
@@ -222,12 +222,15 @@ The card has four sections:
   EoSL** (with its share of the warranted throughput).
 - **Usage & Throughput:** remaining warrantied usage (rated throughput) counts down, with a marker for what's projected
   to be left when the warranty ends.
-- **Financials:** value used to date (the `cost_consumed_to_date` sensor), remaining value, cost per kWh (by usage and
-  by age), and **Export Cost** with its basis; admins choose the **Export Cost Basis** there.
-- **ROI:** savings to date (today, this week, this month, this year), return on investment to date, the break-even
-  date and projected lifetime savings, once Configure → ROI is set up (the average saving per day is the break-even
-  date's `daily_rate`). With a
-  battery group picked, the projections run to that group's own warranty end and End of Service Life.
+- **Financials:** **Battery value**: what's left of the battery cost, with a bar for the value used so far (the
+  `cost_consumed_to_date` sensor). **Cost per kWh**: by usage, by age and the export cost with its basis; admins
+  choose the **Export Cost Basis** in the small dropdown beside the tile's label.
+- **Return on Investment:** once Configure → ROI is set up. **Paid back**: savings as a share of the investment,
+  with a bar, the break-even date and time to go, and the ROI at End of Service Life. **Savings to date**: the
+  prior savings it includes, today, and this week / month / year once each differs from the shorter period, with
+  the average saving per day (the break-even date's `daily_rate`) and a year's worth. **Projected lifetime
+  savings** at EoSL and at warranty end. With a battery group picked, the projections run to that group's own
+  warranty end and End of Service Life. Amounts from 1,000 up are shown without cents.
 - **Health:** your battery's reported state of health against the warranty curve (Estimated Usable
   Capacity, what the warranty allows at this age and usage), on a scale from the end-of-warranty capacity
   to 100%. A battery that reports no SoH shows the measured SoH instead (**Actual SoH (measured)**), and
@@ -238,7 +241,7 @@ Tap any figure to open its sensor. The bottom right corner shows the BatteryLedg
 settings: decimal places for cost per kWh (2 to 5), how dates are shown (your Home Assistant date format, or
 day month year such as 18 Jul 2035), and which sections to show. The settings are saved for each
 BatteryLedger setup, so the card looks the same on every dashboard and device. Thin lines separate the
-warranty figures from Usage & Throughput, and Financials from Health.
+warranty figures from Usage & Throughput, and Financials, Return on Investment and Health from each other.
 
 ## Sensors
 
