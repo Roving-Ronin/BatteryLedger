@@ -174,6 +174,9 @@ class RoiResult:
     per_year: float | None
     roi_at_warranty_end: float | None
     roi_at_eosl: float | None
+    # When the warranty's throughput allowance is used up at the usage so far, and the savings by then
+    usage_end: date | None = None
+    at_usage_end: float | None = None
     # The same projections to each battery group's own warranty end and End of Service Life (the card's switcher)
     groups: list[dict] = field(default_factory=list)
 
@@ -182,7 +185,8 @@ BREAK_EVEN_MAX_DAYS = 36525  # 100 years: further out, no break-even date (and d
 
 
 def compute_roi(roi: RoiInput, investment: float | None, today: date, start: date, warranty_end: date | None,
-                eosl: date | None, group_dates: list[tuple[date | None, date | None]] | None = None) -> RoiResult:
+                eosl: date | None, group_dates: list[tuple[date | None, date | None, date | None]] | None = None,
+                usage_end: date | None = None) -> RoiResult:
     """Return on investment from savings so far. The rate is the average over the days counted once there are
     LOW_CONFIDENCE_DAYS of them, before that the savings so far over the days since the start; projections carry
     it on to the last battery group's warranty end and End of Service Life."""
@@ -227,10 +231,12 @@ def compute_roi(roi: RoiInput, investment: float | None, today: date, start: dat
 
     at_w, at_e = at(warranty_end), at(eosl)
     groups = []
-    for g_warranty, g_eosl in group_dates or []:
+    for g_warranty, g_eosl, *rest in group_dates or []:
+        g_usage = rest[0] if rest else None
         gw, ge = at(g_warranty), at(g_eosl)
         groups.append({"warranty_end": g_warranty.isoformat() if g_warranty else None,
                        "end_of_service_life": g_eosl.isoformat() if g_eosl else None,
+                       "usage_end": g_usage.isoformat() if g_usage else None, "at_usage_end": _r(at(g_usage), 2),
                        "at_warranty_end": _r(gw, 2), "at_eosl": _r(ge, 2),
                        "roi_at_warranty_end": _r(pct(gw), 1), "roi_at_eosl": _r(pct(ge), 1)})
     return RoiResult(
@@ -242,7 +248,8 @@ def compute_roi(roi: RoiInput, investment: float | None, today: date, start: dat
         confident=len(counted) >= ROI_CONFIDENT_DAYS, warranty_end=warranty_end, eosl=eosl,
         at_warranty_end=_r(at_w, 2), at_eosl=_r(at_e, 2),
         per_year=_r(rate * DAYS_PER_YEAR, 2) if rate is not None else None,
-        roi_at_warranty_end=_r(pct(at_w), 1), roi_at_eosl=_r(pct(at_e), 1), groups=groups)
+        roi_at_warranty_end=_r(pct(at_w), 1), roi_at_eosl=_r(pct(at_e), 1),
+        usage_end=usage_end, at_usage_end=_r(at(usage_end), 2), groups=groups)
 
 
 @dataclass
@@ -704,4 +711,5 @@ def compute(inp: LedgerInput) -> LedgerResult:
             inp.roi, investment, inp.today, min(g.install_date for g in inp.groups),
             max((r.warranty_end for r in results if r.warranty_end), default=None),
             max((r.eosl for r in results if r.eosl), default=None),
-            [(r.warranty_end, r.eosl) for r in results]) if inp.roi else None)
+            [(r.warranty_end, r.eosl, r.usage_end) for r in results],
+            max((r.usage_end for r in results if r.usage_end), default=None)) if inp.roi else None)

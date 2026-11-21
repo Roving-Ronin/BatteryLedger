@@ -4,6 +4,28 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.4.2 (2026-11-21)
+
+### TL;DR
+- Card: the **Paid back** bar now runs past 100%: it's measured in savings out to End of Service Life, with
+  markers for break even and both warranty ends
+- Card: Projected lifetime savings shows the warranty end figure as large as the EoSL one, with its date
+
+### Changed
+- Card, Return on Investment, **Paid back**: the bar is in savings rather than ending at the investment. The fill
+  is the savings so far, with the figure on the bar (inside the fill once there's room); the right end is the
+  projected savings at the latest of the warranty end by age, the warranty end by usage and End of Service Life.
+  Markers show break even (white, at the investment), the warranty end by age (blue) and by usage (green), as on
+  the warranty rings, and EoSL: the amount above each and the date below. Labels of markers close together are
+  set beside their marker so they don't overlap. The fill is teal, so it stays clear of the green usage marker.
+  The break-even date moved from beside the headline to its marker.
+  Once paid back, the line under the bar reads "$39,000 return on $26,062 investment" with the ROI so far
+  ("ROI +49.6%", the `return_on_investment` sensor) in place of the time to go.
+- Card, **Projected lifetime savings**: the figure by warranty end is the same size as the one by EoSL, spaced
+  below it, with its date ("by warranty end (18 Jul 2035)").
+- `projected_lifetime_savings` has new attributes `usage_end` and `at_usage_end` (the warranty end by usage and the
+  savings projected to it), and the same for each battery group in `groups`.
+
 ## v0.4.1 (2026-11-21)
 
 ### TL;DR

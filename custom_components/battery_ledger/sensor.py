@@ -236,6 +236,7 @@ ROI_SENSORS: tuple[LedgerSensorDescription, ...] = (
         attrs_fn=lambda r: {"at_warranty_end": r.roi.at_warranty_end, "at_eosl": r.roi.at_eosl,
                             "per_year": r.roi.per_year, "warranty_end": _iso(r.roi.warranty_end),
                             "end_of_service_life": _iso(r.roi.eosl),
+                            "usage_end": _iso(r.roi.usage_end), "at_usage_end": r.roi.at_usage_end,
                             "confidence": "normal" if r.roi.confident else "low",
                             "groups": r.roi.groups} if r.roi else {}),
 )
