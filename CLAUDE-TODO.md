@@ -19,6 +19,13 @@ real entity IDs.
 - **Store: wanted sensor profiles** (Store README list): Growatt, Sofar, SolaX, Victron, GivEnergy, Fox ESS, Solis,
   SolarEdge, Tesla Powerwall, Enphase IQ, EcoFlow. Check each integration's source for unique IDs, SoH, SoC and
   per-tower counters before adding (CLAUDE.md rules).
+- **Mini card** (2026-11-21): a compact card for the Energy Manager dashboard. What it shows, its size and how it
+  fits Energy Manager's layout are to settle with the maintainer. Likely the same element with a `mode` option (or
+  a second element in the same file) reading the same `battery_ledger/card/setups` data, so the figures and
+  settings stay in one place.
+- **Mobile phone version** (2026-11-21): a layout for phone widths (~360–430 px). The 2-column tiles, the Paid
+  back row and the Cost per kWh dropdown haven't been checked that narrow yet. Either the main card adapts to its
+  width, or it's a mode of the mini card: to settle.
 
 ## Decided against (and why)
 - **Energy Pilot's control mappings, integration-name list and chemistry regex in the Store** (2026-11-20): only
