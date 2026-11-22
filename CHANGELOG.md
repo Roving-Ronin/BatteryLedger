@@ -4,6 +4,16 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.4.4 (2026-11-22)
+
+### TL;DR
+- Card: `layout: auto` now goes side by side on a wide card in Home Assistant
+
+### Fixed
+- Card, `layout: auto`: stayed in one column however wide the card was. It measured the card with a CSS container
+  query, which doesn't see the card's width inside Home Assistant's card frame. The card now measures its own
+  width and switches at 820 px, both ways as it's resized.
+
 ## v0.4.3 (2026-11-22)
 
 ### TL;DR
