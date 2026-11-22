@@ -11,7 +11,8 @@ const LOGO_URL = `${new URL("battery-ledger-logo.png", import.meta.url).pathname
 const WS_SETUPS = "battery_ledger/card/setups";
 const WS_SAVE = "battery_ledger/card/save_settings";
 const SECTIONS = ["warranty", "usage", "financials", "roi", "health"];
-const LAYOUTS = ["stack", "side", "auto"];  // card option `layout`: vertical, side by side, side by side when wide
+const LAYOUTS = ["stack", "side", "auto"];
+const AUTO_SIDE_WIDTH = 820;  // px: layout auto goes side by side from this card width  // card option `layout`: vertical, side by side, side by side when wide
 const DECIMAL_CHOICES = [2, 3, 4, 5];
 const DATE_STYLES = ["ha", "day_month_year"];
 
@@ -191,20 +192,17 @@ const STYLE = `
   section { margin-top: 12px; }
   section:first-of-type { margin-top: 0; }
   /* The two halves. Vertical: the second follows the first with the same divider as between sections. Side by
-     side: two columns with a line between them; auto does that once the card is 820px wide. */
-  ha-card { container-type: inline-size; }
+     side: two columns with a line between them; auto does that once the card is AUTO_SIDE_WIDTH wide. */
   .halves.stack .half.b.after > section:first-child,
   .halves.auto .half.b.after > section:first-child {
     border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); margin-top: 6px; padding-top: 6px; }
   .halves.side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .halves.side .half.a { padding-right: 16px; }
   .halves.side .half.b { padding-left: 16px; border-left: 1px solid var(--divider-color, rgba(127,127,127,.25)); }
-  @container (min-width: 820px) {
-    .halves.auto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-    .halves.auto .half.a { padding-right: 16px; }
-    .halves.auto .half.b { padding-left: 16px; border-left: 1px solid var(--divider-color, rgba(127,127,127,.25)); }
-    .halves.auto .half.b.after > section:first-child { border-top: none; margin-top: 0; padding-top: 0; }
-  }
+  .halves.auto.wide { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .halves.auto.wide .half.a { padding-right: 16px; }
+  .halves.auto.wide .half.b { padding-left: 16px; border-left: 1px solid var(--divider-color, rgba(127,127,127,.25)); }
+  .halves.auto.wide .half.b.after > section:first-child { border-top: none; margin-top: 0; padding-top: 0; }
   .ring-row { display: flex; align-items: center; gap: 18px; }
   .stats { flex: 1; display: grid; gap: 5px; min-width: 0; }
   .stat { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -322,6 +320,23 @@ class BatteryLedgerCard extends HTMLElement {
     this._lastKey = "";
     this.shadowRoot.innerHTML = `<style>${STYLE}</style><ha-card><div id="body"></div></ha-card><div id="modal"></div>`;
     this.shadowRoot.getElementById("body").addEventListener("click", (ev) => this._onClick(ev));
+    // Layout auto: side by side once the card itself is at least AUTO_SIDE_WIDTH wide (measured here rather than
+    // with a CSS container query, which doesn't see the card's width inside ha-card)
+    this._wide = false;
+    this._resize = new ResizeObserver((entries) => {
+      const wide = (entries[0]?.contentRect.width || 0) >= AUTO_SIDE_WIDTH;
+      if (wide === this._wide) return;
+      this._wide = wide;
+      this.shadowRoot.querySelector(".halves")?.classList.toggle("wide", wide);
+    });
+  }
+
+  connectedCallback() {
+    this._resize.observe(this);
+  }
+
+  disconnectedCallback() {
+    this._resize.disconnect();
   }
 
   setConfig(config) {
@@ -468,7 +483,7 @@ class BatteryLedgerCard extends HTMLElement {
     // The title (with its status) and the group switcher head the first half, so side by side the status sits at
     // the top of the left half and the right half starts level with the title.
     body.innerHTML = [
-      `<div class="halves ${both ? layout : "stack"}"><div class="half a">${this._header(t, setup)}${this._switcher(t)}${first}</div>`
+      `<div class="halves ${both ? layout : "stack"}${this._wide ? " wide" : ""}"><div class="half a">${this._header(t, setup)}${this._switcher(t)}${first}</div>`
         + `<div class="half b${both ? " after" : ""}">${second}</div></div>`,
       this._footer(t, sec.health),
     ].join("");
