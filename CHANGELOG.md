@@ -4,6 +4,19 @@ Every release opens with a **TL;DR**: a handful of short bullets, rewritten as a
 whenever an entry is added. Entries are direct: symptom, cause, fix, with the issue link and
 credit where there is one.
 
+## v0.4.3 (2026-11-22)
+
+### TL;DR
+- Card: a **Layout** option: one column (as before), the two halves side by side, or side by side when the card is
+  wide enough
+
+### Added
+- Card option `layout` (also in the card editor): `stack` (one column, the default and as before), `side` (Warranty,
+  Usage & Throughput and Financials on the left, Return on Investment and Health on the right, with a line between)
+  or `auto` (side by side once the card is at least 820 px wide, one column below that). With `side`, the card asks
+  for the full width of a sections view. Side by side, the title with its status and the battery group switcher
+  head the left half, and the right half starts level with the title; the bottom row runs across both.
+
 ## v0.4.2 (2026-11-21)
 
 ### TL;DR
