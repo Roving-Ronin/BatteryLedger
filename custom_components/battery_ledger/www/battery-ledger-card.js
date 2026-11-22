@@ -11,6 +11,7 @@ const LOGO_URL = `${new URL("battery-ledger-logo.png", import.meta.url).pathname
 const WS_SETUPS = "battery_ledger/card/setups";
 const WS_SAVE = "battery_ledger/card/save_settings";
 const SECTIONS = ["warranty", "usage", "financials", "roi", "health"];
+const LAYOUTS = ["stack", "side", "auto"];  // card option `layout`: vertical, side by side, side by side when wide
 const DECIMAL_CHOICES = [2, 3, 4, 5];
 const DATE_STYLES = ["ha", "day_month_year"];
 
@@ -141,6 +142,11 @@ const STRINGS = {
     save_failed: "Couldn't save the settings.",
     editor_setup: "BatteryLedger setup",
     editor_hint: "Decimal places, date display and sections are set with the cog on the card.",
+    editor_layout: "Layout",
+    layout_stack: "Vertical: one column",
+    layout_side: "Side by side: two halves",
+    layout_auto: "Side by side when the card is wide enough",
+    editor_layout_hint: "Side by side puts Warranty, Usage and Financials on the left, Return on Investment and Health on the right. Each dashboard's card has its own layout.",
   },
 };
 
@@ -184,6 +190,21 @@ const STYLE = `
   .cog { color: var(--bl-muted); flex: none; margin: -10px 0; }
   section { margin-top: 12px; }
   section:first-of-type { margin-top: 0; }
+  /* The two halves. Vertical: the second follows the first with the same divider as between sections. Side by
+     side: two columns with a line between them; auto does that once the card is 820px wide. */
+  ha-card { container-type: inline-size; }
+  .halves.stack .half.b.after > section:first-child,
+  .halves.auto .half.b.after > section:first-child {
+    border-top: 1px solid var(--divider-color, rgba(127,127,127,.25)); margin-top: 6px; padding-top: 6px; }
+  .halves.side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .halves.side .half.a { padding-right: 16px; }
+  .halves.side .half.b { padding-left: 16px; border-left: 1px solid var(--divider-color, rgba(127,127,127,.25)); }
+  @container (min-width: 820px) {
+    .halves.auto { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .halves.auto .half.a { padding-right: 16px; }
+    .halves.auto .half.b { padding-left: 16px; border-left: 1px solid var(--divider-color, rgba(127,127,127,.25)); }
+    .halves.auto .half.b.after > section:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+  }
   .ring-row { display: flex; align-items: center; gap: 18px; }
   .stats { flex: 1; display: grid; gap: 5px; min-width: 0; }
   .stat { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -320,7 +341,9 @@ class BatteryLedgerCard extends HTMLElement {
   }
 
   getGridOptions() {
-    return { columns: 12, min_columns: 6, min_rows: 6 };
+    // Side by side needs the room: a full-width card in a sections view
+    return this._config?.layout === "side" ? { columns: "full", min_columns: 12, min_rows: 6 }
+      : { columns: 12, min_columns: 6, min_rows: 6 };
   }
 
   async _load() {
@@ -429,14 +452,24 @@ class BatteryLedgerCard extends HTMLElement {
     this._lastKey = key;
 
     const sec = setup.settings.sections;
-    body.innerHTML = [
-      this._header(t, setup),
-      this._switcher(t),
+    // Two halves: the battery's warranty and usage with its financials, then return on investment and health.
+    // Shown one under the other (vertical), side by side, or side by side once the card is wide enough (auto).
+    const first = [
       sec.warranty ? this._warranty(t) : "",
       sec.usage ? this._usage(t) : "",
       sec.financials ? this._financials(t, setup) : "",
+    ].join("");
+    const second = [
       sec.roi !== false ? this._roi(t, setup) : "",
       sec.health ? this._health(t, setup) : "",
+    ].join("");
+    const layout = LAYOUTS.includes(this._config.layout) ? this._config.layout : "stack";
+    const both = first.trim() && second.trim();
+    // The title (with its status) and the group switcher head the first half, so side by side the status sits at
+    // the top of the left half and the right half starts level with the title.
+    body.innerHTML = [
+      `<div class="halves ${both ? layout : "stack"}"><div class="half a">${this._header(t, setup)}${this._switcher(t)}${first}</div>`
+        + `<div class="half b${both ? " after" : ""}">${second}</div></div>`,
       this._footer(t, sec.health),
     ].join("");
     const cog = body.querySelector(".cog");
@@ -1034,11 +1067,19 @@ class BatteryLedgerCardEditor extends HTMLElement {
       <select style="padding:8px;border-radius:8px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);font:inherit">
         ${this._setups.map((s) => `<option value="${esc(s.entry_id)}"${s.entry_id === current ? " selected" : ""}>${esc(s.title)}</option>`).join("")}
       </select>
-      <div style="font-size:12px;color:var(--secondary-text-color)">${esc(t.editor_hint)}</div></div>`;
-    this.querySelector("select").addEventListener("change", (ev) => {
-      this._config = { ...this._config, entry_id: ev.target.value };
+      <div style="font-size:12px;color:var(--secondary-text-color)">${esc(t.editor_hint)}</div>
+      <label style="font-size:13px;color:var(--secondary-text-color);margin-top:8px">${esc(t.editor_layout)}</label>
+      <select class="layout" style="padding:8px;border-radius:8px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);font:inherit">
+        ${LAYOUTS.map((l) => `<option value="${l}"${l === (this._config.layout || "stack") ? " selected" : ""}>${esc(t[`layout_${l}`])}</option>`).join("")}
+      </select>
+      <div style="font-size:12px;color:var(--secondary-text-color)">${esc(t.editor_layout_hint)}</div></div>`;
+    const changed = (patch) => {
+      this._config = { ...this._config, ...patch };
+      if (this._config.layout === "stack") delete this._config.layout;
       this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
-    });
+    };
+    this.querySelector("select").addEventListener("change", (ev) => changed({ entry_id: ev.target.value }));
+    this.querySelector("select.layout").addEventListener("change", (ev) => changed({ layout: ev.target.value }));
   }
 }
 

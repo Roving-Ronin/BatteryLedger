@@ -203,7 +203,14 @@ dashboard, add a card and pick **BatteryLedger**, then choose the setup if you h
 ```yaml
 type: custom:battery-ledger-card
 entry_id: <optional; the first setup is used if left out>
+layout: stack   # optional: stack (one column, the default), side (two halves side by side) or auto
 ```
+
+**Layout** (in the card editor too): **side** puts Warranty, Usage & Throughput and Financials on the left and Return
+on Investment and Health on the right (the title and group switcher head the left half), about half the height; it suits a wide card (a full-width card in a sections
+view). **auto** goes side by side once the card is at least 820 px wide and stays one column below that, so the
+same card works on a desktop and a phone. Each dashboard card has its own layout; the cog's settings (decimals,
+dates, sections) are shared by every card for the setup.
 
 With more than one battery group, a **Battery group** switcher under the title shows **All** (the whole setup)
 or one group (1, 2, 3 …). A group shows its own status, warranty rings, end dates, EoSL, remaining warrantied usage
